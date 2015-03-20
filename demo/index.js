@@ -17,6 +17,15 @@ var DemoCounter = React.createClass({
   }
 });
 
+// Unused component classes will be removed from the output, since the compiler
+// knows that React.createClass does not have side effects.
+var UnusedClass = React.createClass({
+  displayName: "UnusedClass",
+  render: function() {
+    return React.createElement("div", null, "I am unused");
+  }
+});
+
 var counterInstance = React.render(
     React.createElement(DemoCounter),
     document.querySelector("#container"));

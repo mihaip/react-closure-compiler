@@ -153,6 +153,13 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
       return;
     }
 
+    // Mark the call as not having side effects, so that unused components can
+    // be removed.
+    callNode.setSideEffectFlags(Node.NO_SIDE_EFFECTS);
+
+    // Add a @this {ReactComponent} annotation to all methods in the spec, to
+    // avoid the compiler complaining dangerous use of "this" in a global
+    // context.
     for (Node key : specNode.children()) {
       if (key.getChildCount() != 1 || !key.getFirstChild().isFunction()) {
         continue;
