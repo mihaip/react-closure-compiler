@@ -1,0 +1,30 @@
+<project name="react-closure-compiler" basedir="." default="jar">
+
+  <property name="javac.debug" value="on" />
+  <property name="src.dir" value="${basedir}/src" />
+  <property name="build.dir" value="${basedir}/build" />
+  <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="plovr.dir" value="${basedir}/../plovr" />
+
+  <target name="clean" description="delete generated files">
+    <delete dir="${build.dir}" />
+  </target>
+
+  <target name="compile"
+          description="compile the info.persistent.react.jscomp package">
+    <mkdir dir="${classes.dir}" />
+    <javac srcdir="${src.dir}"
+           destdir="${classes.dir}"
+           debug="${javac.debug}">
+      <classpath path="${plovr.dir}/build/plovr.jar"/>
+    </javac>
+  </target>
+
+  <target name="jar"
+          depends="compile"
+          description="jar up the info.persistent.react.jscomp package">
+    <jar destfile="${build.dir}/react.jar" update="true">
+      <fileset dir="${classes.dir}" />
+    </jar>
+  </target>
+</project>
