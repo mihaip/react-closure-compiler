@@ -16,11 +16,7 @@ public class ReactWarningsGuard extends WarningsGuard {
     // Ignore all warnings and errors in the React library itself -- it
     // generally compiles as intended, but it uses non-standard JSDoc which
     // throws off the compiler.
-    String sourceName = error.sourceName;
-    if (sourceName.endsWith("/react.js") ||
-        sourceName.endsWith("/react.min.js") ||
-        sourceName.endsWith("/react-with-addons.js") ||
-        sourceName.endsWith("/react-with-addons.min.js")) {
+    if (React.isReactSourceName(error.sourceName)) {
       return CheckLevel.OFF;
     }
 

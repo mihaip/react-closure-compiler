@@ -17,8 +17,8 @@ var DemoCounter = React.createClass({
   }
 });
 
-var counterInstance =
-    React.render(React.createElement(DemoCounter, null),
+var counterInstance = React.render(
+    React.createElement(DemoCounter),
     document.querySelector("#container"));
 
 // Not necessarily what we would do in a production app, but demonstrates that

@@ -18,6 +18,13 @@
            debug="${javac.debug}">
       <classpath path="${plovr.dir}/build/plovr.jar"/>
     </javac>
+
+    <!-- Copy resources needed. -->
+    <copy todir="${classes.dir}">
+      <fileset dir="${src.dir}">
+        <include name="**/*.js" />
+      </fileset>
+    </copy>
   </target>
 
   <target name="jar"

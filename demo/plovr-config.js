@@ -5,9 +5,6 @@
     "react-0.13.1-build/react.js",
     "index.js"
   ],
-  "externs": [
-    "../src/info/persistent/react/jscomp/externs.js"
-  ],
   "mode": "ADVANCED",
   "level": "VERBOSE",
   "experimental-exclude-closure-library": false,

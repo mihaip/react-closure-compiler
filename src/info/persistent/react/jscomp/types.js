@@ -1,0 +1,63 @@
+/**
+ * @fileoverview Type annotations for the React library.
+ *
+ * Will be automatically included as a source (not externs) file by
+ * ReactCompilerPass. The contents of this file should be inert (i.e. interfaces
+ * and typedefs only) such that it compiles down to nothing.
+ */
+
+/**
+ * @typedef {!Function}
+ */
+var ReactClass;
+
+/**
+ * @interface
+ */
+function ReactElement() {}
+
+/**
+ * @interface
+ */
+function ReactComponent() {}
+
+/**
+ * @param {Object} nextState
+ * @param {Function=} callback
+ */
+ReactComponent.prototype.setState = function(nextState, callback) {};
+
+/**
+ * @typedef {
+ *   boolean|number|string|ReactElement|
+ *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>
+ * }
+ */
+var ReactChild;
+
+/**
+ * @interface
+ */
+function ReactStaticFunctions() {}
+
+/**
+ * @param {{render: function()}} specification
+ * @return {ReactClass}
+ */
+ReactStaticFunctions.prototype.createClass = function(specification) {};
+
+/**
+ * @param {(ReactClass|string|number)} type
+ * @param {Object=} props
+ * @param {...ReactChild} children
+ * @return {ReactElement}
+ */
+ReactStaticFunctions.prototype.createElement = function(type, props, children) {};
+
+/**
+ * @param {ReactElement} nextElement
+ * @param {Element} container
+ * @param {function()=} callback
+ * @return {ReactComponent}
+ */
+ReactStaticFunctions.prototype.render = function(nextElement, container, callback) {};
