@@ -9,11 +9,14 @@ var DemoCounter = React.createClass({
     return React.createElement("div", null,
       "Count: ", this.state.count,
       React.createElement(
-        "button", {onClick: this.increment}, "Internal Increment")
+        "button", {onClick: this.increment.bind(this, 1)}, "Internal Increment")
     );
   },
-  increment: function() {
-    this.setState({count: this.state.count + 1});
+  /**
+   * @param {number} count
+   */
+  increment: function(count) {
+    this.setState({count: this.state.count + count});
   }
 });
 
@@ -26,7 +29,13 @@ var UnusedClass = React.createClass({
   }
 });
 
-var counterInstance = React.render(
+/**
+ * @constructor
+ */
+function SomeOtherType() {};
+SomeOtherType.prototype.increment2 = function() {return false};
+
+/** @type {DemoCounter} */ var counterInstance = React.render(
     React.createElement(DemoCounter),
     document.querySelector("#container"));
 
@@ -35,5 +44,7 @@ var counterInstance = React.render(
 document.querySelector("#button").addEventListener(
   "click",
   function(e) {
-    counterInstance.increment();
+    counterInstance.increment(1);
+    counterInstance.increment("asd");
+    counterInstance.increment2();
   });

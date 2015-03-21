@@ -8,11 +8,13 @@
 
 /**
  * @typedef {!Function}
+ * @template T
  */
 var ReactClass;
 
 /**
  * @interface
+ * @template T
  */
 function ReactElement() {}
 
@@ -47,17 +49,19 @@ function ReactStaticFunctions() {}
 ReactStaticFunctions.prototype.createClass = function(specification) {};
 
 /**
- * @param {(ReactClass|string|number)} type
+ * @param {(ReactClass.<T>|string|number)} type
  * @param {Object=} props
  * @param {...ReactChild} children
- * @return {ReactElement}
+ * @return {ReactElement.<T>}
+ * @template T
  */
 ReactStaticFunctions.prototype.createElement = function(type, props, children) {};
 
 /**
- * @param {ReactElement} nextElement
+ * @param {ReactElement.<T>} nextElement
  * @param {Element} container
  * @param {function()=} callback
- * @return {ReactComponent}
+ * @return {T}
+ * @template T
  */
 ReactStaticFunctions.prototype.render = function(nextElement, container, callback) {};

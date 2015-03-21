@@ -6,6 +6,7 @@
     "index.js"
   ],
   "mode": "ADVANCED",
+  "pretty-print": true,
   "level": "VERBOSE",
   "experimental-exclude-closure-library": false,
   "custom-warnings-guards": [

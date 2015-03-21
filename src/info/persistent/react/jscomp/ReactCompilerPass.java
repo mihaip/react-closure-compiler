@@ -9,8 +9,11 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
+import com.google.javascript.jscomp.NodeUtil;
+import com.google.javascript.jscomp.Scope.Var;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
@@ -18,6 +21,8 @@ import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     implements HotSwapCompilerPass {
@@ -29,27 +34,35 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   private static final DiagnosticType CREATE_CLASS_TARGET_INVALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_TARGET_INVALID",
       "Unsupported React.createClass(...) expression.");
-
   private static final DiagnosticType CREATE_CLASS_SPEC_NOT_VALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_SPEC_NOT_VALID",
       "The React.createClass(...) spec must be an object literal.");
-
   private static final DiagnosticType CREATE_CLASS_UNEXPECTED_PARAMS = DiagnosticType.error(
       "REACT_CREATE_CLASS_UNEXPECTED_PARAMS",
       "The React.createClass(...) call has too many arguments.");
+  private static final DiagnosticType COULD_NOT_DETERMINE_TYPE_NAME = DiagnosticType.error(
+      "REACT_COULD_NOT_DETERMINE_TYPE_NAME",
+      "Could not determine the type name from a React.createClass(...) call.");
+  private static final DiagnosticType CREATE_ELEMENT_UNEXPECTED_PARAMS = DiagnosticType.error(
+      "REACT_CREATE_ELEMENT_UNEXPECTED_PARAMS",
+      "The React.createElement(...) call has too few arguments.");
+
 
   private static final String TYPES_JS_RESOURCE_PATH = "info/persistent/react/jscomp/types.js";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
+  private final Set<String> reactClassTypeNames;
 
   public ReactCompilerPass(AbstractCompiler compiler) {
     this.compiler = (Compiler) compiler;
+    this.reactClassTypeNames = new HashSet<String>();
   }
 
   @Override
   public void process(Node externs, Node root) {
+    reactClassTypeNames.clear();
     addExterns();
     addTypes(root);
     hotSwapScript(root, null);
@@ -72,7 +85,7 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     Node reactVarNode = IR.var(IR.name("React"));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        Node.newString("ReactStaticFunctions"), EXTERNS_SOURCE_NAME));
+        IR.string("ReactStaticFunctions"), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build(reactVarNode));
     CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
@@ -133,11 +146,13 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
     if (isReactCreateClass(n)) {
-      visitReactCreateClass(t, n);
+      visitReactCreateClass(n);
+    } else if (isReactCreateElement(n)) {
+      visitReactCreateElement(t, n);
     }
   }
 
-  private void visitReactCreateClass(NodeTraversal t, Node callNode) {
+  private void visitReactCreateClass(Node callNode) {
     if (!validateCreateClassUsage(callNode)) {
       compiler.report(JSError.make(callNode, CREATE_CLASS_TARGET_INVALID));
       return;
@@ -157,23 +172,112 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     // be removed.
     callNode.setSideEffectFlags(Node.NO_SIDE_EFFECTS);
 
-    // Add a @this {ReactComponent} annotation to all methods in the spec, to
-    // avoid the compiler complaining dangerous use of "this" in a global
-    // context.
+    // Turn the React.createClass call into a type definition for the Closure
+    // compiler. Equivalent to generating the following code around the call:
+    // /**
+    //  * @interface
+    //  * @extends {ReactComponent}
+    //  */
+    // function ComponentInterface() {}
+    // ComponentInterface.prototype = {
+    //     render: function() {},
+    //     otherMethod: function() {}
+    // };
+    // /**
+    //  * @typedef {ComponentInterface}
+    //  */
+    // var Component = React.createClass({
+    //     render: function() {...},
+    //     otherMethod: function() {...}
+    // });
+    //
+    // The <type name>Interface type is necessary in order to teach the compiler
+    // about all the methods that are present on the component. Having it as an
+    // interface means that no extra code ends up being generated (and the
+    // existing code is left untouched). The methods in the interface are just
+    // stubs -- they have the same parameters (and JSDoc is ccopied over, if
+    // any), but the body is empty.
+    // The @typedef is added to the component variable so that user-authored
+    // code can treat that as the type (the interface is an implementation
+    // detail).
+    Node callParentNode = callNode.getParent();
+    String typeName;
+    Node typeAttachNode;
+    if (callParentNode.isName()) {
+      typeName = callParentNode.getQualifiedName();
+      typeAttachNode = callParentNode.getParent();
+    } else if (callParentNode.isAssign() &&
+        callParentNode.getFirstChild().isGetProp()) {
+      typeName = callParentNode.getFirstChild().getQualifiedName();
+      typeAttachNode = callParentNode;
+    } else {
+      compiler.report(JSError.make(callParentNode, COULD_NOT_DETERMINE_TYPE_NAME));
+      return;
+    }
+    String interfaceTypeName = typeName + "Interface";
+
+    // Add the @typedef
+    JSDocInfoBuilder jsDocBuilder =
+        JSDocInfoBuilder.maybeCopyFrom(typeAttachNode.getJSDocInfo());
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        IR.string(interfaceTypeName),
+        GENERATED_SOURCE_NAME));
+    typeAttachNode.setJSDocInfo(jsDocBuilder.build(typeAttachNode));
+
+    // Record the type so that we can later look it up in React.createElement
+    // calls.
+    reactClassTypeNames.add(typeName);
+
+    // Gather methods for the interface definition.
+    Node interfacePrototypeProps = IR.objectlit();
     for (Node key : specNode.children()) {
       if (key.getChildCount() != 1 || !key.getFirstChild().isFunction()) {
         continue;
       }
       Node func = key.getFirstChild();
-      JSDocInfoBuilder jsDocBuilder =
-          JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
-      jsDocBuilder.recordThisType(new JSTypeExpression(
-        Node.newString("ReactComponent"), GENERATED_SOURCE_NAME));
 
+      // Gather method signatures so that we can declare them were the compiler
+      // can see them.
+      Node methodNode = func.cloneNode();
+      for (Node funcChild = func.getFirstChild();
+           funcChild != null; funcChild = funcChild.getNext()) {
+          if (funcChild.isParamList()) {
+            methodNode.addChildToBack(funcChild.cloneTree());
+          } else {
+            methodNode.addChildToBack(funcChild.cloneNode());
+          }
+      }
+      interfacePrototypeProps.addChildrenToBack(
+        IR.stringKey(key.getString(), methodNode));
+
+      // Add a @this {<type name>} annotation to all methods in the spec, to
+      // avoid the compiler complaining dangerous use of "this" in a global
+      // context.
+      jsDocBuilder = JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
+      jsDocBuilder.recordThisType(new JSTypeExpression(
+        IR.string(typeName), GENERATED_SOURCE_NAME));
       func.setJSDocInfo(jsDocBuilder.build(func));
     }
 
-    System.err.println("React.createClass call: " + callNode.toStringTree());
+    // Generate the interface definition.
+    Node interfaceTypeNode = IR.function(
+      IR.name(interfaceTypeName), IR.paramList(), IR.block());
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordInterface();
+    jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
+        new Node(Token.BANG, IR.string("ReactComponent")),
+        GENERATED_SOURCE_NAME));
+    interfaceTypeNode.setJSDocInfo(jsDocBuilder.build(interfaceTypeNode));
+    Node interfaceTypeInsertionPoint = callParentNode.getParent();
+    interfaceTypeInsertionPoint.getParent().addChildBefore(
+        interfaceTypeNode, interfaceTypeInsertionPoint);
+    interfaceTypeInsertionPoint.getParent().addChildAfter(
+        NodeUtil.newQNameDeclaration(
+            compiler,
+            interfaceTypeName + ".prototype",
+            interfacePrototypeProps,
+            null),
+        interfaceTypeNode);
   }
 
   private static boolean isReactCreateClass(Node value) {
@@ -193,6 +297,54 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
         return true;
       case Token.ASSIGN:
         return n == parent.getLastChild() && parent.getParent().isExprResult();
+    }
+    return false;
+  }
+
+  private void visitReactCreateElement(NodeTraversal t, Node callNode) {
+    int paramCount = callNode.getChildCount() - 1;
+    if (paramCount == 0) {
+      compiler.report(JSError.make(callNode, CREATE_ELEMENT_UNEXPECTED_PARAMS));
+      return;
+    }
+    Node typeNode = callNode.getChildAtIndex(1);
+    if (typeNode.isString()) {
+      // TODO(mihai): add type annotations for DOM element creation
+      return;
+    }
+
+    if (callNode.getParent().getType() == Token.CAST) {
+      // There's already a cast around the call, there's no need to add another.
+      return;
+    }
+
+    // Add casts of the form /** @type {ReactElement.<type name>} */ around
+    // React.createElement calls, so that the return value of React.render will
+    // have the correct type.
+    // It's too expensive to know what the type parameter node actually refers
+    // to, so instead we assume that it directly references the type (this is
+    // the most common case, especially with JSX). This means that we will not
+    // add type annotations for cases such as:
+    // var typeAlias = SomeType;
+    // React.createElement(typeAlias);
+    String typeName = typeNode.getString();
+    if (!reactClassTypeNames.contains(typeName)) {
+      return;
+    }
+    Node elementTypeExpressionNode = IR.string("ReactElement");
+    elementTypeExpressionNode.addChildToFront(IR.block());
+    elementTypeExpressionNode.getFirstChild().addChildToFront(IR.string(typeName));
+    Node castNode = IR.cast(callNode.cloneTree());
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        elementTypeExpressionNode, GENERATED_SOURCE_NAME));
+    castNode.setJSDocInfo(jsDocBuilder.build(castNode));
+    callNode.getParent().replaceChild(callNode, castNode);
+  }
+
+  private static boolean isReactCreateElement(Node value) {
+    if (value != null && value.isCall()) {
+      return value.getFirstChild().matchesQualifiedName("React.createElement");
     }
     return false;
   }
