@@ -2,6 +2,7 @@
 
   <property name="javac.debug" value="on" />
   <property name="src.dir" value="${basedir}/src" />
+  <property name="test.dir" value="${basedir}/test" />
   <property name="build.dir" value="${basedir}/build" />
   <property name="classes.dir" value="${build.dir}/classes" />
   <property name="lib.dir" value="${basedir}/lib" />
@@ -14,9 +15,10 @@
 
   <target name="compile">
     <mkdir dir="${classes.dir}" />
-    <javac srcdir="${src.dir}"
-           destdir="${classes.dir}"
+    <javac destdir="${classes.dir}"
            debug="${javac.debug}">
+      <src path="${src.dir}" />
+      <src path="${test.dir}" />
       <classpath>
         <fileset dir="${lib.dir}" includes="*.jar" />
       </classpath>
@@ -45,7 +47,31 @@
       <arg value="serve" />
       <arg value="${demo.dir}/plovr-config.js" />
     </java>
+  </target>
 
+  <!--
+    Use -Dtest.class to change what tests are run on the command-line.
+    i.e., -Dtest.class=ReactTest will run just that test class.
+  -->
+  <property name="test.class" value="*Test"/>
+
+  <target name="test" depends="jar">
+    <mkdir dir="build/testoutput"/>
+    <junit failureproperty="hasFailingTests" showoutput="true">
+      <formatter type="plain" usefile="false" />
+      <formatter type="xml" />
+
+      <batchtest fork="yes" todir="build/testoutput">
+        <fileset dir="${test.dir}">
+          <include name="**/${test.class}.java" />
+        </fileset>
+      </batchtest>
+      <classpath>
+        <pathelement location="${classes.dir}" />
+        <fileset dir="${lib.dir}" includes="*.jar" />
+      </classpath>
+    </junit>
+    <fail if="hasFailingTests" />
   </target>
 
 </project>
