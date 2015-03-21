@@ -30,6 +30,11 @@ function ReactComponent() {}
 ReactComponent.prototype.setState = function(nextState, callback) {};
 
 /**
+ * @return {Object}
+ */
+ReactComponent.prototype.getInitialState = function() {};
+
+/**
  * @typedef {
  *   boolean|number|string|ReactElement|
  *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>

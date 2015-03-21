@@ -45,6 +45,6 @@ document.querySelector("#button").addEventListener(
   "click",
   function(e) {
     counterInstance.increment(1);
-    counterInstance.increment("asd");
-    counterInstance.increment2();
+    counterInstance.increment("wrong parameter type");
+    counterInstance.nonExistentMethod();
   });
