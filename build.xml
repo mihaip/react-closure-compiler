@@ -4,19 +4,22 @@
   <property name="src.dir" value="${basedir}/src" />
   <property name="build.dir" value="${basedir}/build" />
   <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="lib.dir" value="${basedir}/lib" />
+  <property name="demo.dir" value="${basedir}/demo" />
   <property name="plovr.dir" value="${basedir}/../plovr" />
 
   <target name="clean" description="delete generated files">
     <delete dir="${build.dir}" />
   </target>
 
-  <target name="compile"
-          description="compile the info.persistent.react.jscomp package">
+  <target name="compile">
     <mkdir dir="${classes.dir}" />
     <javac srcdir="${src.dir}"
            destdir="${classes.dir}"
            debug="${javac.debug}">
-      <classpath path="${plovr.dir}/build/plovr.jar"/>
+      <classpath>
+        <fileset dir="${lib.dir}" includes="*.jar" />
+      </classpath>
     </javac>
 
     <!-- Copy resources needed. -->
@@ -27,11 +30,22 @@
     </copy>
   </target>
 
-  <target name="jar"
-          depends="compile"
-          description="jar up the info.persistent.react.jscomp package">
+  <target name="jar" depends="compile">
     <jar destfile="${build.dir}/react.jar" update="true">
       <fileset dir="${classes.dir}" />
     </jar>
   </target>
+
+  <target name="run-demo" depends="jar">
+    <java classpath="${build.dir}/react.jar;${plovr.dir}/build/plovr.jar"
+          classname="org.plovr.cli.Main"
+          dir="${demo.dir}"
+          fork="true"
+          maxmemory="128m">
+      <arg value="serve" />
+      <arg value="${demo.dir}/plovr-config.js" />
+    </java>
+
+  </target>
+
 </project>
