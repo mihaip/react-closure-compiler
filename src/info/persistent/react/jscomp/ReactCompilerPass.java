@@ -28,22 +28,22 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     implements HotSwapCompilerPass {
 
   // Errors
-  private static final DiagnosticType REACT_SOURCE_NOT_FOUND = DiagnosticType.error(
+  static final DiagnosticType REACT_SOURCE_NOT_FOUND = DiagnosticType.error(
       "REACT_SOURCE_NOT_FOUND",
       "Could not find the React library source.");
-  private static final DiagnosticType CREATE_CLASS_TARGET_INVALID = DiagnosticType.error(
+  static final DiagnosticType CREATE_CLASS_TARGET_INVALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_TARGET_INVALID",
       "Unsupported React.createClass(...) expression.");
-  private static final DiagnosticType CREATE_CLASS_SPEC_NOT_VALID = DiagnosticType.error(
+  static final DiagnosticType CREATE_CLASS_SPEC_NOT_VALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_SPEC_NOT_VALID",
       "The React.createClass(...) spec must be an object literal.");
-  private static final DiagnosticType CREATE_CLASS_UNEXPECTED_PARAMS = DiagnosticType.error(
+  static final DiagnosticType CREATE_CLASS_UNEXPECTED_PARAMS = DiagnosticType.error(
       "REACT_CREATE_CLASS_UNEXPECTED_PARAMS",
       "The React.createClass(...) call has too many arguments.");
-  private static final DiagnosticType COULD_NOT_DETERMINE_TYPE_NAME = DiagnosticType.error(
+  static final DiagnosticType COULD_NOT_DETERMINE_TYPE_NAME = DiagnosticType.error(
       "REACT_COULD_NOT_DETERMINE_TYPE_NAME",
       "Could not determine the type name from a React.createClass(...) call.");
-  private static final DiagnosticType CREATE_ELEMENT_UNEXPECTED_PARAMS = DiagnosticType.error(
+  static final DiagnosticType CREATE_ELEMENT_UNEXPECTED_PARAMS = DiagnosticType.error(
       "REACT_CREATE_ELEMENT_UNEXPECTED_PARAMS",
       "The React.createElement(...) call has too few arguments.");
 
@@ -260,14 +260,19 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     }
 
     // Generate the interface definition.
-    Node interfaceTypeNode = IR.function(
-      IR.name(interfaceTypeName), IR.paramList(), IR.block());
+    Node interfaceTypeFunctionNode =
+      IR.function(IR.name(""), IR.paramList(), IR.block());
+    Node interfaceTypeNode = NodeUtil.newQNameDeclaration(
+        compiler,
+        interfaceTypeName,
+        interfaceTypeFunctionNode,
+        null);
     jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordInterface();
     jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
         new Node(Token.BANG, IR.string("ReactComponent")),
         GENERATED_SOURCE_NAME));
-    interfaceTypeNode.setJSDocInfo(jsDocBuilder.build(interfaceTypeNode));
+    interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build(interfaceTypeFunctionNode));
     Node interfaceTypeInsertionPoint = callParentNode.getParent();
     interfaceTypeInsertionPoint.getParent().addChildBefore(
         interfaceTypeNode, interfaceTypeInsertionPoint);
@@ -327,7 +332,7 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     // add type annotations for cases such as:
     // var typeAlias = SomeType;
     // React.createElement(typeAlias);
-    String typeName = typeNode.getString();
+    String typeName = typeNode.getQualifiedName();
     if (!reactClassTypeNames.contains(typeName)) {
       return;
     }

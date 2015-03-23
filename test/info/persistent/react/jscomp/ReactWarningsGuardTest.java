@@ -14,7 +14,7 @@ import org.junit.Test;
 import java.util.List;
 
 /**
- * Test {@link React}.
+ * Test {@link ReactWarningsGuard}.
  */
 public class ReactWarningsGuardTest {
   @Test public void testReactWarningsGuard() {
@@ -23,10 +23,9 @@ public class ReactWarningsGuardTest {
     options.addWarningsGuard(new ReactWarningsGuard());
     // Should not warn about non-standard JSDoc.
     List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromCode(
-          "/src/react.js", "/** @providesModule React */\nvar React"));
+        SourceFile.fromCode("/src/react.js", "/** @providesModule React */"));
     List<SourceFile> externs = ImmutableList.of(
-      SourceFile.fromCode("externs", ""));
+        SourceFile.fromCode("externs", ""));
     Result result = compiler.compile(externs, inputs, options);
     assertTrue(result.success);
     assertEquals(result.errors.length, 0);

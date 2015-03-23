@@ -5,20 +5,22 @@
   <property name="test.dir" value="${basedir}/test" />
   <property name="build.dir" value="${basedir}/build" />
   <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="testbuild.dir" value="${basedir}/testbuild" />
+  <property name="testclasses.dir" value="${testbuild.dir}/classes" />
   <property name="lib.dir" value="${basedir}/lib" />
   <property name="demo.dir" value="${basedir}/demo" />
   <property name="plovr.dir" value="${basedir}/../plovr" />
 
   <target name="clean" description="delete generated files">
     <delete dir="${build.dir}" />
+    <delete dir="${testbuild.dir}" />
   </target>
 
   <target name="compile">
     <mkdir dir="${classes.dir}" />
-    <javac destdir="${classes.dir}"
+    <javac srcdir="${src.dir}"
+           destdir="${classes.dir}"
            debug="${javac.debug}">
-      <src path="${src.dir}" />
-      <src path="${test.dir}" />
       <classpath>
         <fileset dir="${lib.dir}" includes="*.jar" />
       </classpath>
@@ -49,13 +51,32 @@
     </java>
   </target>
 
+  <target name="testcompile" depends="compile">
+    <mkdir dir="${testclasses.dir}" />
+    <javac srcdir="${test.dir}"
+           destdir="${testclasses.dir}"
+           debug="${javac.debug}">
+      <classpath>
+        <pathelement location="${classes.dir}" />
+        <fileset dir="${lib.dir}" includes="*.jar" />
+      </classpath>
+    </javac>
+
+    <!-- Copy resources needed. -->
+    <copy todir="${testclasses.dir}">
+      <fileset dir="${test.dir}">
+        <include name="**/*.js" />
+      </fileset>
+    </copy>
+  </target>
+
   <!--
     Use -Dtest.class to change what tests are run on the command-line.
     i.e., -Dtest.class=ReactTest will run just that test class.
   -->
   <property name="test.class" value="*Test"/>
 
-  <target name="test" depends="jar">
+  <target name="test" depends="testcompile">
     <mkdir dir="build/testoutput"/>
     <junit failureproperty="hasFailingTests" showoutput="true">
       <formatter type="plain" usefile="false" />
@@ -67,6 +88,7 @@
         </fileset>
       </batchtest>
       <classpath>
+        <pathelement location="${testclasses.dir}" />
         <pathelement location="${classes.dir}" />
         <fileset dir="${lib.dir}" includes="*.jar" />
       </classpath>
