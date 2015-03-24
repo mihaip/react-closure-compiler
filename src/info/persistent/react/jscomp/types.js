@@ -140,6 +140,12 @@ var ReactChild;
 function ReactStaticFunctions() {}
 
 /**
+ * @param {boolean} shouldUseTouch
+ * @return {void}
+ */
+ReactStaticFunctions.prototype.initializeTouchEvents = function(shouldUseTouch) {};
+
+/**
  * @param {{render: function(): ReactElement}} specification
  * @return {ReactClass}
  */
@@ -162,10 +168,47 @@ ReactStaticFunctions.prototype.createMixin = function(mixin) {};
 ReactStaticFunctions.prototype.createElement = function(type, props, children) {};
 
 /**
- * @param {ReactElement.<T>} nextElement
+ * @param {(ReactClass.<T>|string|number)} type
+ * @return {function(Object=, ...ReactChild): ReactElement.<T>}
+ * @template T
+ */
+ReactStaticFunctions.prototype.createFactory = function(type) {};
+
+/**
+ * @param {(ReactElement|Element)} componentOrElement
+ * @return {Element}
+ */
+ReactStaticFunctions.prototype.findDOMNode = function(componentOrElement) {};
+
+/**
+ * @param {ReactElement.<T>} element
  * @param {Element} container
  * @param {function()=} callback
  * @return {T}
  * @template T
  */
-ReactStaticFunctions.prototype.render = function(nextElement, container, callback) {};
+ReactStaticFunctions.prototype.render = function(element, container, callback) {};
+
+/**
+ * @param {ReactElement} element
+ * @return {string}
+ */
+ReactStaticFunctions.prototype.renderToString = function(element) {};
+
+/**
+ * @param {ReactElement} element
+ * @return {string}
+ */
+ReactStaticFunctions.prototype.renderToStaticMarkup = function(element) {};
+
+/**
+ * @param {Element} container
+ * @return {boolean}
+ */
+ReactStaticFunctions.prototype.unmountComponentAtNode = function(container) {};
+
+/**
+ * @param {Object} element
+ * @return {boolean}
+ */
+ReactStaticFunctions.prototype.isValidElement = function(element) {};
