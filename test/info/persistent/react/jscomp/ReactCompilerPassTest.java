@@ -250,6 +250,12 @@ public class ReactCompilerPassTest {
       // type annotations added in types.js, even if they're not explicitly
       // present in the spec.
       "JSC_TYPE_MISMATCH");
+    testError(
+      "var Mixin = React.createMixin({" +
+        "shouldComponentUpdate: function(nextProps, nextState) {return 123;}" +
+      "});",
+      // Same for mixins
+      "JSC_TYPE_MISMATCH");
   }
 
   /**
