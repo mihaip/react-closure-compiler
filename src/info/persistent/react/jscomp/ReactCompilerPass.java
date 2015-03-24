@@ -3,7 +3,6 @@ package info.persistent.react.jscomp;
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.Compiler;
@@ -24,7 +23,6 @@ import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Set;
 import java.util.Map;
 
 public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
@@ -34,18 +32,27 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   static final DiagnosticType REACT_SOURCE_NOT_FOUND = DiagnosticType.error(
       "REACT_SOURCE_NOT_FOUND",
       "Could not find the React library source.");
-  static final DiagnosticType CREATE_CLASS_TARGET_INVALID = DiagnosticType.error(
+  static final DiagnosticType CREATE_TYPE_TARGET_INVALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_TARGET_INVALID",
-      "Unsupported React.createClass(...) expression.");
-  static final DiagnosticType CREATE_CLASS_SPEC_NOT_VALID = DiagnosticType.error(
-      "REACT_CREATE_CLASS_SPEC_NOT_VALID",
-      "The React.createClass(...) spec must be an object literal.");
-  static final DiagnosticType CREATE_CLASS_UNEXPECTED_PARAMS = DiagnosticType.error(
-      "REACT_CREATE_CLASS_UNEXPECTED_PARAMS",
-      "The React.createClass(...) call has too many arguments.");
+      "Unsupported {0}(...) expression.");
+  static final DiagnosticType CREATE_TYPE_SPEC_NOT_VALID = DiagnosticType.error(
+      "REACT_CREATE_TYPE_SPEC_NOT_VALID",
+      "The {0}(...) spec must be an object literal.");
+  static final DiagnosticType CREATE_TYPE_UNEXPECTED_PARAMS = DiagnosticType.error(
+      "REACT_CREATE_TYPE_UNEXPECTED_PARAMS",
+      "The {0}(...) call has too many arguments.");
   static final DiagnosticType COULD_NOT_DETERMINE_TYPE_NAME = DiagnosticType.error(
       "REACT_COULD_NOT_DETERMINE_TYPE_NAME",
-      "Could not determine the type name from a React.createClass(...) call.");
+      "Could not determine the type name from a {0}(...) call.");
+  static final DiagnosticType MIXINS_UNEXPECTED_TYPE = DiagnosticType.error(
+      "REACT_MIXINS_UNEXPECTED_TYPE",
+      "The \"mixins\" value must be an array literal.");
+  static final DiagnosticType MIXIN_EXPECTED_NAME = DiagnosticType.error(
+      "REACT_MIXIN_EXPECTED_NAME",
+      "The \"mixins\" array literal must contain only mixin names.");
+  static final DiagnosticType MIXIN_UNKNOWN = DiagnosticType.error(
+      "REACT_MIXIN_UNKNOWN",
+      "Could not find a mixin with the name {0}");
   static final DiagnosticType CREATE_ELEMENT_UNEXPECTED_PARAMS = DiagnosticType.error(
       "REACT_CREATE_ELEMENT_UNEXPECTED_PARAMS",
       "The React.createElement(...) call has too few arguments.");
@@ -56,16 +63,19 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
-  private final Set<String> reactClassTypeNames;
+  private final Map<String, Node> reactClassesByName;
+  private final Map<String, Node> reactMixinsByName;
 
   public ReactCompilerPass(AbstractCompiler compiler) {
     this.compiler = (Compiler) compiler;
-    this.reactClassTypeNames = Sets.newHashSet();
+    this.reactClassesByName = Maps.newHashMap();
+    this.reactMixinsByName = Maps.newHashMap();
   }
 
   @Override
   public void process(Node externs, Node root) {
-    reactClassTypeNames.clear();
+    reactClassesByName.clear();
+    reactMixinsByName.clear();
     addExterns();
     addTypes(root);
     hotSwapScript(root, null);
@@ -185,29 +195,58 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   public void visit(NodeTraversal t, Node n, Node parent) {
     if (isReactCreateClass(n)) {
       visitReactCreateClass(n);
+    } else if (isReactCreateMixin(n)) {
+      visitReactCreateMixin(n);
     } else if (isReactCreateElement(n)) {
       visitReactCreateElement(t, n);
     }
   }
 
+  private static boolean isReactCreateClass(Node value) {
+    if (value != null && value.isCall()) {
+      return value.getFirstChild().matchesQualifiedName("React.createClass");
+    }
+    return false;
+  }
+
   private void visitReactCreateClass(Node callNode) {
-    if (!validateCreateClassUsage(callNode)) {
-      compiler.report(JSError.make(callNode, CREATE_CLASS_TARGET_INVALID));
+    visitReactCreateType(callNode, "React.createClass", reactClassesByName);
+  }
+
+  private static boolean isReactCreateMixin(Node value) {
+    if (value != null && value.isCall()) {
+      return value.getFirstChild().matchesQualifiedName("React.createMixin");
+    }
+    return false;
+  }
+
+  private void visitReactCreateMixin(Node callNode) {
+    visitReactCreateType(callNode, "React.createMixin", reactMixinsByName);
+  }
+
+  private void visitReactCreateType(
+        Node callNode, String createFuncName,
+        Map<String, Node> typeSpecNodesByName) {
+    if (!validateCreateTypeUsage(callNode)) {
+      compiler.report(JSError.make(
+          callNode, CREATE_TYPE_TARGET_INVALID, createFuncName));
       return;
     }
     int paramCount = callNode.getChildCount() - 1;
     if (paramCount > 1) {
-      compiler.report(JSError.make(callNode, CREATE_CLASS_UNEXPECTED_PARAMS));
+      compiler.report(JSError.make(
+          callNode, CREATE_TYPE_UNEXPECTED_PARAMS, createFuncName));
       return;
     }
     Node specNode = callNode.getChildAtIndex(1);
     if (specNode == null || !specNode.isObjectLit()) {
-      compiler.report(JSError.make(specNode, CREATE_CLASS_SPEC_NOT_VALID));
+      compiler.report(JSError.make(
+          specNode, CREATE_TYPE_SPEC_NOT_VALID, createFuncName));
       return;
     }
 
-    // Mark the call as not having side effects, so that unused components can
-    // be removed.
+    // Mark the call as not having side effects, so that unused components and
+    // mixins can be removed.
     callNode.setSideEffectFlags(Node.NO_SIDE_EFFECTS);
 
     // Turn the React.createClass call into a type definition for the Closure
@@ -249,7 +288,8 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
       typeName = callParentNode.getFirstChild().getQualifiedName();
       typeAttachNode = callParentNode;
     } else {
-      compiler.report(JSError.make(callParentNode, COULD_NOT_DETERMINE_TYPE_NAME));
+      compiler.report(JSError.make(
+          callParentNode, COULD_NOT_DETERMINE_TYPE_NAME, createFuncName));
       return;
     }
     String interfaceTypeName = typeName + "Interface";
@@ -264,11 +304,15 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
 
     // Record the type so that we can later look it up in React.createElement
     // calls.
-    reactClassTypeNames.add(typeName);
+    typeSpecNodesByName.put(typeName, specNode);
 
     // Gather methods for the interface definition.
     Node interfacePrototypeProps = IR.objectlit();
     for (Node key : specNode.children()) {
+      if (key.getString().equals("mixins")) {
+        addMixinsToInterface(key, interfacePrototypeProps);
+        continue;
+      }
       if (key.getChildCount() != 1 || !key.getFirstChild().isFunction()) {
         continue;
       }
@@ -289,19 +333,9 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
         func.setJSDocInfo(funcJsDocBuilder.build(func));
       }
 
-      // Gather method signatures so that we can declare them were the compiler
+      // Gather method signatures so that we can declare them where the compiler
       // can see them.
-      Node methodNode = func.cloneNode();
-      for (Node funcChild = func.getFirstChild();
-           funcChild != null; funcChild = funcChild.getNext()) {
-          if (funcChild.isParamList()) {
-            methodNode.addChildToBack(funcChild.cloneTree());
-          } else {
-            methodNode.addChildToBack(funcChild.cloneNode());
-          }
-      }
-      interfacePrototypeProps.addChildrenToBack(
-        IR.stringKey(key.getString(), methodNode));
+      addFuncToInterface(key.getString(), func, interfacePrototypeProps);
 
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
@@ -338,17 +372,57 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
         interfaceTypeNode);
   }
 
-  private static boolean isReactCreateClass(Node value) {
-    if (value != null && value.isCall()) {
-      return value.getFirstChild().matchesQualifiedName("React.createClass");
+  private void addMixinsToInterface(
+      Node mixinsNode, Node interfacePrototypeProps) {
+    if (mixinsNode.getChildCount() != 1 ||
+          !mixinsNode.getFirstChild().isArrayLit()) {
+      compiler.report(JSError.make(mixinsNode, MIXINS_UNEXPECTED_TYPE));
+      return;
     }
-    return false;
+    for (Node mixinNameNode : mixinsNode.getFirstChild().children()) {
+      if (!mixinNameNode.isQualifiedName()) {
+        compiler.report(JSError.make(mixinNameNode, MIXIN_EXPECTED_NAME));
+        continue;
+      }
+      String mixinName = mixinNameNode.getQualifiedName();
+      Node mixinSpecNode = reactMixinsByName.get(mixinName);
+      if (mixinSpecNode == null) {
+        compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));
+        continue;
+      }
+      for (Node mixinSpecChild : mixinSpecNode.children()) {
+        if (mixinSpecChild.getChildCount() == 1 &&
+            mixinSpecChild.getFirstChild().isFunction()) {
+          addFuncToInterface(
+              mixinSpecChild.getString(),
+              mixinSpecChild.getFirstChild(),
+              interfacePrototypeProps);
+        }
+      }
+    }
   }
 
-  private boolean validateCreateClassUsage(Node n) {
-    // There are only two valid usage patterns for of React.createClass
-    //   var ClassName = React.createClass({...})
-    //   namespace.ClassName = React.createClass({...})
+  private void addFuncToInterface(
+      String name, Node funcNode, Node interfacePrototypeProps) {
+    // Semi-shallow copy (just parameters) so that we don't copy the function
+    // implementation.
+    Node methodNode = funcNode.cloneNode();
+    for (Node funcChild = funcNode.getFirstChild();
+         funcChild != null; funcChild = funcChild.getNext()) {
+        if (funcChild.isParamList()) {
+          methodNode.addChildToBack(funcChild.cloneTree());
+        } else {
+          methodNode.addChildToBack(funcChild.cloneNode());
+        }
+    }
+    interfacePrototypeProps.addChildrenToBack(
+      IR.stringKey(name, methodNode));
+  }
+
+  private boolean validateCreateTypeUsage(Node n) {
+    // There are only two valid usage patterns for of React.create{Class|Mixin}:
+    //   var ClassName = React.create{Class|Mixin}({...})
+    //   namespace.ClassName = React.create{Class|Mixin}({...})
     Node parent = n.getParent();
     switch (parent.getType()) {
       case Token.NAME:
@@ -386,7 +460,7 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     // var typeAlias = SomeType;
     // React.createElement(typeAlias);
     String typeName = typeNode.getQualifiedName();
-    if (!reactClassTypeNames.contains(typeName)) {
+    if (!reactClassesByName.containsKey(typeName)) {
       return;
     }
     Node elementTypeExpressionNode = IR.string("ReactElement");

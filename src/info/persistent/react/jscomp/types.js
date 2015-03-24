@@ -102,6 +102,13 @@ function ReactStaticFunctions() {}
 ReactStaticFunctions.prototype.createClass = function(specification) {};
 
 /**
+ * @param {T} mixin
+ * @return {T}
+ * @template T
+ */
+ReactStaticFunctions.prototype.createMixin = function(mixin) {};
+
+/**
  * @param {(ReactClass.<T>|string|number)} type
  * @param {Object=} props
  * @param {...ReactChild} children

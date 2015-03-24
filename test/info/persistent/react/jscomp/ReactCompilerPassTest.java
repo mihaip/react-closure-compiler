@@ -93,6 +93,50 @@ public class ReactCompilerPassTest {
       "JSC_INEXISTENT_PROPERTY");
   }
 
+  @Test public void testMixins() {
+    test(
+      "var Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = 123}" +
+      "});\n" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});" +
+      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "inst.mixinMethod();",
+      // Mixin method invocations should not result in warnings if they're
+      // known.
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$mixins$:[React.$createMixin$({" +
+          "$mixinMethod$:function(){window.$foo$=123}" +
+        "})]," +
+        "$render$:function(){" +
+          "this.$mixinMethod$();" +
+          "return React.$createElement$(\"div\")" +
+        "}" +
+      "})),document.body).$mixinMethod$();");
+    testError(
+      "var Mixin = React.createMixin({" +
+        "/** @param {number} a */" +
+        "mixinMethod: function(a) {window.foo = 123}" +
+      "});\n" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod(\"notanumber\");" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});" +
+      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "inst.mixinMethod(\"notanumber\");",
+      // Mixin methods should have their parameter types check when invoked from
+      // the component.
+      "JSC_TYPE_MISMATCH");
+  }
+
   @Test public void testNamespacedComponent() {
     test(
       "var ns = {};ns.Comp = React.createClass({" +
@@ -135,13 +179,45 @@ public class ReactCompilerPassTest {
   @Test public void testCreateClassValidation() {
     testError(
         "var Comp = React.createClass(1)",
-        ReactCompilerPass.CREATE_CLASS_SPEC_NOT_VALID);
+        ReactCompilerPass.CREATE_TYPE_SPEC_NOT_VALID);
     testError(
         "var Comp = React.createClass({}, 1)",
-        ReactCompilerPass.CREATE_CLASS_UNEXPECTED_PARAMS);
+        ReactCompilerPass.CREATE_TYPE_UNEXPECTED_PARAMS);
     testError(
         "var a = 1 + React.createClass({})",
-        ReactCompilerPass.CREATE_CLASS_TARGET_INVALID);
+        ReactCompilerPass.CREATE_TYPE_TARGET_INVALID);
+  }
+
+  /**
+   * Tests React.createMixin() validation done by the compiler pass (as opposed
+   * to type-based validation).
+   */
+  @Test public void testCreateMixinValidation() {
+    testError(
+        "var Mixin = React.createMixin(1)",
+        ReactCompilerPass.CREATE_TYPE_SPEC_NOT_VALID);
+    testError(
+        "var Mixin = React.createMixin({}, 1)",
+        ReactCompilerPass.CREATE_TYPE_UNEXPECTED_PARAMS);
+    testError(
+        "var a = 1 + React.createMixin({})",
+        ReactCompilerPass.CREATE_TYPE_TARGET_INVALID);
+  }
+
+  /**
+   * Tests "mixins" spec property validation done by the compiler pass (as
+   * opposed to type-based validation).
+   */
+  @Test public void testMixinsValidation() {
+    testError(
+        "var Comp = React.createClass({mixins: 1})",
+        ReactCompilerPass.MIXINS_UNEXPECTED_TYPE);
+    testError(
+        "var Comp = React.createClass({mixins: [1]})",
+        ReactCompilerPass.MIXIN_EXPECTED_NAME);
+    testError(
+        "var Comp = React.createClass({mixins: [NonExistent]})",
+        ReactCompilerPass.MIXIN_UNKNOWN);
   }
 
   /**

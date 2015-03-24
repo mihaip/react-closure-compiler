@@ -1,11 +1,21 @@
+// Mixins need to be marked with React.createMixin (added in React 0.13) so
+// that they can be tracked by the compiler pass.
+var Mixin = React.createMixin({
+  mixinMethod: function() {
+    console.log("Mixin method running");
+  }
+});
+
 // Does not use JSX since JSX compilation is assumed to take place before
 // inputs are given to Plovr/the Closure Compiler.
 var DemoCounter = React.createClass({
   displayName: "DemoCounter",
+  mixins: [Mixin],
   getInitialState: function() {
     return {count: 0};
   },
   render: function() {
+    this.mixinMethod();
     return React.createElement("div", null,
       "Count: ", this.state.count,
       React.createElement(

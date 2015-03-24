@@ -76,7 +76,7 @@
   -->
   <property name="test.class" value="*Test"/>
 
-  <target name="test" depends="testcompile">
+  <target name="test" depends="testcompile,jar">
     <mkdir dir="build/testoutput"/>
     <junit failureproperty="hasFailingTests" showoutput="true">
       <formatter type="plain" usefile="false" />
