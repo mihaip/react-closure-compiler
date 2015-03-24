@@ -11,6 +11,7 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
+import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
@@ -25,7 +26,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
 
-public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
+public class ReactCompilerPass extends AbstractPostOrderCallback
     implements HotSwapCompilerPass {
 
   // Errors
@@ -113,10 +114,11 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   private static Node templateTypesNode = null;
 
   /**
-   * Parameter and return types for lifecycle methods, so that implementations
-   * may be annotated automatically.
+   * Parameter and return types for built-in component methods, so that
+   * implementations may be annotated automatically.
    */
-  private static Map<String, JSDocInfo> lifecyleMethodJsDocs = Maps.newHashMap();
+  private static Map<String, JSDocInfo> componentMethodJsDocs =
+      Maps.newHashMap();
 
   /**
    * Inject React type definitions (we want these to get renamed, so they're
@@ -140,29 +142,23 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
             "Could not parse " + TYPES_JS_RESOURCE_PATH + ": " +
             Joiner.on(",").join(result.errors));
       }
-      for (Node child : templateTypesNode.children()) {
-        if (child.isFunction() && NodeUtil.getNearestFunctionName(child) ==
-            "ReactComponentLifecycle") {
-          for (;child != null; child = child.getNext()) {
-            if (!child.isExprResult()) {
-              continue;
+      // Gather ReactComponent prototype methods.
+      NodeTraversal.traverse(
+          compiler,
+          templateTypesNode,
+          new AbstractPostOrderCallback() {
+            @Override public void visit(NodeTraversal t, Node n, Node parent) {
+              if (!n.isAssign() || !n.getFirstChild().isQualifiedName() ||
+                  !n.getFirstChild().getQualifiedName().startsWith(
+                      "ReactComponent.prototype.") ||
+                  !n.getLastChild().isFunction()) {
+                  return;
+              }
+              componentMethodJsDocs.put(
+                  n.getFirstChild().getLastChild().getString(),
+                  n.getJSDocInfo());
             }
-            Node lifecycleMethodsObjectLit =
-                child.getFirstChild().getChildAtIndex(1);
-            if (!lifecycleMethodsObjectLit.isObjectLit()) {
-              throw new RuntimeException(
-                  "Did not find ReactComponentLifecycle.prototype object " +
-                  "literal, instead found: " +
-                  lifecycleMethodsObjectLit.toStringTree());
-            }
-            for (Node key : lifecycleMethodsObjectLit.children()) {
-              lifecyleMethodJsDocs.put(
-                  key.getString(), key.getFirstChild().getJSDocInfo());
-            }
-            break;
-          }
-        }
-      }
+          });
     }
 
     Node typesNode = templateTypesNode.cloneTree();
@@ -318,17 +314,17 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
       }
       Node func = key.getFirstChild();
 
-      JSDocInfo lifecycleJsDoc = lifecyleMethodJsDocs.get(key.getString());
-      if (lifecycleJsDoc != null) {
+      JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(key.getString());
+      if (componentMethodJsDoc != null) {
         JSDocInfoBuilder funcJsDocBuilder =
             JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
-        for (String parameterName : lifecycleJsDoc.getParameterNames()) {
+        for (String parameterName : componentMethodJsDoc.getParameterNames()) {
           JSTypeExpression parameterType =
-              lifecycleJsDoc.getParameterType(parameterName);
+              componentMethodJsDoc.getParameterType(parameterName);
           funcJsDocBuilder.recordParameter(parameterName, parameterType);
         }
-        if (lifecycleJsDoc.hasReturnType()) {
-          funcJsDocBuilder.recordReturnType(lifecycleJsDoc.getReturnType());
+        if (componentMethodJsDoc.hasReturnType()) {
+          funcJsDocBuilder.recordReturnType(componentMethodJsDoc.getReturnType());
         }
         func.setJSDocInfo(funcJsDocBuilder.build(func));
       }

@@ -4,6 +4,8 @@
  * Will be automatically included as a source (not externs) file by
  * ReactCompilerPass. The contents of this file should be inert (i.e. interfaces
  * and typedefs only) such that it compiles down to nothing.
+ *
+ * Based on https://github.com/facebook/flow/blob/master/lib/react.js
  */
 
 /**
@@ -24,63 +26,105 @@ function ReactElement() {}
 function ReactComponent() {}
 
 /**
- * @param {Object} nextState
- * @param {Function=} callback
- */
-ReactComponent.prototype.setState = function(nextState, callback) {};
-
-/**
  * @return {Object}
  */
 ReactComponent.prototype.getInitialState = function() {};
 
 /**
- * Component lifecycle/delegate methods that may be implemented. Intentionally
- * does not include the context parameter that is passed to some methods, since
- * it's undocumented. Implementations can still add it (and it will not be
- * flagged as an error).
- *
- * @interface
+ * @param {Object} props
+ * @param {function(): void=} callback
+ * @return {void}
  */
-function ReactComponentLifecycle() {}
+ReactComponent.prototype.setProps = function(props, callback) {};
 
-ReactComponentLifecycle.prototype = {
-  /**
-   * @return {void}
-   */
-  componentWillMount: function() {},
-  /**
-   * @return {void}
-   */
-  componentDidMount: function() {},
-  /**
-   * @param {Object} nextProps
-   * @return {void}
-   */
-  componentWillReceiveProps: function(nextProps) {},
-  /**
-   * @param {Object} nextProps
-   * @param {Object} nextState
-   * @return {boolean}
-   */
-  shouldComponentUpdate: function(nextProps, nextState) {},
-  /**
-   * @param {Object} nextProps
-   * @param {Object} nextState
-   * @return {void}
-   */
-  componentWillUpdate: function(nextProps, nextState) {},
-  /**
-   * @param {Object} prevProps
-   * @param {Object} prevState
-   * @return {void}
-   */
-  componentDidUpdate: function(prevProps, prevState) {},
-  /**
-   * @return {void}
-   */
-  componentWillUnmount: function() {}
-};
+/**
+ * @param {Object} props
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactComponent.prototype.replaceProps = function(props, callback) {};
+
+/**
+ * @param {Object} state
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactComponent.prototype.setState = function(state, callback) {};
+
+/**
+ * @param {Object} state
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactComponent.prototype.replaceState = function(state, callback) {};
+
+/**
+ * @return {ReactElement}
+ */
+ReactComponent.prototype.render = function(state, callback) {};
+
+/**
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactComponent.prototype.forceUpdate = function(callback) {};
+
+/**
+ * @return {Element}
+ */
+ReactComponent.prototype.getDOMNode = function() {};
+
+/**
+ * @return {boolean}
+ */
+ReactComponent.prototype.isMounted = function() {};
+
+// Component lifecycle/delegate methods that may be implemented. Intentionally
+// does not include the context parameter that is passed to some methods, since
+// it's undocumented. Implementations can still add it (and it will not be
+// flagged as an error).
+
+/**
+ * @return {void}
+ */
+ReactComponent.prototype.componentWillMount = function() {};
+
+/**
+ * @return {void}
+ */
+ReactComponent.prototype.componentDidMount = function() {};
+
+/**
+ * @param {Object} nextProps
+ * @return {void}
+ */
+ReactComponent.prototype.componentWillReceiveProps = function(nextProps) {};
+
+/**
+ * @param {Object} nextProps
+ * @param {Object} nextState
+ * @return {boolean}
+ */
+ReactComponent.prototype.shouldComponentUpdate = function(nextProps, nextState) {};
+
+/**
+ * @param {Object} nextProps
+ * @param {Object} nextState
+ * @return {void}
+ */
+ReactComponent.prototype.componentWillUpdate = function(nextProps, nextState) {};
+
+/**
+ * @param {Object} prevProps
+ * @param {Object} prevState
+ * @return {void}
+ */
+ReactComponent.prototype.componentDidUpdate = function(prevProps, prevState) {};
+
+/**
+ * @return {void}
+ */
+ReactComponent.prototype.componentWillUnmount = function() {};
 
 /**
  * @typedef {
@@ -96,7 +140,7 @@ var ReactChild;
 function ReactStaticFunctions() {}
 
 /**
- * @param {{render: function()}} specification
+ * @param {{render: function(): ReactElement}} specification
  * @return {ReactClass}
  */
 ReactStaticFunctions.prototype.createClass = function(specification) {};

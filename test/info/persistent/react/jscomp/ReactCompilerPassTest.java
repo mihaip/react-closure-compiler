@@ -251,11 +251,25 @@ public class ReactCompilerPassTest {
       // present in the spec.
       "JSC_TYPE_MISMATCH");
     testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return 123;}" +
+      "});",
+      "JSC_TYPE_MISMATCH");
+    testError(
       "var Mixin = React.createMixin({" +
         "shouldComponentUpdate: function(nextProps, nextState) {return 123;}" +
       "});",
       // Same for mixins
       "JSC_TYPE_MISMATCH");
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {" +
+          "this.isMounted().indexOf(\"true\");" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});",
+      // Same for invocations of built-in component methods.
+      "JSC_INEXISTENT_PROPERTY");
   }
 
   /**
