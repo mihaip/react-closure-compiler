@@ -137,26 +137,26 @@ var ReactChild;
 /**
  * @interface
  */
-function ReactStaticFunctions() {}
+function ReactModule() {}
 
 /**
  * @param {boolean} shouldUseTouch
  * @return {void}
  */
-ReactStaticFunctions.prototype.initializeTouchEvents = function(shouldUseTouch) {};
+ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
 
 /**
  * @param {{render: function(): ReactElement}} specification
  * @return {ReactClass}
  */
-ReactStaticFunctions.prototype.createClass = function(specification) {};
+ReactModule.prototype.createClass = function(specification) {};
 
 /**
  * @param {T} mixin
  * @return {T}
  * @template T
  */
-ReactStaticFunctions.prototype.createMixin = function(mixin) {};
+ReactModule.prototype.createMixin = function(mixin) {};
 
 /**
  * @param {(ReactClass.<T>|string|number)} type
@@ -165,7 +165,7 @@ ReactStaticFunctions.prototype.createMixin = function(mixin) {};
  * @return {ReactElement.<T>}
  * @template T
  */
-ReactStaticFunctions.prototype.createElement = function(type, props, children) {};
+ReactModule.prototype.createElement = function(type, props, children) {};
 
 /**
  * @param {ReactElement.<T>} element
@@ -174,20 +174,20 @@ ReactStaticFunctions.prototype.createElement = function(type, props, children) {
  * @return {ReactElement.<T>}
  * @template T
  */
-ReactStaticFunctions.prototype.cloneElement = function(element, props, children) {};
+ReactModule.prototype.cloneElement = function(element, props, children) {};
 
 /**
  * @param {(ReactClass.<T>|string|number)} type
  * @return {function(Object=, ...ReactChild): ReactElement.<T>}
  * @template T
  */
-ReactStaticFunctions.prototype.createFactory = function(type) {};
+ReactModule.prototype.createFactory = function(type) {};
 
 /**
  * @param {(ReactElement|Element)} componentOrElement
  * @return {Element}
  */
-ReactStaticFunctions.prototype.findDOMNode = function(componentOrElement) {};
+ReactModule.prototype.findDOMNode = function(componentOrElement) {};
 
 /**
  * @param {ReactElement.<T>} element
@@ -196,28 +196,28 @@ ReactStaticFunctions.prototype.findDOMNode = function(componentOrElement) {};
  * @return {T}
  * @template T
  */
-ReactStaticFunctions.prototype.render = function(element, container, callback) {};
+ReactModule.prototype.render = function(element, container, callback) {};
 
 /**
  * @param {ReactElement} element
  * @return {string}
  */
-ReactStaticFunctions.prototype.renderToString = function(element) {};
+ReactModule.prototype.renderToString = function(element) {};
 
 /**
  * @param {ReactElement} element
  * @return {string}
  */
-ReactStaticFunctions.prototype.renderToStaticMarkup = function(element) {};
+ReactModule.prototype.renderToStaticMarkup = function(element) {};
 
 /**
  * @param {Element} container
  * @return {boolean}
  */
-ReactStaticFunctions.prototype.unmountComponentAtNode = function(container) {};
+ReactModule.prototype.unmountComponentAtNode = function(container) {};
 
 /**
  * @param {Object} element
  * @return {boolean}
  */
-ReactStaticFunctions.prototype.isValidElement = function(element) {};
+ReactModule.prototype.isValidElement = function(element) {};

@@ -87,7 +87,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
    *  inform it via an extern. Equivalent to a file with:
    *
    * /**
-   *  * @type {ReactStaticFunctions}
+   *  * @type {ReactModule}
    *  * @const
    *  * /
    * var React;
@@ -99,7 +99,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     Node reactVarNode = IR.var(IR.name("React"));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        IR.string("ReactStaticFunctions"), EXTERNS_SOURCE_NAME));
+        IR.string("ReactModule"), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build(reactVarNode));
     CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
