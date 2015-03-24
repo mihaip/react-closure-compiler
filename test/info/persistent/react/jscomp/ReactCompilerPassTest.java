@@ -82,7 +82,7 @@ public class ReactCompilerPassTest {
       "var inst = React.render(React.createElement(Comp), document.body);" +
       "inst.method('notanumber');",
       // Their arguments should be validated.
-      DiagnosticType.error("JSC_TYPE_MISMATCH", ""));
+      "JSC_TYPE_MISMATCH");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
@@ -90,7 +90,7 @@ public class ReactCompilerPassTest {
       "var inst = React.render(React.createElement(Comp), document.body);" +
       "inst.unknownMethod()",
       // And unknown methods should be flagged.
-      DiagnosticType.error("JSC_INEXISTENT_PROPERTY", ""));
+      "JSC_INEXISTENT_PROPERTY");
   }
 
   @Test public void testNamespacedComponent() {
@@ -164,11 +164,45 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "React.render(React.createElement(Comp), document.body, 123);",
-      DiagnosticType.error("JSC_TYPE_MISMATCH", ""));
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "shouldComponentUpdate: function(nextProps, nextState) {return 123;}" +
+      "});",
+      // Overrides/implemementations of built-in methods should conform to the
+      // type annotations added in types.js, even if they're not explicitly
+      // present in the spec.
+      "JSC_TYPE_MISMATCH");
+  }
+
+  /**
+   * Tests that JSDoc type annotations on custom methods are checked.
+   */
+  @Test public void testMethodJsDoc() {
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "/** @param {number} numberParam */" +
+        "someMethod: function(numberParam) {numberParam.notAMethod();}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(" +
+            "\"div\", null, this.someMethod(\"notanumber\"));}," +
+        "/** @param {number} numberParam */" +
+        "someMethod: function(numberParam) {return numberParam + 1;}" +
+      "});",
+      "JSC_TYPE_MISMATCH");
   }
 
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null);
+  }
+
+  private static void testError(String inputJs, String expectedErrorName) {
+    test(inputJs, "", DiagnosticType.error(expectedErrorName, ""));
   }
 
   private static void testError(String inputJs, DiagnosticType expectedError) {

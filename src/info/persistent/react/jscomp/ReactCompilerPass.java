@@ -1,6 +1,9 @@
 package info.persistent.react.jscomp;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.Compiler;
@@ -10,7 +13,7 @@ import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
-import com.google.javascript.jscomp.Scope.Var;
+import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
@@ -21,8 +24,8 @@ import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
 
 public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
     implements HotSwapCompilerPass {
@@ -57,7 +60,7 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
 
   public ReactCompilerPass(AbstractCompiler compiler) {
     this.compiler = (Compiler) compiler;
-    this.reactClassTypeNames = new HashSet<String>();
+    this.reactClassTypeNames = Sets.newHashSet();
   }
 
   @Override
@@ -100,6 +103,12 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
   private static Node templateTypesNode = null;
 
   /**
+   * Parameter and return types for lifecycle methods, so that implementations
+   * may be annotated automatically.
+   */
+  private static Map<String, JSDocInfo> lifecyleMethodJsDocs = Maps.newHashMap();
+
+  /**
    * Inject React type definitions (we want these to get renamed, so they're
    * not part of the externs). {@link Compiler#getNodeForCodeInsertion()} is
    * package-private, so we instead add the types to the React source file.
@@ -115,6 +124,35 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
       }
       templateTypesNode =
         compiler.parse(SourceFile.fromCode(TYPES_JS_RESOURCE_PATH, typesJs));
+      Result result = compiler.getResult();
+      if (!result.success) {
+        throw new RuntimeException(
+            "Could not parse " + TYPES_JS_RESOURCE_PATH + ": " +
+            Joiner.on(",").join(result.errors));
+      }
+      for (Node child : templateTypesNode.children()) {
+        if (child.isFunction() && NodeUtil.getNearestFunctionName(child) ==
+            "ReactComponentLifecycle") {
+          for (;child != null; child = child.getNext()) {
+            if (!child.isExprResult()) {
+              continue;
+            }
+            Node lifecycleMethodsObjectLit =
+                child.getFirstChild().getChildAtIndex(1);
+            if (!lifecycleMethodsObjectLit.isObjectLit()) {
+              throw new RuntimeException(
+                  "Did not find ReactComponentLifecycle.prototype object " +
+                  "literal, instead found: " +
+                  lifecycleMethodsObjectLit.toStringTree());
+            }
+            for (Node key : lifecycleMethodsObjectLit.children()) {
+              lifecyleMethodJsDocs.put(
+                  key.getString(), key.getFirstChild().getJSDocInfo());
+            }
+            break;
+          }
+        }
+      }
     }
 
     Node typesNode = templateTypesNode.cloneTree();
@@ -235,6 +273,21 @@ public class ReactCompilerPass extends NodeTraversal.AbstractPostOrderCallback
         continue;
       }
       Node func = key.getFirstChild();
+
+      JSDocInfo lifecycleJsDoc = lifecyleMethodJsDocs.get(key.getString());
+      if (lifecycleJsDoc != null) {
+        JSDocInfoBuilder funcJsDocBuilder =
+            JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
+        for (String parameterName : lifecycleJsDoc.getParameterNames()) {
+          JSTypeExpression parameterType =
+              lifecycleJsDoc.getParameterType(parameterName);
+          funcJsDocBuilder.recordParameter(parameterName, parameterType);
+        }
+        if (lifecycleJsDoc.hasReturnType()) {
+          funcJsDocBuilder.recordReturnType(lifecycleJsDoc.getReturnType());
+        }
+        func.setJSDocInfo(funcJsDocBuilder.build(func));
+      }
 
       // Gather method signatures so that we can declare them were the compiler
       // can see them.

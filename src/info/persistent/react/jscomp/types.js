@@ -35,6 +35,54 @@ ReactComponent.prototype.setState = function(nextState, callback) {};
 ReactComponent.prototype.getInitialState = function() {};
 
 /**
+ * Component lifecycle/delegate methods that may be implemented. Intentionally
+ * does not include the context parameter that is passed to some methods, since
+ * it's undocumented. Implementations can still add it (and it will not be
+ * flagged as an error).
+ *
+ * @interface
+ */
+function ReactComponentLifecycle() {}
+
+ReactComponentLifecycle.prototype = {
+  /**
+   * @return {void}
+   */
+  componentWillMount: function() {},
+  /**
+   * @return {void}
+   */
+  componentDidMount: function() {},
+  /**
+   * @param {Object} nextProps
+   * @return {void}
+   */
+  componentWillReceiveProps: function(nextProps) {},
+  /**
+   * @param {Object} nextProps
+   * @param {Object} nextState
+   * @return {boolean}
+   */
+  shouldComponentUpdate: function(nextProps, nextState) {},
+  /**
+   * @param {Object} nextProps
+   * @param {Object} nextState
+   * @return {void}
+   */
+  componentWillUpdate: function(nextProps, nextState) {},
+  /**
+   * @param {Object} prevProps
+   * @param {Object} prevState
+   * @return {void}
+   */
+  componentDidUpdate: function(prevProps, prevState) {},
+  /**
+   * @return {void}
+   */
+  componentWillUnmount: function() {}
+};
+
+/**
  * @typedef {
  *   boolean|number|string|ReactElement|
  *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>
