@@ -137,10 +137,16 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       templateTypesNode =
         compiler.parse(SourceFile.fromCode(TYPES_JS_RESOURCE_PATH, typesJs));
       Result result = compiler.getResult();
-      if (!result.success) {
-        throw new RuntimeException(
-            "Could not parse " + TYPES_JS_RESOURCE_PATH + ": " +
-            Joiner.on(",").join(result.errors));
+      if (!result.success || result.errors.length > 0 ||
+          result.warnings.length > 0) {
+        String message = "Could not parse " + TYPES_JS_RESOURCE_PATH + ".";
+        if (result.errors.length > 0) {
+          message += "\nErrors: " + Joiner.on(",").join(result.errors);
+        }
+        if (result.warnings.length > 0) {
+          message += "\nWarnings: " + Joiner.on(",").join(result.warnings);
+        }
+        throw new RuntimeException(message);
       }
       // Gather ReactComponent prototype methods.
       NodeTraversal.traverse(

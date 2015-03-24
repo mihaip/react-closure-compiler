@@ -168,6 +168,15 @@ ReactStaticFunctions.prototype.createMixin = function(mixin) {};
 ReactStaticFunctions.prototype.createElement = function(type, props, children) {};
 
 /**
+ * @param {ReactElement.<T>} element
+ * @param {Object=} props
+ * @param {...ReactChild} children
+ * @return {ReactElement.<T>}
+ * @template T
+ */
+ReactStaticFunctions.prototype.cloneElement = function(element, props, children) {};
+
+/**
  * @param {(ReactClass.<T>|string|number)} type
  * @return {function(Object=, ...ReactChild): ReactElement.<T>}
  * @template T
