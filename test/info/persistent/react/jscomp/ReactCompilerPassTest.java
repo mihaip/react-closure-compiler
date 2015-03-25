@@ -118,6 +118,32 @@ public class ReactCompilerPassTest {
           "return React.$createElement$(\"div\")" +
         "}" +
       "})),document.body).$mixinMethod$();");
+    test(
+      "var Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo=this.mixinAbstractMethod()}" +
+      "});" +
+      "/** @return {number} */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function() {return 123;}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      // Mixins can support abstract methods via additional properties.
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$mixins$:[React.$createMixin$({" +
+          "$mixinMethod$:function(){window.$foo$=123}" +
+        "})]," +
+        "$render$:function(){" +
+          "this.$mixinMethod$();" +
+          "return React.$createElement$(\"div\")" +
+        "}," +
+        "$mixinAbstractMethod$:function(){return 123}" +
+      "})),document.body);");
     testError(
       "var Mixin = React.createMixin({" +
         "/** @param {number} a */" +
@@ -134,6 +160,42 @@ public class ReactCompilerPassTest {
       "inst.mixinMethod(\"notanumber\");",
       // Mixin methods should have their parameter types check when invoked from
       // the component.
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "var Mixin = React.createMixin({" +
+        "mixinMethod: function() {" +
+          "window.foo = this.mixinAbstractMethod().noSuchMethod()" +
+        "}" +
+      "});" +
+      "/** @return {number} */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function() {return 123;}" +
+      "});",
+      // Abstract methods have their types checked too, on both the mixin
+      // side...
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
+      "var Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = this.mixinAbstractMethod()}" +
+      "});" +
+      "/** @return {number} */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function() {return \"notanumber\";}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      // ...and the component side
       "JSC_TYPE_MISMATCH");
   }
 

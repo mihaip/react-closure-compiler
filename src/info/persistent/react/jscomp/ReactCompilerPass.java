@@ -3,6 +3,7 @@ package info.persistent.react.jscomp;
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.Compiler;
@@ -25,6 +26,7 @@ import com.google.javascript.rhino.Token;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
+import java.util.Set;
 
 public class ReactCompilerPass extends AbstractPostOrderCallback
     implements HotSwapCompilerPass {
@@ -64,19 +66,27 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
-  private final Map<String, Node> reactClassesByName;
-  private final Map<String, Node> reactMixinsByName;
+  private final Map<String, Node> reactClassesByName = Maps.newHashMap();
+  private final Map<String, Node> reactClassInterfacePrototypePropsByName =
+      Maps.newHashMap();
+  private final Map<String, Node> reactMixinsByName = Maps.newHashMap();
+  private final Map<String, Node> reactMixinInterfacePrototypePropsByName =
+      Maps.newHashMap();
+  // Mixin name -> method name -> JSDoc
+  private final Map<String, Map<String, JSDocInfo>>
+      mixinAbstractMethodJsDocsByName = Maps.newHashMap();
 
   public ReactCompilerPass(AbstractCompiler compiler) {
     this.compiler = (Compiler) compiler;
-    this.reactClassesByName = Maps.newHashMap();
-    this.reactMixinsByName = Maps.newHashMap();
   }
 
   @Override
   public void process(Node externs, Node root) {
     reactClassesByName.clear();
+    reactClassInterfacePrototypePropsByName.clear();
     reactMixinsByName.clear();
+    reactMixinInterfacePrototypePropsByName.clear();
+    mixinAbstractMethodJsDocsByName.clear();
     addExterns();
     addTypes(root);
     hotSwapScript(root, null);
@@ -199,6 +209,9 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       visitReactCreateClass(n);
     } else if (isReactCreateMixin(n)) {
       visitReactCreateMixin(n);
+    } else if (visitMixinAbstractMethod(n)) {
+      // Nothing more needs to be done, mixin abstract method processing is
+      // more efficiently done in one function intead of two.
     } else if (isReactCreateElement(n)) {
       visitReactCreateElement(t, n);
     }
@@ -212,7 +225,11 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   }
 
   private void visitReactCreateClass(Node callNode) {
-    visitReactCreateType(callNode, "React.createClass", reactClassesByName);
+    visitReactCreateType(
+        callNode,
+        "React.createClass",
+        reactClassesByName,
+        reactClassInterfacePrototypePropsByName);
   }
 
   private static boolean isReactCreateMixin(Node value) {
@@ -223,12 +240,17 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   }
 
   private void visitReactCreateMixin(Node callNode) {
-    visitReactCreateType(callNode, "React.createMixin", reactMixinsByName);
+    visitReactCreateType(
+        callNode,
+        "React.createMixin",
+        reactMixinsByName,
+        reactMixinInterfacePrototypePropsByName);
   }
 
   private void visitReactCreateType(
         Node callNode, String createFuncName,
-        Map<String, Node> typeSpecNodesByName) {
+        Map<String, Node> typeSpecNodesByName,
+        Map<String, Node> interfacePrototypePropsByName) {
     if (!validateCreateTypeUsage(callNode)) {
       compiler.report(JSError.make(
           callNode, CREATE_TYPE_TARGET_INVALID, createFuncName));
@@ -310,29 +332,39 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
 
     // Gather methods for the interface definition.
     Node interfacePrototypeProps = IR.objectlit();
+    interfacePrototypePropsByName.put(typeName, interfacePrototypeProps);
+    Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     for (Node key : specNode.children()) {
       if (key.getString().equals("mixins")) {
-        addMixinsToInterface(key, interfacePrototypeProps);
+        Set<String> mixinNames =
+            addMixinsToInterface(key, interfacePrototypeProps);
+        for (String mixinName : mixinNames) {
+          if (mixinAbstractMethodJsDocsByName.containsKey(mixinName)) {
+            abstractMethodJsDocsByName.putAll(
+              mixinAbstractMethodJsDocsByName.get(mixinName));
+          }
+        }
         continue;
       }
-      if (key.getChildCount() != 1 || !key.getFirstChild().isFunction()) {
+      if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
         continue;
       }
       Node func = key.getFirstChild();
 
+      // If the function is an implementation of a standard component method
+      // (like shouldComponentUpdate), then copy the parameter and return type
+      // from the ReactComponent interface method, so that it gets type checking
+      // (without an explicit @override annotation, which doesn't appear to work
+      // for interface extending interfaces in any case).
       JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(key.getString());
       if (componentMethodJsDoc != null) {
-        JSDocInfoBuilder funcJsDocBuilder =
-            JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
-        for (String parameterName : componentMethodJsDoc.getParameterNames()) {
-          JSTypeExpression parameterType =
-              componentMethodJsDoc.getParameterType(parameterName);
-          funcJsDocBuilder.recordParameter(parameterName, parameterType);
-        }
-        if (componentMethodJsDoc.hasReturnType()) {
-          funcJsDocBuilder.recordReturnType(componentMethodJsDoc.getReturnType());
-        }
-        func.setJSDocInfo(funcJsDocBuilder.build(func));
+        mergeInJsDoc(func, componentMethodJsDoc);
+      }
+      // Ditto for abstract methods from mixins.
+      JSDocInfo abstractMethodJsDoc =
+          abstractMethodJsDocsByName.get(key.getString());
+      if (abstractMethodJsDoc != null) {
+        mergeInJsDoc(func, abstractMethodJsDoc);
       }
 
       // Gather method signatures so that we can declare them where the compiler
@@ -374,12 +406,70 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         interfaceTypeNode);
   }
 
-  private void addMixinsToInterface(
+  /**
+   * Mixins can't have real abstract methods, since React forbids definition in
+   * a class of a method that was defined in the mixin (therefore we can't
+   * include them in the mixin spec with a goog.abstractMethod value). We
+   * instead expect to see them as no-op property accesses following the mixin
+   * definition i.e.:
+   *
+   * var Mixin = React.createMixin({
+   *   mixinMethod: function() {return this.abstractMixinMethod() * 2;}
+   * });
+   * /**
+   *  * @return {number}
+   *  * /
+   * Mixin.abstractMixinMethod;
+   */
+  private boolean visitMixinAbstractMethod(Node value) {
+    if (value == null || !value.isExprResult() || !value.hasOneChild() ||
+        !value.getFirstChild().isGetProp()) {
+      return false;
+    }
+    Node getPropNode = value.getFirstChild();
+    if (!getPropNode.isQualifiedName() || !getPropNode.hasChildren()) {
+      return false;
+    }
+    String mixinName = getPropNode.getFirstChild().getQualifiedName();
+    Node mixinSpecNode = reactMixinsByName.get(mixinName);
+    if (mixinSpecNode == null) {
+      return false;
+    }
+    String methodName = getPropNode.getLastChild().getString();
+    JSDocInfo abstractFuncJsDoc = getPropNode.getJSDocInfo();
+
+    Node abstractFuncParamList = IR.paramList();
+    if (abstractFuncJsDoc != null) {
+      for (String parameterName : abstractFuncJsDoc.getParameterNames()) {
+        abstractFuncParamList.addChildToBack(IR.name(parameterName));
+      }
+      Map<String, JSDocInfo> jsDocsByName =
+          mixinAbstractMethodJsDocsByName.get(mixinName);
+      if (jsDocsByName == null) {
+        jsDocsByName = Maps.newHashMap();
+        mixinAbstractMethodJsDocsByName.put(mixinName, jsDocsByName);
+      }
+      jsDocsByName.put(methodName, abstractFuncJsDoc);
+    }
+    Node abstractFuncNode = IR.function(
+        IR.name(""), abstractFuncParamList, IR.block());
+    if (abstractFuncJsDoc != null) {
+      abstractFuncNode.setJSDocInfo(abstractFuncJsDoc.clone());
+    }
+    Node interfacePrototypeProps =
+        reactMixinInterfacePrototypePropsByName.get(mixinName);
+    addFuncToInterface(methodName, abstractFuncNode, interfacePrototypeProps);
+
+    return true;
+  }
+
+  private Set<String> addMixinsToInterface(
       Node mixinsNode, Node interfacePrototypeProps) {
-    if (mixinsNode.getChildCount() != 1 ||
+    Set<String> mixinNames = Sets.newHashSet();
+    if (!mixinsNode.hasOneChild() ||
           !mixinsNode.getFirstChild().isArrayLit()) {
       compiler.report(JSError.make(mixinsNode, MIXINS_UNEXPECTED_TYPE));
-      return;
+      return mixinNames;
     }
     for (Node mixinNameNode : mixinsNode.getFirstChild().children()) {
       if (!mixinNameNode.isQualifiedName()) {
@@ -387,13 +477,17 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         continue;
       }
       String mixinName = mixinNameNode.getQualifiedName();
+      if (mixinNames.contains(mixinName)) {
+        continue;
+      }
+      mixinNames.add(mixinName);
       Node mixinSpecNode = reactMixinsByName.get(mixinName);
       if (mixinSpecNode == null) {
         compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));
         continue;
       }
       for (Node mixinSpecChild : mixinSpecNode.children()) {
-        if (mixinSpecChild.getChildCount() == 1 &&
+        if (mixinSpecChild.hasOneChild() &&
             mixinSpecChild.getFirstChild().isFunction()) {
           addFuncToInterface(
               mixinSpecChild.getString(),
@@ -402,9 +496,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         }
       }
     }
+    return mixinNames;
   }
 
-  private void addFuncToInterface(
+  private static void addFuncToInterface(
       String name, Node funcNode, Node interfacePrototypeProps) {
     // Semi-shallow copy (just parameters) so that we don't copy the function
     // implementation.
@@ -419,6 +514,19 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     }
     interfacePrototypeProps.addChildrenToBack(
       IR.stringKey(name, methodNode));
+  }
+
+  private static void mergeInJsDoc(Node func, JSDocInfo jsDoc) {
+    JSDocInfoBuilder funcJsDocBuilder =
+        JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
+    for (String parameterName : jsDoc.getParameterNames()) {
+      JSTypeExpression parameterType = jsDoc.getParameterType(parameterName);
+      funcJsDocBuilder.recordParameter(parameterName, parameterType);
+    }
+    if (jsDoc.hasReturnType()) {
+      funcJsDocBuilder.recordReturnType(jsDoc.getReturnType());
+    }
+    func.setJSDocInfo(funcJsDocBuilder.build(func));
   }
 
   private boolean validateCreateTypeUsage(Node n) {
