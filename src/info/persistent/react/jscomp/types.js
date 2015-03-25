@@ -135,9 +135,75 @@ ReactComponent.prototype.componentWillUnmount = function() {};
 var ReactChild;
 
 /**
+ * Parameters are: props, propName, componentName, location.
+ * @typedef {function(Object, string, string, string): Error}
+ */
+var ReactPropsChainableTypeChecker = function() {};
+
+/**
+ * @interface
+ */
+function ReactPropTypes() {};
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.array;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.array.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.bool;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.bool.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.func;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.func.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.number;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.number.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.object;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.object.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.string;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.string.isRequired;
+
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.any;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.any.isRequired;
+/**
+ * @param {ReactPropsChainableTypeChecker} typeChecker
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.arrayOf = function(typeChecker) {};
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.element;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.element.isRequired;
+/**
+ * @param {Function} expectedClass
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.instanceOf = function(expectedClass) {};
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.node;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.node.isRequired;
+/**
+ * @param {ReactPropsChainableTypeChecker} typeChecker
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.objectOf = function(typeChecker) {};
+/**
+ * @param {Array} expectedValues
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.oneOf = function(expectedValues) {};
+/**
+ * @param {Array.<ReactPropsChainableTypeChecker>} arrayOfTypeCheckers
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.oneOfType = function(arrayOfTypeCheckers) {};
+/**
+ * @param {Object.<ReactPropsChainableTypeChecker>} shapeTypes
+ * @return {ReactPropsChainableTypeChecker}
+ */
+ReactPropTypes.prototype.shape = function(shapeTypes) {};
+
+/**
  * @interface
  */
 function ReactModule() {}
+
+/**
+ * @type {ReactPropTypes}
+ * @const
+ */
+ReactModule.prototype.PropTypes;
 
 /**
  * @param {boolean} shouldUseTouch

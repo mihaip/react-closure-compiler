@@ -355,6 +355,69 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testPropTypes() {
+    // Basic prop types
+    test(
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "})),document.body);");
+    // isRequired variant
+    test(
+      "window.foo=React.PropTypes.string.isRequired;",
+      "window.$foo$=React.$PropTypes$.$string$.$isRequired$;");
+    // Other variants are rejected
+    testError(
+      "window.foo=React.PropTypes.string.isSortOfRequired;",
+      "JSC_INEXISTENT_PROPERTY");
+    // arrayOf
+    test(
+      "window.foo=React.PropTypes.arrayOf(React.PropTypes.string);",
+      "window.$foo$=React.$PropTypes$.$arrayOf$(React.$PropTypes$.$string$);");
+    test(
+      "window.foo=React.PropTypes.arrayOf(React.PropTypes.string).isRequired;",
+      "window.$foo$=React.$PropTypes$.$arrayOf$(React.$PropTypes$.$string$).$isRequired$;");
+    testError(
+      "window.foo=React.PropTypes.arrayOf(123);",
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "window.foo=React.PropTypes.arrayOf(React.PropTypes.string).isSortOfRequired;",
+      "JSC_INEXISTENT_PROPERTY");
+    // instanceOf
+    test(
+      "window.foo=React.PropTypes.instanceOf(Element);",
+      "window.$foo$=React.$PropTypes$.$instanceOf$(Element);");
+    testError(
+      "window.foo=React.PropTypes.instanceOf(123);",
+      "JSC_TYPE_MISMATCH");
+    // oneOf
+    test(
+      "window.foo=React.PropTypes.oneOf([1,2,3]);",
+      "window.$foo$=React.$PropTypes$.$oneOf$([1,2,3]);");
+    testError(
+      "window.foo=React.PropTypes.oneOf(123);",
+      "JSC_TYPE_MISMATCH");
+    // oneOfType
+    test(
+      "window.foo=React.PropTypes.oneOfType([React.PropTypes.string]);",
+      "window.$foo$=React.$PropTypes$.$oneOfType$([React.$PropTypes$.$string$]);");
+    testError(
+      "window.foo=React.PropTypes.oneOfType(123);",
+      "JSC_TYPE_MISMATCH");
+    // shape
+    test(
+      "window.foo=React.PropTypes.shape({str: React.PropTypes.string});",
+      "window.$foo$=React.$PropTypes$.$shape$({$str$:React.$PropTypes$.$string$});");
+    testError(
+      "window.foo=React.PropTypes.shape(123);",
+      "JSC_TYPE_MISMATCH");
+  }
+
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null);
   }

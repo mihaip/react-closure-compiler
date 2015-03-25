@@ -14,10 +14,13 @@ var DemoCounter = React.createClass({
   getInitialState: function() {
     return {count: 0};
   },
+  propTypes: {
+    label: React.PropTypes.string
+  },
   render: function() {
     this.mixinMethod();
     return React.createElement("div", null,
-      "Count: ", this.state.count,
+      this.props.label, "Count: ", this.state.count,
       React.createElement(
         "button", {onClick: this.increment.bind(this, 1)}, "Internal Increment")
     );
@@ -46,7 +49,7 @@ function SomeOtherType() {};
 SomeOtherType.prototype.increment2 = function() {return false};
 
 /** @type {DemoCounter} */ var counterInstance = React.render(
-    React.createElement(DemoCounter),
+    React.createElement(DemoCounter, {label: "Label"}),
     document.querySelector("#container"));
 
 // Not necessarily what we would do in a production app, but demonstrates that
