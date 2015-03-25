@@ -10,4 +10,9 @@ public class React {
         sourceName.endsWith("/react-with-addons.js") ||
         sourceName.endsWith("/react-with-addons.min.js");
   }
+
+  public static boolean isReactMinSourceName(String sourceName) {
+    return sourceName.endsWith("/react.min.js") ||
+        sourceName.endsWith("/react-with-addons.min.js");
+  }
 }

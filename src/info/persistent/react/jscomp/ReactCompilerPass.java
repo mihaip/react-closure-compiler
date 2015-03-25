@@ -66,6 +66,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
+  private boolean stripPropTypes = false;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
       Maps.newHashMap();
@@ -187,6 +188,8 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         typesNode.removeChildren();
         inputNode.addChildrenToFront(typesChildren);
         foundReactSource = true;
+        stripPropTypes = React.isReactMinSourceName(
+            inputNode.getSourceFileName());
         break;
       }
     }
@@ -334,8 +337,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     Node interfacePrototypeProps = IR.objectlit();
     interfacePrototypePropsByName.put(typeName, interfacePrototypeProps);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
+    Node propTypesNode = null;
     for (Node key : specNode.children()) {
-      if (key.getString().equals("mixins")) {
+      String keyName = key.getString();
+      if (keyName.equals("mixins")) {
         Set<String> mixinNames =
             addMixinsToInterface(key, interfacePrototypeProps);
         for (String mixinName : mixinNames) {
@@ -344,6 +349,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
               mixinAbstractMethodJsDocsByName.get(mixinName));
           }
         }
+        continue;
+      }
+      if (keyName.equals("propTypes")) {
+        propTypesNode = key;
         continue;
       }
       if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
@@ -356,20 +365,19 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       // from the ReactComponent interface method, so that it gets type checking
       // (without an explicit @override annotation, which doesn't appear to work
       // for interface extending interfaces in any case).
-      JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(key.getString());
+      JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
       if (componentMethodJsDoc != null) {
         mergeInJsDoc(func, componentMethodJsDoc);
       }
       // Ditto for abstract methods from mixins.
-      JSDocInfo abstractMethodJsDoc =
-          abstractMethodJsDocsByName.get(key.getString());
+      JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
       if (abstractMethodJsDoc != null) {
         mergeInJsDoc(func, abstractMethodJsDoc);
       }
 
       // Gather method signatures so that we can declare them where the compiler
       // can see them.
-      addFuncToInterface(key.getString(), func, interfacePrototypeProps);
+      addFuncToInterface(keyName, func, interfacePrototypeProps);
 
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
@@ -378,6 +386,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       jsDocBuilder.recordThisType(new JSTypeExpression(
         IR.string(typeName), GENERATED_SOURCE_NAME));
       func.setJSDocInfo(jsDocBuilder.build(func));
+    }
+
+    if (propTypesNode != null && stripPropTypes) {
+      propTypesNode.detachFromParent();
     }
 
     // Generate the interface definition.

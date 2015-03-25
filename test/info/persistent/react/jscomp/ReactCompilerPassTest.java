@@ -418,22 +418,42 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testPropTypesStripping() {
+    // propTypes should get stripped if we're using the minimized React build
+    // (since they're not checked).
+    test(
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "})),document.body);",
+      "/src/react.min.js",
+      null);
+  }
+
   private static void test(String inputJs, String expectedJs) {
-    test(inputJs, expectedJs, null);
+    test(inputJs, expectedJs, null, null);
   }
 
   private static void testError(String inputJs, String expectedErrorName) {
-    test(inputJs, "", DiagnosticType.error(expectedErrorName, ""));
+    test(inputJs, "", null, DiagnosticType.error(expectedErrorName, ""));
   }
 
   private static void testError(String inputJs, DiagnosticType expectedError) {
-    test(inputJs, "", expectedError);
+    test(inputJs, "", null, expectedError);
   }
 
   private static void test(
         String inputJs,
         String expectedJs,
+        String reactSourceName,
         DiagnosticType expectedError) {
+    if (reactSourceName == null) {
+      reactSourceName = "/src/react.js";
+    }
     Compiler compiler = new Compiler(
         new PrintStream(ByteStreams.nullOutputStream())); // Silence logging
     compiler.disableThreads(); // Makes errors easier to track down.
@@ -452,7 +472,7 @@ public class ReactCompilerPassTest {
         CustomPassExecutionTime.BEFORE_CHECKS,
         (CompilerPass) new ReactCompilerPass(compiler)));
     List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromCode("/src/react.js", REACT_SOURCE),
+        SourceFile.fromCode(reactSourceName, REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
     );
     List<SourceFile> externs = ImmutableList.of(
