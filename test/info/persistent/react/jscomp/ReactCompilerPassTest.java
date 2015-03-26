@@ -299,6 +299,40 @@ public class ReactCompilerPassTest {
   }
 
   /**
+   * Tests that React.createElement calls have their return type cast to either
+   * ReactDOMElement or ReactElement.<ClassType>
+   */
+  @Test public void testCreateElementCasting() {
+    // Tests that element.type is a string
+    test(
+        "window.type = React.createElement(\"div\").type.charAt(0)",
+        "window.$type$=React.$createElement$(\"div\").$type$.charAt(0);");
+    // Tests that element.type is not a string...
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "React.createElement(Comp).type.charAt(0)",
+      "JSC_INEXISTENT_PROPERTY");
+    // ...but is present...
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.type = React.createElement(Comp).type;",
+      "window.$type$=React.$createElement$(React.$createClass$({" +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "})).$type$;");
+    // ...unlike other properties.
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.foo = React.createElement(Comp).notAnElementProperty;",
+      "JSC_INEXISTENT_PROPERTY");
+  }
+
+  /**
    * Tests validation done by the types declarted in the types.js file. Not
    * exhaustive, just tests that the type declarations are included.
    */
@@ -516,7 +550,14 @@ public class ReactCompilerPassTest {
           "/** @constructor */ function Element() {};" +
           "var document;" +
           "document.body;" +
-          "var window;")
+          "var window;" +
+          "var String;" +
+          "/**\n" +
+          " * @param {number} index\n" +
+          " * @return {string}\n" +
+          " * @nosideeffects\n" +
+          " */" +
+          "String.prototype.charAt = function(index) {};")
     );
     Result result = compiler.compile(externs, inputs, options);
     if (expectedError == null) {

@@ -613,12 +613,6 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       compiler.report(JSError.make(callNode, CREATE_ELEMENT_UNEXPECTED_PARAMS));
       return;
     }
-    Node typeNode = callNode.getChildAtIndex(1);
-    if (typeNode.isString()) {
-      // TODO(mihai): add type annotations for DOM element creation
-      return;
-    }
-
     if (callNode.getParent().getType() == Token.CAST) {
       // There's already a cast around the call, there's no need to add another.
       return;
@@ -626,20 +620,28 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
 
     // Add casts of the form /** @type {ReactElement.<type name>} */ around
     // React.createElement calls, so that the return value of React.render will
-    // have the correct type.
+    // have the correct type (for string types assume that it's a
+    // ReactDOMElement).
     // It's too expensive to know what the type parameter node actually refers
     // to, so instead we assume that it directly references the type (this is
     // the most common case, especially with JSX). This means that we will not
     // add type annotations for cases such as:
     // var typeAlias = SomeType;
     // React.createElement(typeAlias);
-    String typeName = typeNode.getQualifiedName();
-    if (!reactClassesByName.containsKey(typeName)) {
-      return;
+    Node typeNode = callNode.getChildAtIndex(1);
+    Node elementTypeExpressionNode;
+    if (typeNode.isString()) {
+      elementTypeExpressionNode = IR.string("ReactDOMElement");
+    } else {
+      String typeName = typeNode.getQualifiedName();
+      if (!reactClassesByName.containsKey(typeName)) {
+        return;
+      }
+      elementTypeExpressionNode = IR.string("ReactElement");
+      elementTypeExpressionNode.addChildToFront(IR.block());
+      elementTypeExpressionNode.getFirstChild().addChildToFront(IR.string(typeName));
     }
-    Node elementTypeExpressionNode = IR.string("ReactElement");
-    elementTypeExpressionNode.addChildToFront(IR.block());
-    elementTypeExpressionNode.getFirstChild().addChildToFront(IR.string(typeName));
+
     Node castNode = IR.cast(callNode.cloneTree());
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
