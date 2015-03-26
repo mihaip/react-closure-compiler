@@ -5,17 +5,38 @@
  * ReactCompilerPass. The contents of this file should be inert (i.e. interfaces
  * and typedefs only) such that it compiles down to nothing.
  *
- * Based on https://github.com/facebook/flow/blob/master/lib/react.js
+ * Based on https://github.com/facebook/flow/blob/master/lib/react.js and
+ * https://github.com/borisyankov/DefinitelyTyped/blob/master/react/react.d.ts.
  */
 
 /**
- * @typedef {!Function}
+ * @interface
  * @template T
  */
-var ReactClass;
+function ReactClass() {}
 
 /**
- * @typedef {(!Object|{children: (Object|undefined)})}
+ * @type {Object.<ReactPropsChainableTypeChecker>|undefined}
+ */
+ReactClass.prototype.propTypes;
+
+/**
+ * @type {string|undefined}
+ */
+ReactClass.prototype.displayName;
+
+/**
+ * @type {ReactProps|undefined}
+ */
+ReactClass.prototype.defaultProps;
+
+/**
+ * @return {ReactProps}
+ */
+ReactClass.prototype.getDefaultProps = function() {};
+
+/**
+ * @typedef {!Object|{children: (Object|undefined)}}
  */
 var ReactProps;
 
@@ -36,7 +57,7 @@ ReactElement.prototype.type;
 ReactElement.prototype.props;
 
 /**
- * @type {(string|number)}
+ * @type {string|number}
  */
 ReactElement.prototype.key;
 
@@ -114,7 +135,7 @@ ReactComponent.prototype.replaceState = function(state, callback) {};
 /**
  * @return {ReactElement}
  */
-ReactComponent.prototype.render = function(state, callback) {};
+ReactComponent.prototype.render = function() {};
 
 /**
  * @param {function(): void=} callback
@@ -198,28 +219,28 @@ var ReactChildrenArgument;
 function ReactChildren() {};
 
 /**
- * @param {(Object|undefined)} children
+ * @param {Object|undefined} children
  * @param {function(*, number)} func
  * @param {*=} context
- * @return {(Object|undefined)}
+ * @return {Object|undefined}
  */
 ReactChildren.prototype.map = function(children, func, context) {};
 
 /**
- * @param {(Object|undefined)} children
+ * @param {Object|undefined} children
  * @param {function(*, number)} func
  * @param {*=} context
  */
 ReactChildren.prototype.forEach = function(children, func, context) {};
 
 /**
- * @param {(Object|undefined)} children
+ * @param {Object|undefined} children
  * @return {number}
  */
 ReactChildren.prototype.count = function(children) {};
 
 /**
- * @param {(Object|undefined)} children
+ * @param {Object|undefined} children
  * @return {ReactChild}
  */
 ReactChildren.prototype.only = function(children) {};
@@ -327,7 +348,13 @@ ReactModule.prototype.PropTypes;
 ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
 
 /**
- * @param {{render: function(): ReactElement}} specification
+ * @param {{
+ *     render: function(): ReactElement,
+ *     displayName: (string|undefined),
+ *     propTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
+ *     mixins: (Array.<Object>|undefined),
+ *     statics: (Object|undefined)
+ * }} specification
  * @return {ReactClass}
  */
 ReactModule.prototype.createClass = function(specification) {};
@@ -340,7 +367,7 @@ ReactModule.prototype.createClass = function(specification) {};
 ReactModule.prototype.createMixin = function(mixin) {};
 
 /**
- * @param {(ReactClass.<T>|string|number)} type
+ * @param {ReactClass.<T>|string} type
  * @param {Object=} props
  * @param {...ReactChildrenArgument} children
  * @return {ReactElement.<T>}
@@ -358,14 +385,14 @@ ReactModule.prototype.createElement = function(type, props, children) {};
 ReactModule.prototype.cloneElement = function(element, props, children) {};
 
 /**
- * @param {(ReactClass.<T>|string|number)} type
+ * @param {ReactClass.<T>|string} type
  * @return {function(Object=, ...ReactChildrenArgument): ReactElement.<T>}
  * @template T
  */
 ReactModule.prototype.createFactory = function(type) {};
 
 /**
- * @param {(ReactElement|Element)} componentOrElement
+ * @param {ReactElement|Element} componentOrElement
  * @return {Element}
  */
 ReactModule.prototype.findDOMNode = function(componentOrElement) {};

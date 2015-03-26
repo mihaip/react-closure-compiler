@@ -338,6 +338,33 @@ public class ReactCompilerPassTest {
    */
   @Test public void testTypeValidation() {
     testError(
+      "var Comp = React.createClass({render: \"notafunction\"});",
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "var Comp = React.createClass({displayName: function() {}});",
+      "JSC_TYPE_MISMATCH");
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.foo = Comp.displayName.charAt(0);",
+      // displayName is a valid string property of classes
+      "window.$foo$=React.$createClass$({" +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "}).$displayName$.charAt(0);");
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.foo = Comp.displayName.notAStringMethod();",
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.foo = Comp.nonExistentProperty;",
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
