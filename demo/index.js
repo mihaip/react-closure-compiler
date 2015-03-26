@@ -19,10 +19,14 @@ var DemoCounter = React.createClass({
   },
   render: function() {
     this.mixinMethod();
-    return React.createElement("div", null,
+    if (Date.now() == 0) { // Don't want this code to run, just to get type checked.
+      this.increment("wrong parameter type");
+      this.nonExistentMethod();
+    }
+    return React.DOM.div(null,
       this.props.label, "Count: ", this.state.count,
-      React.createElement(
-        "button", {onClick: this.increment.bind(this, 1)}, "Internal Increment")
+      React.DOM.button(
+        {onClick: this.increment.bind(this, 1)}, "Internal Increment")
     );
   },
   /**
@@ -58,6 +62,8 @@ document.querySelector("#button").addEventListener(
   "click",
   function(e) {
     counterInstance.increment(1);
-    counterInstance.increment("wrong parameter type");
-    counterInstance.nonExistentMethod();
+    if (Date.now() == 0) { // Don't want this code to run, just to get type checked.
+      counterInstance.increment("wrong parameter type");
+      counterInstance.nonExistentMethod();
+    }
   });

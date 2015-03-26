@@ -51,12 +51,18 @@ public class ReactCompilerPassTest {
   @Test public void testMinimalComponent() {
     test(
       "var Comp = React.createClass({" +
-        "render: function() {return React.createElement(\"div\");}" +
+        "render: function() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.DOM.span(null, \"child\"));" +
+          "}" +
       "});" +
       "React.render(React.createElement(Comp), document.body);",
       // createClass and other React methods should get renamed.
       "React.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+        "$render$:function(){" +
+          "return React.$createElement$(" +
+            "\"div\",null,React.$DOM$.$span$(null,\"child\"))" +
+        "}" +
       "})),document.body);");
   }
 
@@ -454,6 +460,14 @@ public class ReactCompilerPassTest {
               "\"div\",null,React.$Children$.$only$(this.$props$.$children$))" +
         "}" +
       "})),document.body);");
+  }
+
+  @Test public void testReactDOM() {
+    test("React.DOM.span()", "");
+    test("React.DOM.span(null)", "");
+    test("React.DOM.span(null, \"1\")", "");
+    test("React.DOM.span(null, \"1\", React.DOM.i())", "");
+    testError("React.DOM.span(1)", "JSC_TYPE_MISMATCH");
   }
 
   private static void test(String inputJs, String expectedJs) {
