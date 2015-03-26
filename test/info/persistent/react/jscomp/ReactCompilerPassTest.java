@@ -360,12 +360,16 @@ public class ReactCompilerPassTest {
     test(
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
-        "render: function() {return React.createElement(\"div\");}" +
+        "render: function() {" +
+          "return React.createElement(\"div\", null, this.props.aProp);" +
+        "}" +
       "});" +
       "React.render(React.createElement(Comp), document.body);",
       "React.$render$(React.$createElement$(React.$createClass$({" +
         "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+        "$render$:function(){" +
+          "return React.$createElement$(\"div\",null,this.$props$.$aProp$)" +
+        "}" +
       "})),document.body);");
     // isRequired variant
     test(
@@ -432,6 +436,24 @@ public class ReactCompilerPassTest {
       "})),document.body);",
       "/src/react.min.js",
       null);
+  }
+
+  @Test public void testChildren() {
+    // Non-comprehensive test that the React.Children namespace functions exist.
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {" +
+          "return React.createElement(" +
+              "\"div\", null, React.Children.only(this.props.children));" +
+          "}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$render$:function(){" +
+          "return React.$createElement$(" +
+              "\"div\",null,React.$Children$.$only$(this.$props$.$children$))" +
+        "}" +
+      "})),document.body);");
   }
 
   private static void test(String inputJs, String expectedJs) {

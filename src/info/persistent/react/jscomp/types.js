@@ -26,6 +26,22 @@ function ReactElement() {}
 function ReactComponent() {}
 
 /**
+ * @type {(!Object|{children: (Object|undefined)})}
+ * @const
+ */
+ReactComponent.prototype.props;
+
+/**
+ * @type {Object}
+ */
+ReactComponent.prototype.state;
+
+/**
+ * @dict
+ */
+ReactComponent.prototype.refs;
+
+/**
  * @return {Object}
  */
 ReactComponent.prototype.getInitialState = function() {};
@@ -127,12 +143,49 @@ ReactComponent.prototype.componentDidUpdate = function(prevProps, prevState) {};
 ReactComponent.prototype.componentWillUnmount = function() {};
 
 /**
+ * @typedef {boolean|number|string|ReactElement}
+ */
+var ReactChild;
+
+/**
  * @typedef {
- *   boolean|number|string|ReactElement|
+ *   ReactChild|
  *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>
  * }
  */
-var ReactChild;
+var ReactChildrenArgument;
+
+/**
+ * @interface
+ */
+function ReactChildren() {};
+
+/**
+ * @param {(Object|undefined)} children
+ * @param {function(*, number)} func
+ * @param {*=} context
+ * @return {(Object|undefined)}
+ */
+ReactChildren.prototype.map = function(children, func, context) {};
+
+/**
+ * @param {(Object|undefined)} children
+ * @param {function(*, number)} func
+ * @param {*=} context
+ */
+ReactChildren.prototype.forEach = function(children, func, context) {};
+
+/**
+ * @param {(Object|undefined)} children
+ * @return {number}
+ */
+ReactChildren.prototype.count = function(children) {};
+
+/**
+ * @param {(Object|undefined)} children
+ * @return {ReactChild}
+ */
+ReactChildren.prototype.only = function(children) {};
 
 /**
  * Parameters are: props, propName, componentName, location.
@@ -200,6 +253,17 @@ ReactPropTypes.prototype.shape = function(shapeTypes) {};
 function ReactModule() {}
 
 /**
+ * @type {ReactChildren}
+ * @const
+ */
+ReactModule.prototype.Children;
+
+/**
+ * @typedef {ReactComponent}
+ */
+ReactModule.prototype.Component;
+
+/**
  * @type {ReactPropTypes}
  * @const
  */
@@ -227,7 +291,7 @@ ReactModule.prototype.createMixin = function(mixin) {};
 /**
  * @param {(ReactClass.<T>|string|number)} type
  * @param {Object=} props
- * @param {...ReactChild} children
+ * @param {...ReactChildrenArgument} children
  * @return {ReactElement.<T>}
  * @template T
  */
@@ -236,7 +300,7 @@ ReactModule.prototype.createElement = function(type, props, children) {};
 /**
  * @param {ReactElement.<T>} element
  * @param {Object=} props
- * @param {...ReactChild} children
+ * @param {...ReactChildrenArgument} children
  * @return {ReactElement.<T>}
  * @template T
  */
@@ -244,7 +308,7 @@ ReactModule.prototype.cloneElement = function(element, props, children) {};
 
 /**
  * @param {(ReactClass.<T>|string|number)} type
- * @return {function(Object=, ...ReactChild): ReactElement.<T>}
+ * @return {function(Object=, ...ReactChildrenArgument): ReactElement.<T>}
  * @template T
  */
 ReactModule.prototype.createFactory = function(type) {};
