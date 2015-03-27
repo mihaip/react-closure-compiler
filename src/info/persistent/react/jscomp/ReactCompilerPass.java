@@ -59,6 +59,9 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   static final DiagnosticType CREATE_ELEMENT_UNEXPECTED_PARAMS = DiagnosticType.error(
       "REACT_CREATE_ELEMENT_UNEXPECTED_PARAMS",
       "The React.createElement(...) call has too few arguments.");
+  static final DiagnosticType STATICS_UNEXPECTED_TYPE = DiagnosticType.error(
+      "REACT_STATICS_UNEXPECTED_TYPE",
+      "The \"statics\" value must be an object literal.");
 
   private static final String TYPES_JS_RESOURCE_PATH = "info/persistent/react/jscomp/types.js";
   private static final String[] REACT_DOM_TAG_NAMES = {
@@ -390,11 +393,12 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     interfacePrototypePropsByName.put(typeName, interfacePrototypeProps);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node propTypesNode = null;
+    Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
     for (Node key : specNode.children()) {
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
         Set<String> mixinNames =
-            addMixinsToInterface(key, interfacePrototypeProps);
+            addMixinsToType(key, interfacePrototypeProps, staticsJsDocs);
         for (String mixinName : mixinNames) {
           if (mixinAbstractMethodJsDocsByName.containsKey(mixinName)) {
             abstractMethodJsDocsByName.putAll(
@@ -405,6 +409,12 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       }
       if (keyName.equals("propTypes")) {
         propTypesNode = key;
+        continue;
+      }
+      if (keyName.equals("statics")) {
+        if (createFuncName == "React.createClass") {
+          gatherStaticsJsDocs(key, staticsJsDocs);
+        }
         continue;
       }
       if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
@@ -442,6 +452,22 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
 
     if (propTypesNode != null && stripPropTypes) {
       propTypesNode.detachFromParent();
+    }
+
+    // Generate statics property JSDocs, so that the compiler knows about them.
+    if (createFuncName == "React.createClass") {
+      Node staticsInsertionPoint = callParentNode.getParent();
+      for (Map.Entry<String, JSDocInfo> entry : staticsJsDocs.entrySet()) {
+        String staticName = entry.getKey();
+        JSDocInfo staticJsDoc = entry.getValue();
+        Node staticDeclaration = NodeUtil.newQName(
+            compiler, typeName + "." + staticName);
+        staticDeclaration.setJSDocInfo(staticJsDoc);
+        Node staticExprNode = IR.exprResult(staticDeclaration);
+        staticsInsertionPoint.getParent().addChildAfter(
+            staticExprNode, staticsInsertionPoint);
+        staticsInsertionPoint = staticExprNode;
+      }
     }
 
     // Generate the interface definition.
@@ -527,8 +553,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     return true;
   }
 
-  private Set<String> addMixinsToInterface(
-      Node mixinsNode, Node interfacePrototypeProps) {
+  private Set<String> addMixinsToType(
+      Node mixinsNode,
+      Node interfacePrototypeProps,
+      Map<String, JSDocInfo> staticsJsDocs) {
     Set<String> mixinNames = Sets.newHashSet();
     if (!mixinsNode.hasOneChild() ||
           !mixinsNode.getFirstChild().isArrayLit()) {
@@ -550,13 +578,21 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));
         continue;
       }
-      for (Node mixinSpecChild : mixinSpecNode.children()) {
-        if (mixinSpecChild.hasOneChild() &&
-            mixinSpecChild.getFirstChild().isFunction()) {
+      for (Node mixinSpecKey : mixinSpecNode.children()) {
+        String keyName = mixinSpecKey.getString();
+        if (keyName.equals("mixins")) {
+          mixinNames.addAll(addMixinsToType(
+              mixinSpecKey, interfacePrototypeProps, staticsJsDocs));
+          continue;
+        }
+        if (keyName.equals("statics")) {
+          gatherStaticsJsDocs(mixinSpecKey, staticsJsDocs);
+          continue;
+        }
+        if (mixinSpecKey.hasOneChild() &&
+            mixinSpecKey.getFirstChild().isFunction()) {
           addFuncToInterface(
-              mixinSpecChild.getString(),
-              mixinSpecChild.getFirstChild(),
-              interfacePrototypeProps);
+              keyName, mixinSpecKey.getFirstChild(), interfacePrototypeProps);
         }
       }
     }
@@ -578,6 +614,29 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     }
     interfacePrototypeProps.addChildrenToBack(
       IR.stringKey(name, methodNode));
+  }
+
+  private void gatherStaticsJsDocs(
+      Node staticsNode, Map<String, JSDocInfo> staticsJsDocs) {
+    if (!staticsNode.hasOneChild() ||
+          !staticsNode.getFirstChild().isObjectLit()) {
+      compiler.report(JSError.make(staticsNode, STATICS_UNEXPECTED_TYPE));
+      return;
+    }
+    for (Node staticKeyNode : staticsNode.getFirstChild().children()) {
+      String staticName = staticKeyNode.getString();
+      JSDocInfo staticJsDoc = staticKeyNode.getJSDocInfo();
+      if (staticJsDoc == null) {
+        // We need to have some kind of JSDoc so that the CheckSideEffects pass
+        // doesn't flag this as useless code.
+        // TODO: synthesize type based on value if it's a simple constant
+        // like a function or number.
+        staticJsDoc = new JSDocInfo(true);
+      } else {
+        staticJsDoc = staticJsDoc.clone();
+      }
+      staticsJsDocs.put(staticName, staticJsDoc);
+    }
   }
 
   private static void mergeInJsDoc(Node func, JSDocInfo jsDoc) {
@@ -657,4 +716,3 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     return false;
   }
 }
-

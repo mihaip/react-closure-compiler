@@ -1,6 +1,23 @@
 // Mixins need to be marked with React.createMixin (added in React 0.13) so
 // that they can be tracked by the compiler pass.
+var ChainedMixin = React.createMixin({
+  statics: {
+    chainedMixinStatic: function() {
+      console.log("Chained mixin static method running");
+    }
+  },
+  chainedMixinMethod: function() {
+    console.log("Chained mixin method running");
+  }
+});
+
 var Mixin = React.createMixin({
+  statics: {
+    mixinStatic: function() {
+      console.log("mixin static method running");
+    }
+  },
+  mixins: [ChainedMixin],
   mixinMethod: function() {
     console.log("Mixin method running");
   }
@@ -10,6 +27,11 @@ var Mixin = React.createMixin({
 // inputs are given to Plovr/the Closure Compiler.
 var DemoCounter = React.createClass({
   displayName: "DemoCounter",
+  statics: {
+    classStatic: function() {
+      console.log("Class static running");
+    }
+  },
   mixins: [Mixin],
   getInitialState: function() {
     return {count: 0};
@@ -19,6 +41,7 @@ var DemoCounter = React.createClass({
   },
   render: function() {
     this.mixinMethod();
+    this.chainedMixinMethod();
     if (Date.now() == 0) { // Don't want this code to run, just to get type checked.
       this.increment("wrong parameter type");
       this.nonExistentMethod();
@@ -51,6 +74,16 @@ var UnusedClass = React.createClass({
  */
 function SomeOtherType() {};
 SomeOtherType.prototype.increment2 = function() {return false};
+SomeOtherType.someOtherStatic = function() {
+  console.log("SomeOtherType static method running");
+};
+
+DemoCounter.classStatic();
+DemoCounter.mixinStatic();
+DemoCounter.chainedMixinStatic();
+if (Date.now() == 0) { // Don't want this code to run, just to get type checked.
+  DemoCounter.someOtherStatic();
+}
 
 /** @type {DemoCounter} */ var counterInstance = React.render(
     React.createElement(DemoCounter, {label: "Label"}),

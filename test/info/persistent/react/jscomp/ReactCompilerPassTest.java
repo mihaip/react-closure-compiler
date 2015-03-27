@@ -101,29 +101,41 @@ public class ReactCompilerPassTest {
 
   @Test public void testMixins() {
     test(
+      "var ChainedMixin = React.createMixin({" +
+        "chainedMixinMethod: function() {window.foo = 456}" +
+      "});\n" +
       "var Mixin = React.createMixin({" +
+        "mixins: [ChainedMixin]," +
         "mixinMethod: function() {window.foo = 123}" +
       "});\n" +
       "var Comp = React.createClass({" +
         "mixins: [Mixin]," +
         "render: function() {" +
           "this.mixinMethod();" +
+          "this.chainedMixinMethod();" +
           "return React.createElement(\"div\");" +
         "}" +
       "});" +
       "var inst = React.render(React.createElement(Comp), document.body);" +
-      "inst.mixinMethod();",
+      "inst.mixinMethod();" +
+      "inst.chainedMixinMethod();",
       // Mixin method invocations should not result in warnings if they're
-      // known.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      // known, either directly or via chained mixins.
+      "var $inst$$=React.$render$(React.$createElement$(React.$createClass$({" +
         "$mixins$:[React.$createMixin$({" +
+          "$mixins$:[React.$createMixin$({" +
+            "$chainedMixinMethod$:function(){window.$foo$=456}" +
+          "})]," +
           "$mixinMethod$:function(){window.$foo$=123}" +
         "})]," +
         "$render$:function(){" +
           "this.$mixinMethod$();" +
+          "this.$chainedMixinMethod$();" +
           "return React.$createElement$(\"div\")" +
         "}" +
-      "})),document.body).$mixinMethod$();");
+      "})),document.body);" +
+      "$inst$$.$mixinMethod$();" +
+      "$inst$$.$chainedMixinMethod$();");
     test(
       "var Mixin = React.createMixin({" +
         "mixinMethod: function() {window.foo=this.mixinAbstractMethod()}" +
@@ -529,6 +541,47 @@ public class ReactCompilerPassTest {
     test("React.DOM.span(null, \"1\")", "");
     test("React.DOM.span(null, \"1\", React.DOM.i())", "");
     testError("React.DOM.span(1)", "JSC_TYPE_MISMATCH");
+  }
+
+  /**
+   * Tests static methods and properties.
+   */
+  @Test public void testStatics() {
+    test(
+      "var Comp = React.createClass({" +
+        "statics: {" +
+          "aNumber: 123," +
+          "aString: \"456\"," +
+          "aFunction: function() {return 123}" +
+        "}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.aNumber = Comp.aNumber;" +
+      "window.aString = Comp.aString;" +
+      "window.aFunctionResult = Comp.aFunction();",
+      // Statics without JSDoc are OK
+      "var $Comp$$=React.$createClass$({" +
+        "$statics$:{" +
+        "$aNumber$:123," +
+        "$aString$:\"456\"," +
+        "$aFunction$:function(){return 123}" +
+        "}," +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "});" +
+      "window.$aNumber$=$Comp$$.$aNumber$;" +
+      "window.$aString$=$Comp$$.$aString$;" +
+      "window.$aFunctionResult$=123;");
+    testError(
+      "var Comp = React.createClass({" +
+        "statics: {" +
+          "/** @type {number} */" +
+          "aNumber: 123" +
+        "}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "window.foo = Comp.aNumber.charAt(0);",
+      // But if JSDoc is provided, then it is used.
+      "JSC_INEXISTENT_PROPERTY");
   }
 
   private static void test(String inputJs, String expectedJs) {
