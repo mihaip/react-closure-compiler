@@ -259,6 +259,24 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     NodeTraversal.traverse(compiler, scriptRoot, this);
+    // Inline React.createMixin calls, since they're just decorators.
+    boolean inlinedMixin = false;
+    for (Node mixinSpecNode : reactMixinsByName.values()) {
+      Node mixinSpecParentNode = mixinSpecNode.getParent();
+      if (mixinSpecParentNode.isCall() &&
+          mixinSpecParentNode.hasMoreThanOneChild() &&
+          mixinSpecParentNode.getFirstChild().getQualifiedName().equals(
+            "React.createMixin")) {
+        mixinSpecNode.detachFromParent();
+        mixinSpecParentNode.getParent().replaceChild(
+          mixinSpecParentNode,
+          mixinSpecNode);
+        inlinedMixin = true;
+      }
+    }
+    if (inlinedMixin) {
+      compiler.reportCodeChange();
+    }
   }
 
   @Override

@@ -14,7 +14,7 @@ var ChainedMixin = React.createMixin({
 var Mixin = React.createMixin({
   statics: {
     mixinStatic: function() {
-      console.log("mixin static method running");
+      console.log("Mixin static method running");
     }
   },
   mixins: [ChainedMixin],

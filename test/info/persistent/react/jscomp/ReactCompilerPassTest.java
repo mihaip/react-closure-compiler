@@ -122,12 +122,12 @@ public class ReactCompilerPassTest {
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
       "var $inst$$=React.$render$(React.$createElement$(React.$createClass$({" +
-        "$mixins$:[React.$createMixin$({" +
-          "$mixins$:[React.$createMixin$({" +
+        "$mixins$:[{" +
+          "$mixins$:[{" +
             "$chainedMixinMethod$:function(){window.$foo$=456}" +
-          "})]," +
+          "}]," +
           "$mixinMethod$:function(){window.$foo$=123}" +
-        "})]," +
+        "}]," +
         "$render$:function(){" +
           "this.$mixinMethod$();" +
           "this.$chainedMixinMethod$();" +
@@ -153,9 +153,9 @@ public class ReactCompilerPassTest {
       "React.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
       "React.$render$(React.$createElement$(React.$createClass$({" +
-        "$mixins$:[React.$createMixin$({" +
+        "$mixins$:[{" +
           "$mixinMethod$:function(){window.$foo$=123}" +
-        "})]," +
+        "}]," +
         "$render$:function(){" +
           "this.$mixinMethod$();" +
           "return React.$createElement$(\"div\")" +
