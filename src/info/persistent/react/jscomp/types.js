@@ -542,3 +542,10 @@ ReactModule.prototype.isValidElement = function(element) {};
  * @const
  */
 ReactModule.prototype.addons;
+
+/**
+ * @param {Object} target
+ * @param {...Object} sources
+ * @return {Object}
+ */
+ReactModule.prototype.__spread = function(target, sources) {};
