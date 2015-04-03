@@ -316,7 +316,54 @@ ReactPropTypes.prototype.shape = function(shapeTypes) {};
 /**
  * @interface
  */
-function ReactAddons() {};
+function ReactAddonsPerf() {}
+
+ReactAddonsPerf.prototype.start = function() {};
+
+ReactAddonsPerf.prototype.stop = function() {};
+
+/**
+ * @return {Array.<ReactAddonsPerf.Measurement>}
+ */
+ReactAddonsPerf.prototype.getLastMeasurements = function() {};
+
+/**
+ * @param {ReactAddonsPerf.Measurement=} measurements
+ */
+ReactAddonsPerf.prototype.printExclusive = function(measurements) {};
+
+/**
+ * @param {ReactAddonsPerf.Measurement=} measurements
+ */
+ReactAddonsPerf.prototype.printInclusive = function(measurements) {};
+
+/**
+ * @param {ReactAddonsPerf.Measurement=} measurements
+ */
+ReactAddonsPerf.prototype.printWasted = function(measurements) {};
+
+/**
+ * @typedef {{
+ *     exclusive: !Object.<string, number>,
+ *     inclusive: !Object.<string, number>,
+ *     render: !Object.<string, number>,
+ *     counts: !Object.<string, number>,
+ *     writes: !Object.<string, {type: string, time: number, args: Array}>,
+ *     displayNames: !Object.<string, {current: string, owner: string}>,
+ *     totalTime: number
+ * }}
+ */
+ReactAddonsPerf.Measurement;
+
+/**
+ * @interface
+ */
+function ReactAddons() {}
+
+/**
+ * @type {ReactAddonsPerf}
+ */
+ReactAddons.prototype.Perf;
 
 /**
  * @type {Object}
