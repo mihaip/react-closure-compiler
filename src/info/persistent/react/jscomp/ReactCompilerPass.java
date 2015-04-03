@@ -62,6 +62,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   static final DiagnosticType STATICS_UNEXPECTED_TYPE = DiagnosticType.error(
       "REACT_STATICS_UNEXPECTED_TYPE",
       "The \"statics\" value must be an object literal.");
+  static final DiagnosticType PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE =
+      DiagnosticType.error(
+          "REACT_PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE",
+          "{0} uses React.addons.PureRenderMixin, it should not define shouldComponentUpdate.");
 
   private static final String TYPES_JS_RESOURCE_PATH = "info/persistent/react/jscomp/types.js";
   private static final String[] REACT_DOM_TAG_NAMES = {
@@ -85,6 +89,8 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     "pattern", "polygon", "polyline", "radialGradient", "rect", "stop", "svg",
     "text", "tspan"
   };
+  private static final String REACT_PURE_RENDER_MIXIN_NAME =
+      "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
@@ -412,11 +418,14 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node propTypesNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
+    boolean usesPureRenderMixin = false;
+    boolean hasShouldComponentUpdate = false;
     for (Node key : specNode.children()) {
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
         Set<String> mixinNames =
             addMixinsToType(key, interfacePrototypeProps, staticsJsDocs);
+        usesPureRenderMixin = mixinNames.contains(REACT_PURE_RENDER_MIXIN_NAME);
         for (String mixinName : mixinNames) {
           if (mixinAbstractMethodJsDocsByName.containsKey(mixinName)) {
             abstractMethodJsDocsByName.putAll(
@@ -437,6 +446,9 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       }
       if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
         continue;
+      }
+      if (keyName.equals("shouldComponentUpdate")) {
+        hasShouldComponentUpdate = true;
       }
       Node func = key.getFirstChild();
 
@@ -466,6 +478,12 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       jsDocBuilder.recordThisType(new JSTypeExpression(
         IR.string(typeName), GENERATED_SOURCE_NAME));
       func.setJSDocInfo(jsDocBuilder.build(func));
+    }
+
+    if (usesPureRenderMixin && hasShouldComponentUpdate) {
+      compiler.report(JSError.make(
+          specNode, PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE, typeName));
+      return;
     }
 
     if (propTypesNode != null && stripPropTypes) {
@@ -591,6 +609,10 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
         continue;
       }
       mixinNames.add(mixinName);
+      if (mixinName.equals(REACT_PURE_RENDER_MIXIN_NAME)) {
+        // Built-in mixin, there's nothing more that we need to do.
+        continue;
+      }
       Node mixinSpecNode = reactMixinsByName.get(mixinName);
       if (mixinSpecNode == null) {
         compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));

@@ -316,6 +316,16 @@ ReactPropTypes.prototype.shape = function(shapeTypes) {};
 /**
  * @interface
  */
+function ReactAddons() {};
+
+/**
+ * @type {Object}
+ */
+ReactAddons.prototype.PureRenderMixin;
+
+/**
+ * @interface
+ */
 function ReactModule() {}
 
 /**
@@ -429,3 +439,9 @@ ReactModule.prototype.unmountComponentAtNode = function(container) {};
  * @return {boolean}
  */
 ReactModule.prototype.isValidElement = function(element) {};
+
+/**
+ * @type {ReactAddons}
+ * @const
+ */
+ReactModule.prototype.addons;

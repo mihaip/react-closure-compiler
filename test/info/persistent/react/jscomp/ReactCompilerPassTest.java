@@ -584,6 +584,37 @@ public class ReactCompilerPassTest {
       "JSC_INEXISTENT_PROPERTY");
   }
 
+  @Test public void testPureRenderMixin() {
+    test(
+      "var Comp = React.createClass({" +
+        "mixins: [React.addons.PureRenderMixin]," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      // Should be fine to use React.addons.PureRenderMixin.
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$mixins$:[React.$addons$.$PureRenderMixin$]," +
+        "$render$:function(){" +
+          "return React.$createElement$(\"div\")" +
+        "}" +
+      "})),document.body);");
+    testError(
+      "var Comp = React.createClass({" +
+        "mixins: [React.addons.PureRenderMixin]," +
+        "shouldComponentUpdate: function(nextProps, nextState) {" +
+          "return true;" +
+        "}," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});",
+      // But there should be a warning if using PureRenderMixin yet
+      // shouldComponentUpdate is specified.
+      ReactCompilerPass.PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE);
+  }
+
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null, null);
   }
