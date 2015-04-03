@@ -401,8 +401,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     String interfaceTypeName = typeName + "Interface";
 
     // Add the @typedef
-    JSDocInfoBuilder jsDocBuilder =
-        JSDocInfoBuilder.maybeCopyFrom(typeAttachNode.getJSDocInfo());
+    JSDocInfoBuilder jsDocBuilder = newJsDocInfoBuilderForNode(typeAttachNode);
     jsDocBuilder.recordTypedef(new JSTypeExpression(
         IR.string(interfaceTypeName),
         GENERATED_SOURCE_NAME));
@@ -474,7 +473,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
       // context.
-      jsDocBuilder = JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
+      jsDocBuilder = newJsDocInfoBuilderForNode(func);
       jsDocBuilder.recordThisType(new JSTypeExpression(
         IR.string(typeName), GENERATED_SOURCE_NAME));
       func.setJSDocInfo(jsDocBuilder.build(func));
@@ -680,8 +679,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
   }
 
   private static void mergeInJsDoc(Node func, JSDocInfo jsDoc) {
-    JSDocInfoBuilder funcJsDocBuilder =
-        JSDocInfoBuilder.maybeCopyFrom(func.getJSDocInfo());
+    JSDocInfoBuilder funcJsDocBuilder = newJsDocInfoBuilderForNode(func);
     for (String parameterName : jsDoc.getParameterNames()) {
       JSTypeExpression parameterType = jsDoc.getParameterType(parameterName);
       funcJsDocBuilder.recordParameter(parameterName, parameterType);
@@ -754,5 +752,13 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       return value.getFirstChild().matchesQualifiedName("React.createElement");
     }
     return false;
+  }
+
+  private static JSDocInfoBuilder newJsDocInfoBuilderForNode(Node node) {
+    JSDocInfo existing = node.getJSDocInfo();
+    if (existing == null) {
+      return new JSDocInfoBuilder(true);
+    }
+    return JSDocInfoBuilder.copyFrom(existing);
   }
 }
