@@ -324,6 +324,56 @@ function ReactAddons() {};
 ReactAddons.prototype.PureRenderMixin;
 
 /**
+ * @param {Function} callback
+ * @param {*=} a
+ * @param {*=} b
+ * @param {*=} c
+ * @param {*=} d
+ */
+ReactAddons.prototype.batchedUpdates = function(callback, a, b, c, d) {};
+
+/**
+ * @param {Object|string} objectOrClassName
+ * @param {...string} classNames
+ * @return {string}
+ * @deprecated
+ */
+ReactAddons.prototype.classSet = function(objectOrClassName, classNames) {};
+
+/**
+ * @param {ReactElement.<T>} element
+ * @param {Object=} extraProps
+ * @return {ReactElement.<T>}
+ * @template T
+ */
+ReactAddons.prototype.cloneWithProps = function(element, extraProps) {};
+
+/**
+ * @param {Object.<string, ReactElement>} object
+ * @return {*}
+ */
+ReactAddons.prototype.createFragment = function(object) {};
+
+/**
+ * @typedef {{
+ *     $push: (Array|undefined),
+ *     $unshift: (Array|undefined),
+ *     $splice: (Array.<Array>|undefined),
+ *     $set: (Object|undefined),
+ *     $merge: (Object|undefined),
+ *     $apply: (function(Object): Object|undefined)
+ * }}
+ */
+ReactAddons.UpdateSpec;
+
+/**
+ * @param {Object|Array} value
+ * @param {ReactAddons.UpdateSpec} updateSpec
+ * @return {Object|Array}
+ */
+ReactAddons.prototype.update = function(value, updateSpec) {};
+
+/**
  * @interface
  */
 function ReactModule() {}
