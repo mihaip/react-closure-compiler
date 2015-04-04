@@ -315,6 +315,18 @@ ReactPropTypes.prototype.shape = function(shapeTypes) {};
 
 /**
  * @interface
+ * @extends {ReactComponent}
+ */
+function ReactCSSTransitionGroup() {}
+
+/**
+ * @interface
+ * @extends {ReactComponent}
+ */
+function ReactTransitionGroup() {}
+
+/**
+ * @interface
  */
 function ReactAddonsPerf() {}
 
@@ -359,6 +371,16 @@ ReactAddonsPerf.Measurement;
  * @interface
  */
 function ReactAddons() {}
+
+/**
+ * @type {ReactClass.<ReactCSSTransitionGroup>}
+ */
+ReactAddons.prototype.CSSTransitionGroup;
+
+/**
+ * @type {ReactClass.<ReactTransitionGroup>}
+ */
+ReactAddons.prototype.TransitionGroup;
 
 /**
  * @type {ReactAddonsPerf}
