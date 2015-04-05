@@ -12,7 +12,6 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
@@ -28,8 +27,8 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Set;
 
-public class ReactCompilerPass extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+public class ReactCompilerPass implements NodeTraversal.Callback,
+      HotSwapCompilerPass {
 
   // Errors
   static final DiagnosticType REACT_SOURCE_NOT_FOUND = DiagnosticType.error(
@@ -192,7 +191,7 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
       NodeTraversal.traverse(
           compiler,
           templateTypesNode,
-          new AbstractPostOrderCallback() {
+          new NodeTraversal.AbstractPostOrderCallback() {
             @Override public void visit(NodeTraversal t, Node n, Node parent) {
               if (!n.isAssign() || !n.getFirstChild().isQualifiedName() ||
                   !n.getFirstChild().getQualifiedName().startsWith(
@@ -283,6 +282,19 @@ public class ReactCompilerPass extends AbstractPostOrderCallback
     if (inlinedMixin) {
       compiler.reportCodeChange();
     }
+  }
+
+  @Override
+  public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n,
+      Node parent) {
+    // Don't want React itself to get annotated (the version with addons creates
+    // defines some classes).
+    if (n.getType() == Token.SCRIPT &&
+        n.getSourceFileName() != null &&
+        React.isReactSourceName(n.getSourceFileName())) {
+      return false;
+    }
+    return true;
   }
 
   @Override
