@@ -23,6 +23,9 @@ var Comp = React.createClass({
   render: function() {
     return <div/>;
   },
+  /**
+   * @return {number}
+   */
   someMethod: function() {
     return 123;
   }
@@ -33,7 +36,7 @@ The Closure Compiler will know about three types:
 
 * `ReactClass.<Comp>`, for the class definition
 * `ReactElement.<Comp>` for an element created from that definition (via JSX or `React.createElement()`. There is a `CompElement` `@typedef` generated so that you don't have to use the slightly awakward template type notation.
-* `Comp` for rendered instances of this component (this is subclass of `ReactComponent`). `Comp` instances are known to have custom component methods like `someMethod`.
+* `Comp` for rendered instances of this component (this is subclass of `ReactComponent`). `Comp` instances are known to have custom component methods like `someMethod` (and their parameter and return types).
 
 See [this page](https://facebook.github.io/react/docs/glossary.html) for more details on React terminology and [`types.js`](https://github.com/mihaip/react-closure-compiler/blob/master/src/info/persistent/react/jscomp/types.js) in this repository for the full type hierarchy that is implemented.
 
