@@ -615,6 +615,28 @@ public class ReactCompilerPassTest {
       ReactCompilerPass.PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE);
   }
 
+  @Test public void testElementTypedef() {
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});\n" +
+      "/** @return {CompElement} */\n" +
+      "function create() {return React.createElement(Comp);}",
+      "");
+    test(
+      "var ns = {};" +
+      "ns.Comp = React.createClass({" +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});\n" +
+      "/** @return {ns.CompElement} */\n" +
+      "function create() {return React.createElement(ns.Comp);}",
+      "");
+  }
+
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null, null);
   }

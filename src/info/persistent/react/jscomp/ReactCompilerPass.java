@@ -386,6 +386,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     //     otherMethod: function() {...}
     // });
     //
+    // /**
+    //  * @typedef {ReactElement.<Component>}
+    //  */
+    // var ComponentElement;
+    //
     // The <type name>Interface type is necessary in order to teach the compiler
     // about all the methods that are present on the component. Having it as an
     // interface means that no extra code ends up being generated (and the
@@ -395,6 +400,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // The @typedef is added to the component variable so that user-authored
     // code can treat that as the type (the interface is an implementation
     // detail).
+    // The <type name>Element @typedef is designed to adding types to elements
+    // for that component less verbose.
     Node callParentNode = callNode.getParent();
     String typeName;
     Node typeAttachNode;
@@ -500,6 +507,23 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (propTypesNode != null && stripPropTypes) {
       propTypesNode.detachFromParent();
     }
+
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+          createReactElementTypeExpressionNode(typeName),
+          GENERATED_SOURCE_NAME));
+    Node elementTypedefNode = NodeUtil.newQName(
+        compiler, typeName + "Element");
+    if (elementTypedefNode.isName()) {
+      elementTypedefNode = IR.var(elementTypedefNode);
+    }
+    elementTypedefNode.setJSDocInfo(jsDocBuilder.build(elementTypedefNode));
+    if (!elementTypedefNode.isVar()) {
+      elementTypedefNode = IR.exprResult(elementTypedefNode);
+    }
+    Node elementTypedefInsertionPoint = callParentNode.getParent();
+    elementTypedefInsertionPoint.getParent().addChildAfter(
+        elementTypedefNode, elementTypedefInsertionPoint);
 
     // Generate statics property JSDocs, so that the compiler knows about them.
     if (createFuncName == "React.createClass") {
@@ -746,9 +770,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       if (!reactClassesByName.containsKey(typeName)) {
         return;
       }
-      elementTypeExpressionNode = IR.string("ReactElement");
-      elementTypeExpressionNode.addChildToFront(IR.block());
-      elementTypeExpressionNode.getFirstChild().addChildToFront(IR.string(typeName));
+      elementTypeExpressionNode =
+          createReactElementTypeExpressionNode(typeName);
     }
 
     Node castNode = IR.cast(callNode.cloneTree());
@@ -764,6 +787,16 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return value.getFirstChild().matchesQualifiedName("React.createElement");
     }
     return false;
+  }
+
+  /**
+   * Creates the equivalent to ReactElement.<typeName>
+   */
+  private static Node createReactElementTypeExpressionNode(String typeName) {
+    Node node = IR.string("ReactElement");
+    node.addChildToFront(IR.block());
+    node.getFirstChild().addChildToFront(IR.string(typeName));
+    return node;
   }
 
   private static JSDocInfoBuilder newJsDocInfoBuilderForNode(Node node) {
