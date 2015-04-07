@@ -477,8 +477,11 @@ ReactModule.prototype.PropTypes;
 ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
 
 /**
+ * "render()" implementations may be undefined (i.e. missing) if it is instead
+ * provided by a mixin.
+ *
  * @param {{
- *     render: function(): ReactElement,
+ *     render: (function(): ReactElement|undefined),
  *     displayName: (string|undefined),
  *     propTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
  *     mixins: (Array.<Object>|undefined),
