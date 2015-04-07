@@ -211,10 +211,35 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}," +
         "mixinAbstractMethod: function() {return \"notanumber\";}" +
-      "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "});",
       // ...and the component side
       "JSC_TYPE_MISMATCH");
+    test(
+      "var Mixin = React.createMixin({});" +
+      "/** @param {number} param1 */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function() {}" +
+      "});",
+      // But implementations should be OK if they omit parameters...
+      "");
+    test(
+      "var Mixin = React.createMixin({});" +
+      "/** @param {number} param1 */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function(renamedParam1) {}" +
+      "});",
+      //  ...or rename them.
+      "");
   }
 
   @Test public void testNamespacedComponent() {
@@ -391,6 +416,20 @@ public class ReactCompilerPassTest {
       // type annotations added in types.js, even if they're not explicitly
       // present in the spec.
       "JSC_TYPE_MISMATCH");
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "shouldComponentUpdate: function() {return false;}" +
+      "});",
+      // But implementations should be OK if they omit parameters...
+      "");
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "shouldComponentUpdate: function(param1, param2) {return false;}" +
+      "});",
+      // ...or rename them.
+      "");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return 123;}" +

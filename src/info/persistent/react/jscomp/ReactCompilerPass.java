@@ -2,6 +2,7 @@ package info.persistent.react.jscomp;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
@@ -24,6 +25,7 @@ import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -715,10 +717,23 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static void mergeInJsDoc(Node func, JSDocInfo jsDoc) {
+    List<String> funcParamNames = Lists.newArrayList();
+    for (Node param : NodeUtil.getFunctionParameters(func).children()) {
+      if (param.isName()) {
+        funcParamNames.add(param.getString());
+      }
+    }
     JSDocInfoBuilder funcJsDocBuilder = newJsDocInfoBuilderForNode(func);
-    for (String parameterName : jsDoc.getParameterNames()) {
-      JSTypeExpression parameterType = jsDoc.getParameterType(parameterName);
-      funcJsDocBuilder.recordParameter(parameterName, parameterType);
+    if (!funcParamNames.isEmpty()) {
+      for (String parameterName : jsDoc.getParameterNames()) {
+        JSTypeExpression parameterType = jsDoc.getParameterType(parameterName);
+        // Use the parameter names in the implementation, not the original
+        parameterName = funcParamNames.remove(0);
+        funcJsDocBuilder.recordParameter(parameterName, parameterType);
+        if (funcParamNames.isEmpty()) {
+          break;
+        }
+      }
     }
     if (jsDoc.hasReturnType()) {
       funcJsDocBuilder.recordReturnType(jsDoc.getReturnType());
