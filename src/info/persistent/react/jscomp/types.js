@@ -208,7 +208,8 @@ var ReactChild;
 /**
  * @typedef {
  *   ReactChild|
- *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>
+ *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>|
+ *   Object.<boolean>|Object.<number>|Object.<string>|Object.<ReactElement>
  * }
  */
 var ReactChildrenArgument;
