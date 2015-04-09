@@ -175,11 +175,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       } catch (IOException e) {
         throw new RuntimeException(e); // Should never happen
       }
+      Result previousResult = compiler.getResult();
       templateTypesNode =
         compiler.parse(SourceFile.fromCode(TYPES_JS_RESOURCE_PATH, typesJs));
       Result result = compiler.getResult();
-      if (!result.success || result.errors.length > 0 ||
-          result.warnings.length > 0) {
+      if ((result.success != previousResult.success && previousResult.success) ||
+          result.errors.length > previousResult.errors.length ||
+          result.warnings.length > previousResult.warnings.length) {
         String message = "Could not parse " + TYPES_JS_RESOURCE_PATH + ".";
         if (result.errors.length > 0) {
           message += "\nErrors: " + Joiner.on(",").join(result.errors);
