@@ -133,7 +133,7 @@ ReactComponent.prototype.setState = function(state, callback) {};
 ReactComponent.prototype.replaceState = function(state, callback) {};
 
 /**
- * @return {ReactElement}
+ * @return {ReactElement|boolean}
  */
 ReactComponent.prototype.render = function() {};
 
@@ -481,7 +481,7 @@ ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
  * provided by a mixin.
  *
  * @param {{
- *     render: (function(): ReactElement|undefined),
+ *     render: ((function(): (ReactElement|boolean))|undefined),
  *     displayName: (string|undefined),
  *     propTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
  *     mixins: (Array.<Object>|undefined),
