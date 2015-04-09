@@ -35,13 +35,13 @@
   </target>
 
   <target name="jar" depends="compile">
-    <jar destfile="${build.dir}/react.jar" update="true">
+    <jar destfile="${build.dir}/react-closure-compiler.jar" update="true">
       <fileset dir="${classes.dir}" />
     </jar>
   </target>
 
   <target name="run-demo" depends="jar">
-    <java classpath="${build.dir}/react.jar;${plovr.dir}/build/plovr.jar"
+    <java classpath="${build.dir}/react-closure-compiler.jar;${plovr.dir}/build/plovr.jar"
           classname="org.plovr.cli.Main"
           dir="${demo.dir}"
           fork="true"
