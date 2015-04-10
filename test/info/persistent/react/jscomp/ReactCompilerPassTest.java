@@ -450,6 +450,18 @@ public class ReactCompilerPassTest {
       "});",
       // Same for invocations of built-in component methods.
       "JSC_INEXISTENT_PROPERTY");
+    test(
+      "var Comp = React.createClass({" +
+        "refAccess: function() {return this.refs[\"foo\"];}" +
+      "});",
+      // Refs can be accessed via quoted strings..
+      "");
+    testError(
+      "var Comp = React.createClass({" +
+        "refAccess: function() {return this.refs.foo;}" +
+      "});",
+      // ...but not as property accesses (since they may get renamed)
+      "JSC_ILLEGAL_PROPERTY_ACCESS");
   }
 
   /**

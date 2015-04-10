@@ -41,6 +41,12 @@ ReactClass.prototype.getDefaultProps = function() {};
 var ReactProps;
 
 /**
+ * @dict
+ * @constructor
+ */
+function ReactRefs() {}
+
+/**
  * @interface
  * @template T
  */
@@ -95,7 +101,7 @@ ReactComponent.prototype.props;
 ReactComponent.prototype.state;
 
 /**
- * @dict
+ * @type {ReactRefs}
  */
 ReactComponent.prototype.refs;
 
