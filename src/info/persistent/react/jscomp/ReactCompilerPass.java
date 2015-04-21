@@ -497,8 +497,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // avoid the compiler complaining dangerous use of "this" in a global
       // context.
       jsDocBuilder = newJsDocInfoBuilderForNode(func);
+      // TODO: Generate type for statics to use as the "this" type for
+      // getDefaultProps.
+      Node thisTypeNode = keyName.equals("getDefaultProps") ?
+          new Node(Token.STAR) : IR.string(typeName);
       jsDocBuilder.recordThisType(new JSTypeExpression(
-        IR.string(typeName), GENERATED_SOURCE_NAME));
+        thisTypeNode, GENERATED_SOURCE_NAME));
       func.setJSDocInfo(jsDocBuilder.build(func));
     }
 

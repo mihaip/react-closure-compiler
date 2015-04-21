@@ -635,6 +635,24 @@ public class ReactCompilerPassTest {
       "JSC_INEXISTENT_PROPERTY");
   }
 
+  @Test public void testGetDefaultPropsThis() {
+    test(
+      "var Comp = React.createClass({" +
+        "statics: {" +
+          "CONST: 123" +
+        "}," +
+        "getDefaultProps: function() {" +
+          "return {aProp: this.CONST}" +
+        "}," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});",
+      // "this" inside of getDefaultProps allows access to statics (i.e. we are
+      // not in a component instance).
+      "");
+  }
+
   @Test public void testPureRenderMixin() {
     test(
       "var Comp = React.createClass({" +
