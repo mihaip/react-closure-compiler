@@ -124,4 +124,4 @@ And then open the `demo/index.html` file in your browser (`file:///` URLs are fi
 
 ## Status
 
-This compiler pass has been test on toy inputs only. It is in the process of being integrated into [Quip](https://github.com/quip)'s JavaScript codebase (400+ React components), but it should _not_ be currently considered production-ready.
+This compiler pass has been integrated into [Quip](https://github.com/quip)'s JavaScript codebase (400+ React components). It is thus not _entirely_ scary code, but you will definitely want to check [the list of issues](https://github.com/mihaip/react-closure-compiler/issues) before using it.
