@@ -242,6 +242,23 @@ public class ReactCompilerPassTest {
       "");
   }
 
+  @Test public void testMixinsRepeatedMethods() {
+    test(
+      "var Mixin = React.createMixin({" +
+        "componentDidMount: function() {}" +
+      "});\n" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "componentDidMount: function() {}," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});",
+      // It's OK for a base class to redefine a mixin's method component
+      // lifecycle method.
+      "");
+  }
+
   @Test public void testNamespacedComponent() {
     test(
       "var ns = {};ns.Comp = React.createClass({" +

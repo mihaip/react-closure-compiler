@@ -2,6 +2,8 @@ package info.persistent.react.jscomp;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -546,6 +548,24 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         staticsInsertionPoint.getParent().addChildAfter(
             staticExprNode, staticsInsertionPoint);
         staticsInsertionPoint = staticExprNode;
+      }
+    }
+
+    // Trim duplicated properties that have accumulated (due to mixins defining
+    // a method and then classes overriding it). Keep the last one since it's
+    // from the class and thus most specific.
+    ListMultimap<String, Node> interfaceKeyNodes = ArrayListMultimap.create();
+    for (Node interfaceKeyNode = interfacePrototypeProps.getFirstChild();
+          interfaceKeyNode != null;
+          interfaceKeyNode = interfaceKeyNode.getNext()) {
+      interfaceKeyNodes.put(interfaceKeyNode.getString(), interfaceKeyNode);
+    }
+    for (String key : interfaceKeyNodes.keySet()) {
+      List<Node> keyNodes = interfaceKeyNodes.get(key);
+      if (keyNodes.size() > 1) {
+        for (Node keyNode : keyNodes.subList(0, keyNodes.size() - 1)) {
+          keyNode.detachFromParent();
+        }
       }
     }
 
