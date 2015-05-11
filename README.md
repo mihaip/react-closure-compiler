@@ -118,6 +118,7 @@ var Comp = React.createClass({
 * Use of ES6 class syntax has not been tested
 * Only simple mixins that are referenced by name in the `mixins` array are supported (e.g. dynamic mixins that are generated via function calls are not).
 * Automatic type annotation of `React.createElement` calls only works for direct references to component names. That is `var foo = Comp;var elem = React.createElement(foo)` will not result in elem getting the type `ReactElement.<Comp>` as expected. You will need to add a cast in that case.
+* If you use the minified version of React as an input, you will need to make some small modifications to it to quote object literal keys, otherwise the compiler will rename them. See #10 for more details.
 
 ## Demo
 
