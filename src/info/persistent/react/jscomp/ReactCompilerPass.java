@@ -401,13 +401,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // about all the methods that are present on the component. Having it as an
     // interface means that no extra code ends up being generated (and the
     // existing code is left untouched). The methods in the interface are just
-    // stubs -- they have the same parameters (and JSDoc is ccopied over, if
+    // stubs -- they have the same parameters (and JSDoc is copied over, if
     // any), but the body is empty.
     // The @typedef is added to the component variable so that user-authored
     // code can treat that as the type (the interface is an implementation
     // detail).
-    // The <type name>Element @typedef is designed to adding types to elements
-    // for that component less verbose.
+    // The <type name>Element @typedef is designed to make adding types to
+    // elements for that component less verbose.
     Node callParentNode = callNode.getParent();
     String typeName;
     Node typeAttachNode;
