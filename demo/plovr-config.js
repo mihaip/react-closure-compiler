@@ -2,7 +2,7 @@
   "id": "demo",
   "paths": ".",
   "inputs": [
-    "react-0.13.1-build/react-with-addons.js",
+    "react-0.13.1-build/react.js",
     "index.js"
   ],
   "mode": "ADVANCED",
