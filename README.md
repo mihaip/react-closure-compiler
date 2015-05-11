@@ -8,7 +8,12 @@ To build the project, use:
 
     ant jar
 
-That generates `lib/react-closure-compiler.jar`, which you can then integrate into your build process (by adding `info.persistent.react.jscomp.ReactWarningsGuard` as a warnings guard and `info.persistent.react.jscomp.ReactCompilerPass` as a custom pass to run before checks).
+That generates `lib/react-closure-compiler.jar`, which you can then integrate into your build process (by adding `info.persistent.react.jscomp.ReactWarningsGuard` as a warnings guard and `info.persistent.react.jscomp.ReactCompilerPass` as a custom pass to run before checks). Given a `CompilerOptions` instance, this is usually a matter of:
+
+    options.addWarningsGuard(new ReactWarningsGuard());
+    options.addCustomPass(
+            CustomPassExecutionTime.BEFORE_CHECKS,
+            new ReactCompilerPass(compiler));
 
 To run the tests, use:
 
