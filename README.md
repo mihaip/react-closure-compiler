@@ -2,6 +2,8 @@
 
 Tools for making [React](http://facebook.github.io/react/) work better with the [Closure Compiler](https://developers.google.com/closure/compiler/). Goes beyond [an externs file](https://github.com/steida/react-externs) and adds a custom warnings guard and compiler pass to teach the compiler about components and other React-specific concepts.
 
+See [this blog post](http://blog.persistent.info/2015/05/teaching-closure-compiler-about-react.html) for details about the motivation for this project.
+
 ## Building
 
 To build the project, use:
