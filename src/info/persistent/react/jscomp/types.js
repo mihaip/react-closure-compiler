@@ -26,6 +26,11 @@ ReactClass.prototype.propTypes;
 ReactClass.prototype.contextTypes;
 
 /**
+ * @type {Object.<ReactPropsChainableTypeChecker>|undefined}
+ */
+ReactClass.prototype.childContextTypes;
+
+/**
  * @type {string|undefined}
  */
 ReactClass.prototype.displayName;
@@ -120,6 +125,11 @@ ReactComponent.prototype.refs;
  * @return {Object}
  */
 ReactComponent.prototype.getInitialState = function() {};
+
+/**
+ * @return {Object}
+ */
+ReactComponent.prototype.getChildContext = function() {};
 
 /**
  * @param {Object} props
@@ -503,6 +513,7 @@ ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
  *     displayName: (string|undefined),
  *     propTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
  *     contextTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
+ *     childContextTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
  *     mixins: (Array.<Object>|undefined),
  *     statics: (Object|undefined)
  * }} specification
