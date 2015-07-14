@@ -21,6 +21,11 @@ function ReactClass() {}
 ReactClass.prototype.propTypes;
 
 /**
+ * @type {Object.<ReactPropsChainableTypeChecker>|undefined}
+ */
+ReactClass.prototype.contextTypes;
+
+/**
  * @type {string|undefined}
  */
 ReactClass.prototype.displayName;
@@ -99,6 +104,12 @@ ReactComponent.prototype.props;
  * @const
  */
 ReactComponent.prototype.state;
+
+/**
+ * @type {Object}
+ * @const
+ */
+ReactComponent.prototype.context;
 
 /**
  * @type {ReactRefs}
@@ -491,6 +502,7 @@ ReactModule.prototype.initializeTouchEvents = function(shouldUseTouch) {};
  *     render: ((function(): (ReactElement|boolean))|undefined),
  *     displayName: (string|undefined),
  *     propTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
+ *     contextTypes: (Object.<ReactPropsChainableTypeChecker>|undefined),
  *     mixins: (Array.<Object>|undefined),
  *     statics: (Object|undefined)
  * }} specification
@@ -581,3 +593,10 @@ ReactModule.prototype.addons;
  * @return {Object}
  */
 ReactModule.prototype.__spread = function(target, sources) {};
+
+/**
+ * @param {Object} newContext
+ * @param {function():ReactComponent|Array.<ReactComponent>} scopedCallback
+ * @return {ReactComponent|Array.<ReactComponent>}
+ */
+ReactModule.prototype.withContext = function(newContext, scopedCallback) {};
