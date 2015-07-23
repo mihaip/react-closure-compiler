@@ -559,7 +559,7 @@ ReactModule.prototype.cloneElement = function(element, props, children) {};
 ReactModule.prototype.createFactory = function(type) {};
 
 /**
- * @param {ReactElement|Element} componentOrElement
+ * @param {ReactComponent|Element} componentOrElement
  * @return {Element}
  */
 ReactModule.prototype.findDOMNode = function(componentOrElement) {};
