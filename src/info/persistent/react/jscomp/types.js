@@ -228,7 +228,12 @@ ReactComponent.prototype.componentDidUpdate = function(prevProps, prevState) {};
 ReactComponent.prototype.componentWillUnmount = function() {};
 
 /**
- * @typedef {boolean|number|string|ReactElement}
+ * @interface
+ */
+function ReactFragment() {}
+
+/**
+ * @typedef {boolean|number|string|ReactElement|ReactFragment}
  */
 var ReactChild;
 
@@ -447,7 +452,7 @@ ReactAddons.prototype.cloneWithProps = function(element, extraProps) {};
 
 /**
  * @param {Object.<string, ReactElement>} object
- * @return {*}
+ * @return {ReactFragment}
  */
 ReactAddons.prototype.createFragment = function(object) {};
 
