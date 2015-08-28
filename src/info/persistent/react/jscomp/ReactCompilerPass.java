@@ -764,6 +764,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (jsDoc.hasReturnType()) {
       funcJsDocBuilder.recordReturnType(jsDoc.getReturnType());
     }
+    for (String templateTypeName : jsDoc.getTemplateTypeNames()) {
+      funcJsDocBuilder.recordTemplateTypeName(templateTypeName);
+    }
+    for (Map.Entry<String, Node> entry :
+        jsDoc.getTypeTransformations().entrySet()) {
+      funcJsDocBuilder.recordTypeTransformation(
+          entry.getKey(), entry.getValue());
+    }
     func.setJSDocInfo(funcJsDocBuilder.build(func));
   }
 

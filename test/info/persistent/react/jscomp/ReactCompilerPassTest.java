@@ -240,6 +240,23 @@ public class ReactCompilerPassTest {
       "});",
       //  ...or rename them.
       "");
+    test(
+      "var Mixin = React.createMixin({});" +
+      "/**\n" +
+      " * @param {T} param1\n" +
+      " * @return {T}\n" +
+      " * @template T\n" +
+      " */" +
+      "Mixin.mixinAbstractMethod;" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "return React.createElement(\"div\");" +
+        "}," +
+        "mixinAbstractMethod: function(param1) {return param1}" +
+      "});",
+      // Template types are copied over.
+      "");
   }
 
   @Test public void testMixinsRepeatedMethods() {
