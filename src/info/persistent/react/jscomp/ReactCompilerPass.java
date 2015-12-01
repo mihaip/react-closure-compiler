@@ -9,6 +9,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
+import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerInput;
 import com.google.javascript.jscomp.DiagnosticType;
@@ -109,6 +110,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final Map<String, Map<String, JSDocInfo>>
       mixinAbstractMethodJsDocsByName = Maps.newHashMap();
 
+  // Make debugging test failures easier by allowing the processed output to
+  // be inspected.
+  static boolean saveLastOutputForTests = false;
+  static String lastOutputForTests;
+
   public ReactCompilerPass(AbstractCompiler compiler) {
     this.compiler = (Compiler) compiler;
   }
@@ -123,6 +129,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     addExterns();
     addTypes(root);
     hotSwapScript(root, null);
+    if (saveLastOutputForTests) {
+      lastOutputForTests = new CodePrinter.Builder(root)
+          .setPrettyPrint(true)
+          .build();
+    } else {
+      lastOutputForTests = null;
+    }
   }
 
   /**

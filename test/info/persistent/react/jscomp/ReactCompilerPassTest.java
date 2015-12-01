@@ -795,13 +795,20 @@ public class ReactCompilerPassTest {
           " */" +
           "String.prototype.charAt = function(index) {};")
     );
+
+    ReactCompilerPass.saveLastOutputForTests = true;
+
     Result result = compiler.compile(externs, inputs, options);
+    String lastOutput = "\n\nCompiler pass output:\n" +
+        ReactCompilerPass.lastOutputForTests + "\n";
     if (expectedError == null) {
       assertEquals(
-          "Unexpected errors: " + Joiner.on(",").join(result.errors),
+          "Unexpected errors: " + Joiner.on(",").join(result.errors) +
+              lastOutput,
           0, result.errors.length);
       assertEquals(
-          "Unexpected warnings: " + Joiner.on(",").join(result.warnings),
+          "Unexpected warnings: " + Joiner.on(",").join(result.warnings) +
+              lastOutput,
           0, result.warnings.length);
       assertTrue(result.success);
       String actualJs = compiler.toSource();
@@ -824,10 +831,12 @@ public class ReactCompilerPassTest {
       }
       assertTrue(
           "Did not find expected error " + expectedError +
-              ", instead found " + Joiner.on(",").join(result.errors),
+              ", instead found " + Joiner.on(",").join(result.errors) +
+              lastOutput,
           foundError);
       assertEquals(
-          "Unexpected warnings: " + Joiner.on(",").join(result.warnings),
+          "Unexpected warnings: " + Joiner.on(",").join(result.warnings) +
+              lastOutput,
           0, result.warnings.length);
     }
   }
