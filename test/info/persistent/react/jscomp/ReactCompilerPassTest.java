@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.CheckLevel;
+import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.CompilationLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -801,6 +802,14 @@ public class ReactCompilerPassTest {
     Result result = compiler.compile(externs, inputs, options);
     String lastOutput = "\n\nCompiler pass output:\n" +
         ReactCompilerPass.lastOutputForTests + "\n";
+    if (compiler.getRoot() != null) {
+      lastOutput += "Final compiler output:\n" + new CodePrinter.Builder(compiler.getRoot())
+          .setPrettyPrint(true)
+          .setOutputTypes(true)
+          .setTypeRegistry(compiler.getTypeIRegistry())
+          .build() +
+          "\n";
+    }
     if (expectedError == null) {
       assertEquals(
           "Unexpected errors: " + Joiner.on(",").join(result.errors) +
