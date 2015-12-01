@@ -747,7 +747,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         // doesn't flag this as useless code.
         // TODO: synthesize type based on value if it's a simple constant
         // like a function or number.
-        staticJsDoc = (new JSDocInfoBuilder(true)).build();
+        staticJsDoc = new JSDocInfoBuilder(true).build(true);
       } else {
         staticJsDoc = staticJsDoc.clone();
       }
