@@ -776,7 +776,7 @@ public class ReactCompilerPassTest {
     options.setPrintInputDelimiter(true);
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
-        (CompilerPass) new ReactCompilerPass(compiler));
+        new ReactCompilerPass(compiler));
     List<SourceFile> inputs = ImmutableList.of(
         SourceFile.fromCode(reactSourceName, REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
