@@ -144,7 +144,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordType(new JSTypeExpression(
         IR.string("ReactModule"), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
-    reactVarNode.setJSDocInfo(jsDocBuilder.build(reactVarNode));
+    reactVarNode.setJSDocInfo(jsDocBuilder.build());
     CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
     externsInput.getAstRoot(compiler).addChildrenToBack(reactVarNode);
 
@@ -234,7 +234,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             TYPES_JS_RESOURCE_PATH));
       jsDocBuilder.recordReturnType(new JSTypeExpression(
           IR.string("ReactDOMElement"), TYPES_JS_RESOURCE_PATH));
-      tagFuncNode.setJSDocInfo(jsDocBuilder.build(tagFuncNode));
+      tagFuncNode.setJSDocInfo(jsDocBuilder.build());
       for (String tagName : REACT_DOM_TAG_NAMES) {
         templateTypesNode.addChildToBack(NodeUtil.newQNameDeclaration(
           compiler,
@@ -430,7 +430,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordTypedef(new JSTypeExpression(
         IR.string(interfaceTypeName),
         GENERATED_SOURCE_NAME));
-    typeAttachNode.setJSDocInfo(jsDocBuilder.build(typeAttachNode));
+    typeAttachNode.setJSDocInfo(jsDocBuilder.build());
 
     // Record the type so that we can later look it up in React.createElement
     // calls.
@@ -505,7 +505,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           new Node(Token.STAR) : IR.string(typeName);
       jsDocBuilder.recordThisType(new JSTypeExpression(
         thisTypeNode, GENERATED_SOURCE_NAME));
-      func.setJSDocInfo(jsDocBuilder.build(func));
+      func.setJSDocInfo(jsDocBuilder.build());
     }
 
     if (usesPureRenderMixin && hasShouldComponentUpdate) {
@@ -527,7 +527,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (elementTypedefNode.isName()) {
       elementTypedefNode = IR.var(elementTypedefNode);
     }
-    elementTypedefNode.setJSDocInfo(jsDocBuilder.build(elementTypedefNode));
+    elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
     if (!elementTypedefNode.isVar()) {
       elementTypedefNode = IR.exprResult(elementTypedefNode);
     }
@@ -582,7 +582,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
         new Node(Token.BANG, IR.string("ReactComponent")),
         GENERATED_SOURCE_NAME));
-    interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build(interfaceTypeFunctionNode));
+    interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build());
     Node interfaceTypeInsertionPoint = callParentNode.getParent();
     interfaceTypeInsertionPoint.getParent().addChildBefore(
         interfaceTypeNode, interfaceTypeInsertionPoint);
@@ -734,7 +734,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         // doesn't flag this as useless code.
         // TODO: synthesize type based on value if it's a simple constant
         // like a function or number.
-        staticJsDoc = new JSDocInfo(true);
+        staticJsDoc = (new JSDocInfoBuilder(true)).build();
       } else {
         staticJsDoc = staticJsDoc.clone();
       }
@@ -772,7 +772,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       funcJsDocBuilder.recordTypeTransformation(
           entry.getKey(), entry.getValue());
     }
-    func.setJSDocInfo(funcJsDocBuilder.build(func));
+    func.setJSDocInfo(funcJsDocBuilder.build());
   }
 
   private boolean validateCreateTypeUsage(Node n) {
@@ -827,7 +827,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
         elementTypeExpressionNode, GENERATED_SOURCE_NAME));
-    castNode.setJSDocInfo(jsDocBuilder.build(castNode));
+    castNode.setJSDocInfo(jsDocBuilder.build());
     callNode.getParent().replaceChild(callNode, castNode);
   }
 
