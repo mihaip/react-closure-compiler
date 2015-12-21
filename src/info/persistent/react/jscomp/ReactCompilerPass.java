@@ -508,7 +508,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
       // Gather method signatures so that we can declare them where the compiler
       // can see them.
-      addFuncToInterface(keyName, func, interfacePrototypeProps);
+      addFuncToInterface(
+            keyName, func, interfacePrototypeProps, key.getJSDocInfo());
 
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
@@ -662,7 +663,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     Node interfacePrototypeProps =
         reactMixinInterfacePrototypePropsByName.get(mixinName);
-    addFuncToInterface(methodName, abstractFuncNode, interfacePrototypeProps);
+    addFuncToInterface(
+        methodName,
+        abstractFuncNode,
+        interfacePrototypeProps,
+        getPropNode.getJSDocInfo());
 
     return true;
   }
@@ -710,7 +715,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         if (mixinSpecKey.hasOneChild() &&
             mixinSpecKey.getFirstChild().isFunction()) {
           addFuncToInterface(
-              keyName, mixinSpecKey.getFirstChild(), interfacePrototypeProps);
+              keyName,
+              mixinSpecKey.getFirstChild(),
+              interfacePrototypeProps,
+              mixinSpecKey.getJSDocInfo());
         }
       }
     }
@@ -718,7 +726,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static void addFuncToInterface(
-      String name, Node funcNode, Node interfacePrototypeProps) {
+      String name, Node funcNode, Node interfacePrototypeProps,
+      JSDocInfo jsDocInfo) {
     // Semi-shallow copy (just parameters) so that we don't copy the function
     // implementation.
     Node methodNode = funcNode.cloneNode();
@@ -730,8 +739,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           methodNode.addChildToBack(funcChild.cloneNode());
         }
     }
-    interfacePrototypeProps.addChildrenToBack(
-      IR.stringKey(name, methodNode));
+    Node keyNode = IR.stringKey(name, methodNode);
+    if (jsDocInfo != null) {
+        keyNode.setJSDocInfo(jsDocInfo);
+    }
+    interfacePrototypeProps.addChildrenToBack(keyNode);
   }
 
   private void gatherStaticsJsDocs(
