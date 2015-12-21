@@ -21,7 +21,8 @@ public class AstDump {
     );
 
     CompilerOptions options = new CompilerOptions();
-    Result result = compiler.compile(Collections.emptyList(), inputs, options);
+    Result result = compiler.compile(
+        Collections.<SourceFile>emptyList(), inputs, options);
     dump(compiler.getRoot(), 0, System.out);
     System.out.append("\n");
   }
