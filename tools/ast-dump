@@ -1,0 +1,17 @@
+#!/bin/bash
+
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+buildfile="$scriptdir/../build.xml"
+
+ant -f "$buildfile" compile
+if [ $? -ne 0 ]
+then
+  echo "Could not recompile"
+  exit 1
+fi
+
+classesdir="$scriptdir/../build/classes"
+libdir="$scriptdir/../lib"
+
+
+exec java -classpath "$classesdir:$libdir/closure-compiler-20151216.jar" info.persistent.jscomp.AstDump "$@"
