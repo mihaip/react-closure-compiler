@@ -489,7 +489,7 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "refAccess: function() {return this.refs[\"foo\"];}" +
       "});",
-      // Refs can be accessed via quoted strings..
+      // Refs can be accessed via quoted strings.
       "");
     testError(
       "var Comp = React.createClass({" +
