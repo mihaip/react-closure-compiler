@@ -498,12 +498,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // for interface extending interfaces in any case).
       JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
       if (componentMethodJsDoc != null) {
-        mergeInJsDoc(func, componentMethodJsDoc);
+        mergeInJsDoc(key, func, componentMethodJsDoc);
       }
       // Ditto for abstract methods from mixins.
       JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
       if (abstractMethodJsDoc != null) {
-        mergeInJsDoc(func, abstractMethodJsDoc);
+        mergeInJsDoc(key, func, abstractMethodJsDoc);
       }
 
       // Gather method signatures so that we can declare them where the compiler
@@ -514,14 +514,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
       // context.
-      jsDocBuilder = newJsDocInfoBuilderForNode(func);
+      jsDocBuilder = newJsDocInfoBuilderForNode(key);
       // TODO: Generate type for statics to use as the "this" type for
       // getDefaultProps.
       Node thisTypeNode = keyName.equals("getDefaultProps") ?
           new Node(Token.STAR) : IR.string(typeName);
       jsDocBuilder.recordThisType(new JSTypeExpression(
         thisTypeNode, GENERATED_SOURCE_NAME));
-      func.setJSDocInfo(jsDocBuilder.build());
+      key.setJSDocInfo(jsDocBuilder.build());
     }
 
     if (usesPureRenderMixin && hasShouldComponentUpdate) {
@@ -741,7 +741,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     Node keyNode = IR.stringKey(name, methodNode);
     if (jsDocInfo != null) {
-        keyNode.setJSDocInfo(jsDocInfo);
+        keyNode.setJSDocInfo(jsDocInfo.clone());
     }
     interfacePrototypeProps.addChildrenToBack(keyNode);
   }
@@ -769,37 +769,36 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
   }
 
-  private static void mergeInJsDoc(Node func, JSDocInfo jsDoc) {
+  private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc) {
     List<String> funcParamNames = Lists.newArrayList();
     for (Node param : NodeUtil.getFunctionParameters(func).children()) {
       if (param.isName()) {
         funcParamNames.add(param.getString());
       }
     }
-    JSDocInfoBuilder funcJsDocBuilder = newJsDocInfoBuilderForNode(func);
+    JSDocInfoBuilder jsDocBuilder = newJsDocInfoBuilderForNode(key);
     if (!funcParamNames.isEmpty()) {
       for (String parameterName : jsDoc.getParameterNames()) {
         JSTypeExpression parameterType = jsDoc.getParameterType(parameterName);
         // Use the parameter names in the implementation, not the original
         parameterName = funcParamNames.remove(0);
-        funcJsDocBuilder.recordParameter(parameterName, parameterType);
+        jsDocBuilder.recordParameter(parameterName, parameterType);
         if (funcParamNames.isEmpty()) {
           break;
         }
       }
     }
     if (jsDoc.hasReturnType()) {
-      funcJsDocBuilder.recordReturnType(jsDoc.getReturnType());
+      jsDocBuilder.recordReturnType(jsDoc.getReturnType());
     }
     for (String templateTypeName : jsDoc.getTemplateTypeNames()) {
-      funcJsDocBuilder.recordTemplateTypeName(templateTypeName);
+      jsDocBuilder.recordTemplateTypeName(templateTypeName);
     }
     for (Map.Entry<String, Node> entry :
         jsDoc.getTypeTransformations().entrySet()) {
-      funcJsDocBuilder.recordTypeTransformation(
-          entry.getKey(), entry.getValue());
+      jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
     }
-    func.setJSDocInfo(funcJsDocBuilder.build());
+    key.setJSDocInfo(jsDocBuilder.build());
   }
 
   private boolean validateCreateTypeUsage(Node n) {
