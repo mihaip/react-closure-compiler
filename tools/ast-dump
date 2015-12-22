@@ -11,7 +11,9 @@ then
 fi
 
 classesdir="$scriptdir/../build/classes"
-libdir="$scriptdir/../lib"
+compilerjar="$($)"
+for jar in $scriptdir/../lib/closure-compiler-*.jar; do
+  compilerjar=$jar
+done
 
-
-exec java -classpath "$classesdir:$libdir/closure-compiler-20151216.jar" info.persistent.jscomp.AstDump "$@"
+exec java -classpath "$classesdir:$compilerjar" info.persistent.jscomp.AstDump "$@"
