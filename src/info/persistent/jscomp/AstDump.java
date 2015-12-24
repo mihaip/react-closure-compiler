@@ -8,6 +8,7 @@ import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.Node;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 
@@ -17,7 +18,7 @@ public class AstDump {
     compiler.disableThreads(); // Makes errors easier to track down.
 
     List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromInputStream("stdin", System.in)
+        SourceFile.fromInputStream("stdin", System.in, StandardCharsets.UTF_8)
     );
 
     CompilerOptions options = new CompilerOptions();

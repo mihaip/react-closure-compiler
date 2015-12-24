@@ -209,7 +209,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         throw new RuntimeException(message);
       }
       // Gather ReactComponent prototype methods.
-      NodeTraversal.traverse(
+      NodeTraversal.traverseEs6(
           compiler,
           templateTypesNode,
           new NodeTraversal.AbstractPostOrderCallback() {
@@ -284,7 +284,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
+    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
     // Inline React.createMixin calls, since they're just decorators.
     boolean inlinedMixin = false;
     for (Node mixinSpecNode : reactMixinsByName.values()) {

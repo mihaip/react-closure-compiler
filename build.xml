@@ -24,6 +24,7 @@
       <classpath>
         <fileset dir="${lib.dir}" includes="*.jar" />
       </classpath>
+      <compilerarg value="-Xlint:deprecation"/>
     </javac>
 
     <!-- Copy resources needed. -->
@@ -60,6 +61,7 @@
         <pathelement location="${classes.dir}" />
         <fileset dir="${lib.dir}" includes="*.jar" />
       </classpath>
+      <compilerarg value="-Xlint:deprecation"/>
     </javac>
 
     <!-- Copy resources needed. -->
