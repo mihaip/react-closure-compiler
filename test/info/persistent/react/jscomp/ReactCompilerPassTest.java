@@ -80,6 +80,21 @@ public class ReactCompilerPassTest {
         "$render$:function(){return React.$createElement$(\"div\")}," +
         "$method$:function(){window.$foo$=123}" +
       "})),document.body).$method$();");
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "/** @private */" +
+        "privateMethod1_: function(a) {window.foo = 123 + a;}," +
+        "/** @private */" +
+        "privateMethod2_: function() {this.privateMethod1_(1);}" +
+      "});" +
+      "React.render(React.createElement(Comp), document.body);",
+      // Private methods should be invokable.
+      "React.$render$(React.$createElement$(React.$createClass$({" +
+        "$render$:function(){return React.$createElement$(\"div\")}," +
+        "$privateMethod1_$:function($a$$2$$){window.$foo$=123+$a$$2$$}," +
+        "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
+      "})),document.body);");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}," +
@@ -141,7 +156,7 @@ public class ReactCompilerPassTest {
       "var Mixin = React.createMixin({" +
         "mixinMethod: function() {window.foo=this.mixinAbstractMethod()}" +
       "});" +
-      "/** @return {number} */" +
+      "/** @return {number} @protected */" +
       "Mixin.mixinAbstractMethod;" +
       "var Comp = React.createClass({" +
         "mixins: [Mixin]," +

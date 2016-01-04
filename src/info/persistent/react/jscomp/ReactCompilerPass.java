@@ -661,6 +661,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (abstractFuncJsDoc != null) {
       abstractFuncNode.setJSDocInfo(abstractFuncJsDoc.clone());
     }
+    abstractFuncNode.setStaticSourceFile(value.getStaticSourceFile());
     Node interfacePrototypeProps =
         reactMixinInterfacePrototypePropsByName.get(mixinName);
     addFuncToInterface(
@@ -714,18 +715,22 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
         if (mixinSpecKey.hasOneChild() &&
             mixinSpecKey.getFirstChild().isFunction()) {
-          addFuncToInterface(
+          Node keyNode = addFuncToInterface(
               keyName,
               mixinSpecKey.getFirstChild(),
               interfacePrototypeProps,
               mixinSpecKey.getJSDocInfo());
+          // Since mixins are effectively copied into the type, their source
+          // file is the type's (allow private methods from mixins to be
+          // called).
+          keyNode.setStaticSourceFile(mixinsNode.getStaticSourceFile());
         }
       }
     }
     return mixinNames;
   }
 
-  private static void addFuncToInterface(
+  private static Node addFuncToInterface(
       String name, Node funcNode, Node interfacePrototypeProps,
       JSDocInfo jsDocInfo) {
     // Semi-shallow copy (just parameters) so that we don't copy the function
@@ -740,10 +745,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
     }
     Node keyNode = IR.stringKey(name, methodNode);
+    keyNode.setStaticSourceFile(funcNode.getStaticSourceFile());
     if (jsDocInfo != null) {
         keyNode.setJSDocInfo(jsDocInfo.clone());
     }
     interfacePrototypeProps.addChildrenToBack(keyNode);
+    return keyNode;
   }
 
   private void gatherStaticsJsDocs(
