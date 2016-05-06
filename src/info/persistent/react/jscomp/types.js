@@ -135,6 +135,7 @@ ReactComponent.prototype.getChildContext = function() {};
  * @param {Object} props
  * @param {function(): void=} callback
  * @return {void}
+ * @deprecated
  */
 ReactComponent.prototype.setProps = function(props, callback) {};
 
@@ -142,6 +143,7 @@ ReactComponent.prototype.setProps = function(props, callback) {};
  * @param {Object} props
  * @param {function(): void=} callback
  * @return {void}
+ * @deprecated
  */
 ReactComponent.prototype.replaceProps = function(props, callback) {};
 
@@ -284,7 +286,60 @@ ReactChildren.prototype.only = function(children) {};
  *
  * @interface
  */
-function ReactDOM() {};
+function ReactDOMModule() {};
+
+/**
+ * @param {ReactElement.<T>} element
+ * @param {Element} container
+ * @param {function()=} callback
+ * @return {T}
+ * @template T
+ */
+ReactDOMModule.prototype.render = function(element, container, callback) {};
+
+/**
+ * @param {Element} container
+ * @return {boolean}
+ */
+ReactDOMModule.prototype.unmountComponentAtNode = function(container) {};
+
+/**
+ * @param {ReactComponent|Element} componentOrElement
+ * @return {?Element}
+ */
+ReactDOMModule.prototype.findDOMNode = function(componentOrElement) {};
+
+/**
+ * @param {function()} callback
+ * @return {void}
+ */
+ReactDOMModule.prototype.unstable_batchedUpdates = function(callback) {};
+
+/**
+ * @param {ReactComponent} parentComponent
+ * @param {ReactElement} nextElement
+ * @param {Element} container
+ * @param {?function()} callback
+ * @return {ReactComponent}
+ */
+ReactDOMModule.prototype.unstable_renderSubtreeIntoContainer = function(parentComponent, nextElement, container, callback) {};
+
+/**
+ * @interface
+ */
+function ReactDOMServerModule() {};
+
+/**
+ * @param {ReactElement} element
+ * @return {string}
+ */
+ReactDOMServerModule.prototype.renderToStaticMarkup = function(element) {};
+
+/**
+ * @param {ReactElement} element
+ * @return {string}
+ */
+ReactDOMServerModule.prototype.renderToString = function(element) {};
 
 /**
  * Parameters are: props, propName, componentName, location.
@@ -447,6 +502,7 @@ ReactAddons.prototype.classSet = function(objectOrClassName, classNames) {};
  * @param {Object=} extraProps
  * @return {ReactElement.<T>}
  * @template T
+ * @deprecated
  */
 ReactAddons.prototype.cloneWithProps = function(element, extraProps) {};
 
@@ -492,7 +548,7 @@ ReactModule.prototype.Children;
 ReactModule.prototype.Component;
 
 /**
- * @type {ReactDOM}
+ * @type {ReactDOMModule}
  * @const
  */
 ReactModule.prototype.DOM;
@@ -561,6 +617,7 @@ ReactModule.prototype.createFactory = function(type) {};
 /**
  * @param {ReactComponent|Element} componentOrElement
  * @return {Element}
+ * @deprecated
  */
 ReactModule.prototype.findDOMNode = function(componentOrElement) {};
 
@@ -570,24 +627,28 @@ ReactModule.prototype.findDOMNode = function(componentOrElement) {};
  * @param {function()=} callback
  * @return {T}
  * @template T
+ * @deprecated
  */
 ReactModule.prototype.render = function(element, container, callback) {};
 
 /**
  * @param {ReactElement} element
  * @return {string}
+ * @deprecated
  */
 ReactModule.prototype.renderToString = function(element) {};
 
 /**
  * @param {ReactElement} element
  * @return {string}
+ * @deprecated
  */
 ReactModule.prototype.renderToStaticMarkup = function(element) {};
 
 /**
  * @param {Element} container
  * @return {boolean}
+ * @deprecated
  */
 ReactModule.prototype.unmountComponentAtNode = function(container) {};
 
@@ -609,10 +670,3 @@ ReactModule.prototype.addons;
  * @return {Object}
  */
 ReactModule.prototype.__spread = function(target, sources) {};
-
-/**
- * @param {Object} newContext
- * @param {function():ReactComponent|Array.<ReactComponent>} scopedCallback
- * @return {ReactComponent|Array.<ReactComponent>}
- */
-ReactModule.prototype.withContext = function(newContext, scopedCallback) {};

@@ -57,9 +57,9 @@ public class ReactCompilerPassTest {
             "\"div\", null, React.DOM.span(null, \"child\"));" +
           "}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(Comp), document.body);",
       // createClass and other React methods should get renamed.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){" +
           "return React.$createElement$(" +
             "\"div\",null,React.$DOM$.$span$(null,\"child\"))" +
@@ -73,10 +73,10 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}," +
         "method: function() {window.foo = 123;}" +
       "});" +
-      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.method();",
       // Method invocations should not result in warnings if they're known.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
         "$method$:function(){window.$foo$=123}" +
       "})),document.body).$method$();");
@@ -88,9 +88,9 @@ public class ReactCompilerPassTest {
         "/** @private */" +
         "privateMethod2_: function() {this.privateMethod1_(1);}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(Comp), document.body);",
       // Private methods should be invokable.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
         "$privateMethod1_$:function($a$$2$$){window.$foo$=123+$a$$2$$}," +
         "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
@@ -101,7 +101,7 @@ public class ReactCompilerPassTest {
         "/** @param {number} a */" +
         "method: function(a) {window.foo = a;}" +
       "});" +
-      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.method('notanumber');",
       // Their arguments should be validated.
       "JSC_TYPE_MISMATCH");
@@ -109,7 +109,7 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
-      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.unknownMethod()",
       // And unknown methods should be flagged.
       "JSC_INEXISTENT_PROPERTY");
@@ -132,12 +132,12 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}" +
       "});" +
-      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.mixinMethod();" +
       "inst.chainedMixinMethod();",
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
-      "var $inst$$=React.$render$(React.$createElement$(React.$createClass$({" +
+      "var $inst$$=ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$mixins$:[{" +
           "$mixins$:[{" +
             "$chainedMixinMethod$:function(){window.$foo$=456}" +
@@ -166,9 +166,9 @@ public class ReactCompilerPassTest {
         "}," +
         "mixinAbstractMethod: function() {return 123;}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$mixins$:[{" +
           "$mixinMethod$:function(){window.$foo$=123}" +
         "}]," +
@@ -190,7 +190,7 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}" +
       "});" +
-      "var inst = React.render(React.createElement(Comp), document.body);" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.mixinMethod(\"notanumber\");",
       // Mixin methods should have their parameter types check when invoked from
       // the component.
@@ -297,9 +297,9 @@ public class ReactCompilerPassTest {
       "var ns = {};ns.Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
-      "React.render(React.createElement(ns.Comp), document.body);",
+      "ReactDOM.render(React.createElement(ns.Comp), document.body);",
       // createClass and other React methods should get renamed.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}" +
       "})),document.body);");
   }
@@ -319,9 +319,9 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}," +
         "method: function() {this.setState({foo: 123});}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(Comp), document.body);",
       // Use of "this" should not cause any warnings.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
         "$method$:function(){this.$setState$({$foo$:123})}" +
       "})),document.body);");
@@ -455,7 +455,7 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body, 123);",
+      "ReactDOM.render(React.createElement(Comp), document.body, 123);",
       "JSC_TYPE_MISMATCH");
     testError(
       "var Comp = React.createClass({" +
@@ -544,8 +544,8 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\", null, this.props.aProp);" +
         "}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
         "$render$:function(){" +
           "return React.$createElement$(\"div\",null,this.$props$.$aProp$)" +
@@ -610,8 +610,8 @@ public class ReactCompilerPassTest {
         "propTypes: {aProp: React.PropTypes.string}," +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
@@ -627,8 +627,8 @@ public class ReactCompilerPassTest {
               "\"div\", null, React.Children.only(this.props.children));" +
           "}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){" +
           "return React.$createElement$(" +
               "\"div\",null,React.$Children$.$only$(this.$props$.$children$))" +
@@ -641,7 +641,34 @@ public class ReactCompilerPassTest {
     test("React.DOM.span(null)", "");
     test("React.DOM.span(null, \"1\")", "");
     test("React.DOM.span(null, \"1\", React.DOM.i())", "");
+    test("var Comp = React.createClass({});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(" +
+      "React.$createClass$({})" +
+      "),document.body);");
+    test("ReactDOM.findDOMNode(document.body);",
+      "ReactDOM.$findDOMNode$(document.body);");
+    testError("ReactDOM.findDOMNode([document.body]);", "JSC_TYPE_MISMATCH");
+    test("ReactDOM.unmountComponentAtNode(document.body);",
+      "ReactDOM.$unmountComponentAtNode$(document.body);");
+    testError("ReactDOM.unmountComponentAtNode(\"notanode\");",
+      "JSC_TYPE_MISMATCH");
     testError("React.DOM.span(1)", "JSC_TYPE_MISMATCH");
+  }
+
+  @Test public void testReactDOMServer() {
+    test("var Comp = React.createClass({});" +
+      "ReactDOMServer.renderToString(React.createElement(Comp));",
+      "ReactDOMServer.$renderToString$(" +
+      "React.$createElement$(React.$createClass$({})));");
+    testError("ReactDOMServer.renderToString(\"notanelement\");",
+      "JSC_TYPE_MISMATCH");
+    test("var Comp = React.createClass({});" +
+      "ReactDOMServer.renderToStaticMarkup(React.createElement(Comp));",
+      "ReactDOMServer.$renderToStaticMarkup$(" +
+      "React.$createElement$(React.$createClass$({})));");
+    testError("ReactDOMServer.renderToStaticMarkup(\"notanelement\");",
+      "JSC_TYPE_MISMATCH");
   }
 
   /**
@@ -711,9 +738,9 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}" +
       "});" +
-      "React.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(Comp), document.body);",
       // Should be fine to use React.addons.PureRenderMixin.
-      "React.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$mixins$:[React.$addons$.$PureRenderMixin$]," +
         "$render$:function(){" +
           "return React.$createElement$(\"div\")" +
@@ -840,7 +867,7 @@ public class ReactCompilerPassTest {
       assertNotEquals(-1, inputIndex);
       actualJs = actualJs.substring(
           inputIndex + ACTUAL_JS_INPUT_MARKER.length());
-      assertEquals(expectedJs, actualJs);
+      assertEquals(lastOutput, expectedJs, actualJs);
     } else {
       assertFalse(
           "Expected failure, instead got output: " + compiler.toSource(),
