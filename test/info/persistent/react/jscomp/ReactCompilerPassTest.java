@@ -867,7 +867,7 @@ public class ReactCompilerPassTest {
       assertNotEquals(-1, inputIndex);
       actualJs = actualJs.substring(
           inputIndex + ACTUAL_JS_INPUT_MARKER.length());
-      assertEquals(lastOutput, expectedJs, actualJs);
+      assertEquals(expectedJs, actualJs);
     } else {
       assertFalse(
           "Expected failure, instead got output: " + compiler.toSource(),
