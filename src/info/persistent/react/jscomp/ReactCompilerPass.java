@@ -149,12 +149,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
    *  * /
    * var <moduleName>;
    */
-  private void addExternModule(String moduleName, String type,
+  private void addExternModule(String moduleName, String moduleType,
       CompilerInput externsInput) {
     Node reactVarNode = IR.var(IR.name(moduleName));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        IR.string(type), EXTERNS_SOURCE_NAME));
+        IR.string(moduleType), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build());
     externsInput.getAstRoot(compiler).addChildrenToBack(reactVarNode);
