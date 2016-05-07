@@ -141,28 +141,37 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   /**
-   * The compiler isn't aware of the React symbol that is exported from React,
-   *  inform it via an extern. Equivalent to a file with:
+   * Adds the definition equivalent to a file with:
    *
    * /**
-   *  * @type {ReactModule}
+   *  * @type {<moduleType>}
    *  * @const
    *  * /
-   * var React;
-   *
-   * TODO(mihai): figure out a way to do this without externs, so that the
-   * symbol can get renamed.
+   * var <moduleName>;
    */
-  private void addExterns() {
-    Node reactVarNode = IR.var(IR.name("React"));
+  private void addExternModule(String moduleName, String moduleType,
+      CompilerInput externsInput) {
+    Node reactVarNode = IR.var(IR.name(moduleName));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        IR.string("ReactModule"), EXTERNS_SOURCE_NAME));
+        IR.string(moduleType), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build());
-    CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
     externsInput.getAstRoot(compiler).addChildrenToBack(reactVarNode);
+  }
 
+  /**
+   * The compiler isn't aware of the React* symbols that are exported from
+   * React, inform it via an extern.
+   *
+   * TODO(mihai): figure out a way to do this without externs, so that the
+   * symbols can get renamed.
+   */
+  private void addExterns() {
+    CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
+    addExternModule("React", "ReactModule", externsInput);
+    addExternModule("ReactDOM", "ReactDOMModule", externsInput);
+    addExternModule("ReactDOMServer", "ReactDOMServerModule", externsInput);
     compiler.reportCodeChange();
   }
 
@@ -225,13 +234,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
                   n.getJSDocInfo());
             }
           });
-      // Inject ReactDOM methods for each tag, of the form:
+      // Inject ReactDOMModule methods for each tag, of the form:
       // /**
       // * @param {Object=} props
       // * @param {...ReactChildrenArgument} children
       // * @return {ReactDOMElement}
       // */
-      // ReactDOM.prototype.<tagName> = function(props, children) {};
+      // ReactDOMModule.prototype.<tagName> = function(props, children) {};
       Node tagFuncNode = IR.function(
           IR.name(""),
           IR.paramList(IR.name("props"), IR.name("children")),
@@ -253,7 +262,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       for (String tagName : REACT_DOM_TAG_NAMES) {
         templateTypesNode.addChildToBack(NodeUtil.newQNameDeclaration(
           compiler,
-          "ReactDOM.prototype." + tagName,
+          "ReactDOMModule.prototype." + tagName,
           tagFuncNode.cloneTree(),
           null));
       }
