@@ -47,10 +47,10 @@ The Closure Compiler will know about three types:
 
 See [this page](https://facebook.github.io/react/docs/glossary.html) for more details on React terminology and [`types.js`](https://github.com/mihaip/react-closure-compiler/blob/master/src/info/persistent/react/jscomp/types.js) in this repository for the full type hierarchy that is implemented.
 
-This means that for example you can use `/** @type {Comp} */` to annotate functions that return a _rendered_ instance of `Comp`. Additionally, `React.render` invocations on JSX tags or explicit `React.createElement` calls are automatically annotated with the correct type. That is, given:
+This means that for example you can use `/** @type {Comp} */` to annotate functions that return a _rendered_ instance of `Comp`. Additionally, `ReactDOM.render` invocations on JSX tags or explicit `React.createElement` calls are automatically annotated with the correct type. That is, given:
 
 ```javascript
-var compInstance = React.render(<Comp/>, container);
+var compInstance = ReactDOM.render(<Comp/>, container);
 compInstance.someMethod();
 compInstance.someOtherMethodThatDoesntExist();
 ```
