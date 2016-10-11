@@ -28,6 +28,8 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +113,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final Map<String, Map<String, JSDocInfo>>
       mixinAbstractMethodJsDocsByName = Maps.newHashMap();
 
+  // Reference to Compiler.getSynthesizedExternsInputAtEnd, see addExterns for
+  // details.
+  static Method getSynthesizedExternsInputMethod = null;
+
   // Make debugging test failures easier by allowing the processed output to
   // be inspected.
   static boolean saveLastOutputForTests = false;
@@ -169,7 +175,26 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
    * symbols can get renamed.
    */
   private void addExterns() {
-    CompilerInput externsInput = compiler.getSynthesizedExternsInputAtEnd();
+    if (getSynthesizedExternsInputMethod == null) {
+      try {
+        // This method was recently made package-private, see
+        // https://goo.gl/rHqiQh for discussion.
+        getSynthesizedExternsInputMethod = compiler.getClass()
+            .getDeclaredMethod("getSynthesizedExternsInputAtEnd");
+      } catch (NoSuchMethodException err) {
+        throw new RuntimeException(err);
+      }
+      getSynthesizedExternsInputMethod.setAccessible(true);
+    }
+    CompilerInput externsInput;
+    try {
+      externsInput = (CompilerInput) getSynthesizedExternsInputMethod.invoke(
+          compiler);
+    } catch (IllegalAccessException err) {
+      throw new RuntimeException(err);
+    } catch (InvocationTargetException err) {
+      throw new RuntimeException(err);
+    }
     addExternModule("React", "ReactModule", externsInput);
     addExternModule("ReactDOM", "ReactDOMModule", externsInput);
     addExternModule("ReactDOMServer", "ReactDOMServerModule", externsInput);

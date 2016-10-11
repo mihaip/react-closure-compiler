@@ -90,7 +90,7 @@ public class ReactCompilerPassTest {
       // Private methods should be invokable.
       "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
-        "$privateMethod1_$:function($a$jscomp$2$$){window.$foo$=123+$a$jscomp$2$$}," +
+        "$privateMethod1_$:function($a$$2$$){window.$foo$=123+$a$$2$$}," +
         "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
       "})),document.body);");
     testError(
