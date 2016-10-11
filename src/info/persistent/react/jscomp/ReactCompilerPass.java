@@ -15,6 +15,7 @@ import com.google.javascript.jscomp.CompilerInput;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
+import com.google.javascript.jscomp.JSModule;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Result;
@@ -157,7 +158,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         IR.string(moduleType), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build());
-    externsInput.getAstRoot(compiler).addChildrenToBack(reactVarNode);
+    externsInput.getAstRoot(compiler).addChildToBack(reactVarNode);
   }
 
   /**
@@ -168,7 +169,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
    * symbols can get renamed.
    */
   private void addExterns() {
-    CompilerInput externsInput = compiler.newExternInput(EXTERNS_SOURCE_NAME);
+    CompilerInput externsInput = compiler.getSynthesizedExternsInputAtEnd();
     addExternModule("React", "ReactModule", externsInput);
     addExternModule("ReactDOM", "ReactDOMModule", externsInput);
     addExternModule("ReactDOMServer", "ReactDOMServerModule", externsInput);
@@ -189,7 +190,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   /**
    * Inject React type definitions (we want these to get renamed, so they're
-   * not part of the externs). {@link Compiler#getNodeForCodeInsertion()} is
+   * not part of the externs). {@link Compiler#getNodeForCodeInsertion(JSModule)} is
    * package-private, so we instead add the types to the React source file.
    */
   private void addTypes(Node root) {
@@ -271,7 +272,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node typesNode = templateTypesNode.cloneTree();
     boolean foundReactSource = false;
     for (Node inputNode : root.children()) {
-      if (inputNode.getType() == Token.SCRIPT &&
+      if (inputNode.getToken() == Token.SCRIPT &&
           inputNode.getSourceFileName() != null &&
           React.isReactSourceName(inputNode.getSourceFileName())) {
         Node typesChildren = typesNode.getFirstChild();
@@ -319,7 +320,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       Node parent) {
     // Don't want React itself to get annotated (the version with addons creates
     // defines some classes).
-    if (n.getType() == Token.SCRIPT &&
+    if (n.getToken() == Token.SCRIPT &&
         n.getSourceFileName() != null &&
         React.isReactSourceName(n.getSourceFileName())) {
       return false;
@@ -487,7 +488,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         continue;
       }
       if (keyName.equals("statics")) {
-        if (createFuncName == "React.createClass") {
+        if (createFuncName.equals("React.createClass")) {
           gatherStaticsJsDocs(key, staticsJsDocs);
         }
         continue;
@@ -561,7 +562,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         elementTypedefNode, elementTypedefInsertionPoint);
 
     // Generate statics property JSDocs, so that the compiler knows about them.
-    if (createFuncName == "React.createClass") {
+    if (createFuncName.equals("React.createClass")) {
       Node staticsInsertionPoint = callParentNode.getParent();
       for (Map.Entry<String, JSDocInfo> entry : staticsJsDocs.entrySet()) {
         String staticName = entry.getKey();
@@ -758,7 +759,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (jsDocInfo != null) {
         keyNode.setJSDocInfo(jsDocInfo.clone());
     }
-    interfacePrototypeProps.addChildrenToBack(keyNode);
+    interfacePrototypeProps.addChildToBack(keyNode);
     return keyNode;
   }
 
@@ -822,10 +823,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     //   var ClassName = React.create{Class|Mixin}({...})
     //   namespace.ClassName = React.create{Class|Mixin}({...})
     Node parent = n.getParent();
-    switch (parent.getType()) {
-      case Token.NAME:
+    switch (parent.getToken()) {
+      case NAME:
         return true;
-      case Token.ASSIGN:
+      case ASSIGN:
         return n == parent.getLastChild() && parent.getParent().isExprResult();
     }
     return false;
@@ -837,7 +838,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       compiler.report(JSError.make(callNode, CREATE_ELEMENT_UNEXPECTED_PARAMS));
       return;
     }
-    if (callNode.getParent().getType() == Token.CAST) {
+    if (callNode.getParent().getToken() == Token.CAST) {
       // There's already a cast around the call, there's no need to add another.
       return;
     }
@@ -865,11 +866,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           createReactElementTypeExpressionNode(typeName);
     }
 
-    Node castNode = IR.cast(callNode.cloneTree());
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
         elementTypeExpressionNode, GENERATED_SOURCE_NAME));
-    castNode.setJSDocInfo(jsDocBuilder.build());
+    JSDocInfo jsDoc = jsDocBuilder.build();
+    Node castNode = IR.cast(callNode.cloneTree(), jsDoc);
+    castNode.setJSDocInfo(jsDoc);
     callNode.getParent().replaceChild(callNode, castNode);
   }
 

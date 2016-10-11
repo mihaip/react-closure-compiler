@@ -1,14 +1,13 @@
 package info.persistent.react.jscomp;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.CheckLevel;
@@ -16,7 +15,6 @@ import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.CompilationLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
-import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.CustomPassExecutionTime;
 import com.google.javascript.jscomp.DiagnosticGroups;
 import com.google.javascript.jscomp.DiagnosticType;
@@ -92,7 +90,7 @@ public class ReactCompilerPassTest {
       // Private methods should be invokable.
       "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
-        "$privateMethod1_$:function($a$$2$$){window.$foo$=123+$a$$2$$}," +
+        "$privateMethod1_$:function($a$jscomp$2$$){window.$foo$=123+$a$jscomp$2$$}," +
         "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
       "})),document.body);");
     testError(
