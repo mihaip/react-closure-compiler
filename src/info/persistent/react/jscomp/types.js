@@ -51,6 +51,11 @@ ReactClass.prototype.getDefaultProps = function() {};
 var ReactProps;
 
 /**
+ * @typedef {Object}
+ */
+var ReactState;
+
+/**
  * @dict
  * @constructor
  */
@@ -105,7 +110,7 @@ function ReactComponent() {}
 ReactComponent.prototype.props;
 
 /**
- * @type {Object}
+ * @type {ReactState}
  * @const
  */
 ReactComponent.prototype.state;
@@ -122,7 +127,7 @@ ReactComponent.prototype.context;
 ReactComponent.prototype.refs;
 
 /**
- * @return {Object}
+ * @return {ReactState}
  */
 ReactComponent.prototype.getInitialState = function() {};
 
@@ -132,7 +137,7 @@ ReactComponent.prototype.getInitialState = function() {};
 ReactComponent.prototype.getChildContext = function() {};
 
 /**
- * @param {Object} props
+ * @param {ReactProps} props
  * @param {function(): void=} callback
  * @return {void}
  * @deprecated
@@ -140,7 +145,7 @@ ReactComponent.prototype.getChildContext = function() {};
 ReactComponent.prototype.setProps = function(props, callback) {};
 
 /**
- * @param {Object} props
+ * @param {ReactProps} props
  * @param {function(): void=} callback
  * @return {void}
  * @deprecated
@@ -148,14 +153,14 @@ ReactComponent.prototype.setProps = function(props, callback) {};
 ReactComponent.prototype.replaceProps = function(props, callback) {};
 
 /**
- * @param {Object} state
+ * @param {Object|function(ReactState, ReactState): ReactState} stateOrFunction
  * @param {function(): void=} callback
  * @return {void}
  */
-ReactComponent.prototype.setState = function(state, callback) {};
+ReactComponent.prototype.setState = function(stateOrFunction, callback) {};
 
 /**
- * @param {Object} state
+ * @param {ReactState} state
  * @param {function(): void=} callback
  * @return {void}
  */
@@ -198,28 +203,28 @@ ReactComponent.prototype.componentWillMount = function() {};
 ReactComponent.prototype.componentDidMount = function() {};
 
 /**
- * @param {Object} nextProps
+ * @param {ReactProps} nextProps
  * @return {void}
  */
 ReactComponent.prototype.componentWillReceiveProps = function(nextProps) {};
 
 /**
- * @param {Object} nextProps
- * @param {Object} nextState
+ * @param {ReactProps} nextProps
+ * @param {ReactState} nextState
  * @return {boolean}
  */
 ReactComponent.prototype.shouldComponentUpdate = function(nextProps, nextState) {};
 
 /**
- * @param {Object} nextProps
- * @param {Object} nextState
+ * @param {ReactProps} nextProps
+ * @param {ReactState} nextState
  * @return {void}
  */
 ReactComponent.prototype.componentWillUpdate = function(nextProps, nextState) {};
 
 /**
- * @param {Object} prevProps
- * @param {Object} prevState
+ * @param {ReactProps} prevProps
+ * @param {ReactState} prevState
  * @return {void}
  */
 ReactComponent.prototype.componentDidUpdate = function(prevProps, prevState) {};
