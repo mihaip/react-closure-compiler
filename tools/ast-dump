@@ -11,7 +11,7 @@ then
 fi
 
 classesdir="$scriptdir/../build/classes"
-compilerjar="$($)"
+compilerjar=""
 for jar in $scriptdir/../lib/closure-compiler-*.jar; do
   compilerjar=$jar
 done
