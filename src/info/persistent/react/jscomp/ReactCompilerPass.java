@@ -552,7 +552,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
-    if (propTypesNode != null && stripPropTypes) {
+    // Remove propTypes that are not tagged with @struct. It would have been
+    // nice to use @preserve, but that is interpreted immediately (as keeping
+    // the comment), so we couldn't get to it. @struct is sort of appropriate,
+    // since the propTypes are going to be used as structs (for reflection
+    // presumably).
+    if (propTypesNode != null && stripPropTypes &&
+        (propTypesNode.getJSDocInfo() == null ||
+            !propTypesNode.getJSDocInfo().makesStructs())) {
       propTypesNode.detachFromParent();
     }
 

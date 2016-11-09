@@ -62,7 +62,7 @@ The compiler will know that `compInstance` has a `someMethod()` method, but that
 In addition to type checking of component instances, this compiler pass has the following benefits:
 
 * React API calls also get minified (since React itself is an input to the compiler, there is no need to list it as an extern, therefore)
-* React-aware size optimizations (for example `propTypes` in a component will get stripped out when using the minified React build, since they are not checked in that case)
+* React-aware size optimizations. For example `propTypes` in a component will get stripped out when using the minified React build, since they are not checked in that case (if you want `propTypes` to be preserved, you can tag them with `@struct`).
 * React-aware checks and warnings (e.g. if you use `PureRenderMixin` but also override `shouldComponentUpdate`, thus obviating the need for the mixin).
 
 ### Mixins

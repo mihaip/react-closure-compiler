@@ -614,6 +614,20 @@ public class ReactCompilerPassTest {
       "})),document.body);",
       "/src/react.min.js",
       null);
+    // But ones tagged with @struct should be preserved.
+    test(
+      "var Comp = React.createClass({" +
+        "/** @struct */" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+        "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
+        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "})),document.body);",
+      "/src/react.min.js",
+      null);
   }
 
   @Test public void testPropTypesTypeChecking() {
