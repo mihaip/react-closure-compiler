@@ -76,6 +76,10 @@ public class PropTypesExtractorTest {
     testPropType(
         "React.PropTypes.arrayOf(React.PropTypes.number.isRequired)",
         "(Array<number>|undefined)");
+    testPropType(
+        "React.PropTypes.arrayOf(" +
+            "React.PropTypes.instanceOf(Message).isRequired).isRequired",
+        "!Array<!Message>");
 
     testPropType(
         "React.PropTypes.objectOf(React.PropTypes.number.isRequired).isRequired",
