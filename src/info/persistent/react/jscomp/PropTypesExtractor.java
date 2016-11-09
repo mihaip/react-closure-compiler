@@ -82,7 +82,7 @@ class PropTypesExtractor {
     // Generate a unique global function name (so that the compiler can more
     // easily see that it's a passthrough and inline and remove it).
     this.validatorFuncName =
-        typeName.replaceAll("\\.", "$$") + "$$PropsValidator";
+        typeName.replaceAll("\\.", "\\$\\$") + "$$PropsValidator";
   }
 
   public static boolean canExtractPropTypes(Node propTypesNode) {
