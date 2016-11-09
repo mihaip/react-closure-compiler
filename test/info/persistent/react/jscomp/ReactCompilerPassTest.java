@@ -616,6 +616,154 @@ public class ReactCompilerPassTest {
       null);
   }
 
+  @Test public void testPropTypesTypeChecking() {
+    // Validate use of props within methods.
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {numberProp: React.PropTypes.number}," +
+        "render: function() {" +
+          "this.props.numberProp();" +
+          "return null;" +
+        "}" +
+      "});",
+      "JSC_NOT_FUNCTION_TYPE");
+    // Validate props at creation time.
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {strProp: 1});",
+      "JSC_TYPE_MISMATCH");
+    // Required props cannot be null
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {strProp: null});",
+      "JSC_TYPE_MISMATCH");
+    // Required props cannot be omitted
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {});",
+      "JSC_TYPE_MISMATCH");
+    // Optional props can be null
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {strProp: null});");
+    // Optional props can be omitted
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {});");
+    // Validate object prop
+    testError(
+      "/** @constructor */ function Message() {};\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {objProp: \"foo\"});",
+      "JSC_TYPE_MISMATCH");
+    // Required object prop cannot be null
+    testError(
+      "/** @constructor */ function Message() {};\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {objProp: null});",
+      "JSC_TYPE_MISMATCH");
+    // Required object prop cannot be omitted
+    testError(
+      "/** @constructor */ function Message() {};\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {});",
+      "JSC_TYPE_MISMATCH");
+    // Optional object prop can be null
+    testNoError(
+      "/** @constructor */ function Message() {};\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.instanceOf(Message)" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {objProp: null});");
+    // Optional object prop can be ommitted
+    testNoError(
+      "/** @constructor */ function Message() {};\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.instanceOf(Message)" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {});");
+    // Validate array prop
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "arrayProp: React.PropTypes.arrayOf(React.PropTypes.string)" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {arrayProp: 1});",
+      "JSC_TYPE_MISMATCH");
+    // Validate object prop
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "objProp: React.PropTypes.objectOf(React.PropTypes.string)" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {objProp: 1});",
+      "JSC_TYPE_MISMATCH");
+    // Validate oneOfType prop
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "unionProp: React.PropTypes.oneOfType([" +
+            "React.PropTypes.string," +
+            "React.PropTypes.number" +
+          "])" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {unionProp: false});",
+      "JSC_TYPE_MISMATCH");
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "unionProp: React.PropTypes.oneOfType([" +
+            "React.PropTypes.string," +
+            "React.PropTypes.number" +
+          "])" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {unionProp: 1});");
+  }
+
   @Test public void testChildren() {
     // Non-comprehensive test that the React.Children namespace functions exist.
     test(
@@ -793,6 +941,10 @@ public class ReactCompilerPassTest {
     test(inputJs, "", null, expectedError);
   }
 
+  private static void testNoError(String inputJs) {
+    test(inputJs, null, null, null);
+  }
+
   private static void test(
         String inputJs,
         String expectedJs,
@@ -817,7 +969,7 @@ public class ReactCompilerPassTest {
     options.setPrintInputDelimiter(true);
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
-        new ReactCompilerPass(compiler));
+        new ReactCompilerPass(compiler, true));
     List<SourceFile> inputs = ImmutableList.of(
         SourceFile.fromCode(reactSourceName, REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
@@ -840,7 +992,7 @@ public class ReactCompilerPassTest {
     ReactCompilerPass.saveLastOutputForTests = true;
 
     Result result = compiler.compile(externs, inputs, options);
-    String lastOutput = "\n\nCompiler pass output:\n" +
+    String lastOutput = "\n\nInput:\n" + inputJs + "\nCompiler pass output:\n" +
         ReactCompilerPass.lastOutputForTests + "\n";
     if (compiler.getRoot() != null) {
       lastOutput += "Final compiler output:\n" + new CodePrinter.Builder(compiler.getRoot())
@@ -860,12 +1012,14 @@ public class ReactCompilerPassTest {
               lastOutput,
           0, result.warnings.length);
       assertTrue(result.success);
-      String actualJs = compiler.toSource();
-      int inputIndex = actualJs.indexOf(ACTUAL_JS_INPUT_MARKER);
-      assertNotEquals(-1, inputIndex);
-      actualJs = actualJs.substring(
-          inputIndex + ACTUAL_JS_INPUT_MARKER.length());
-      assertEquals(expectedJs, actualJs);
+      if (expectedJs != null) {
+        String actualJs = compiler.toSource();
+        int inputIndex = actualJs.indexOf(ACTUAL_JS_INPUT_MARKER);
+        assertNotEquals(-1, inputIndex);
+        actualJs = actualJs.substring(
+            inputIndex + ACTUAL_JS_INPUT_MARKER.length());
+        assertEquals(expectedJs, actualJs);
+      }
     } else {
       assertFalse(
           "Expected failure, instead got output: " + compiler.toSource(),

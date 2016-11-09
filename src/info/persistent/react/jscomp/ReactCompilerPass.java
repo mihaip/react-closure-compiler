@@ -101,6 +101,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
+  private final boolean propTypesTypeChecking;
   private boolean stripPropTypes = false;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
@@ -111,6 +112,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   // Mixin name -> method name -> JSDoc
   private final Map<String, Map<String, JSDocInfo>>
       mixinAbstractMethodJsDocsByName = Maps.newHashMap();
+  private final Map<String, PropTypesExtractor> propTypesExtractorsByName =
+      Maps.newHashMap();
 
   // Make debugging test failures easier by allowing the processed output to
   // be inspected.
@@ -118,7 +121,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   static String lastOutputForTests;
 
   public ReactCompilerPass(AbstractCompiler compiler) {
+    // TODO: flip default once all known issues are resolved
+    this(compiler, false);
+  }
+
+  public ReactCompilerPass(
+      AbstractCompiler compiler, boolean propTypesTypeChecking) {
     this.compiler = (Compiler) compiler;
+    this.propTypesTypeChecking = propTypesTypeChecking;
   }
 
   @Override
@@ -128,6 +138,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     reactMixinsByName.clear();
     reactMixinInterfacePrototypePropsByName.clear();
     mixinAbstractMethodJsDocsByName.clear();
+    propTypesExtractorsByName.clear();
     addExterns();
     addTypes(root);
     hotSwapScript(root, null);
@@ -545,10 +556,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       propTypesNode.detachFromParent();
     }
 
+    // Add a "<type name>Element" @typedef for the element type of this class.
     jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordTypedef(new JSTypeExpression(
-          createReactElementTypeExpressionNode(typeName),
-          GENERATED_SOURCE_NAME));
+        createReactElementTypeExpressionNode(typeName),
+        GENERATED_SOURCE_NAME));
     Node elementTypedefNode = NodeUtil.newQName(
         compiler, typeName + "Element");
     if (elementTypedefNode.isName()) {
@@ -620,6 +632,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             interfacePrototypeProps,
             null),
         interfaceTypeNode);
+
+    if (propTypesTypeChecking && propTypesNode != null &&
+        PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
+      PropTypesExtractor extractor = new PropTypesExtractor(
+          propTypesNode, typeName, interfaceTypeName, compiler);
+      extractor.extract();
+      extractor.insert(elementTypedefInsertionPoint);
+      propTypesExtractorsByName.put(typeName, extractor);
+    }
   }
 
   /**
@@ -865,6 +886,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
       elementTypeExpressionNode =
           createReactElementTypeExpressionNode(typeName);
+      PropTypesExtractor propTypesExtractor =
+          propTypesExtractorsByName.get(typeName);
+      if (propTypesExtractor != null) {
+        propTypesExtractor.visitReactCreateElement(callNode);
+      }
     }
 
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
