@@ -577,6 +577,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (!elementTypedefNode.isVar()) {
       elementTypedefNode = IR.exprResult(elementTypedefNode);
     }
+    elementTypedefNode.useSourceInfoFromForTree(callParentNode);
     Node elementTypedefInsertionPoint = callParentNode.getParent();
     elementTypedefInsertionPoint.getParent().addChildAfter(
         elementTypedefNode, elementTypedefInsertionPoint);
@@ -591,6 +592,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             compiler, typeName + "." + staticName);
         staticDeclaration.setJSDocInfo(staticJsDoc);
         Node staticExprNode = IR.exprResult(staticDeclaration);
+        staticExprNode.useSourceInfoFromForTree(staticsInsertionPoint);
         staticsInsertionPoint.getParent().addChildAfter(
             staticExprNode, staticsInsertionPoint);
         staticsInsertionPoint = staticExprNode;
@@ -904,9 +906,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordType(new JSTypeExpression(
         elementTypeExpressionNode, GENERATED_SOURCE_NAME));
     JSDocInfo jsDoc = jsDocBuilder.build();
-    Node castNode = IR.cast(callNode.cloneTree(), jsDoc);
+    Node callNodePrevious = callNode.getPrevious();
+    Node callNodeParent = callNode.getParent();
+    callNode.detach();
+    Node castNode = IR.cast(callNode, jsDoc);
     castNode.setJSDocInfo(jsDoc);
-    callNode.getParent().replaceChild(callNode, castNode);
+    castNode.useSourceInfoFrom(callNode);
+    if (callNodePrevious != null) {
+      callNodeParent.addChildAfter(castNode, callNodePrevious);
+    } else {
+      callNodeParent.addChildToFront(castNode);
+    }
   }
 
   private static boolean isReactCreateElement(Node value) {

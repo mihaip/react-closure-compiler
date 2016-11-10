@@ -294,8 +294,8 @@ class PropTypesExtractor {
     Node propsTypedefNode = NodeUtil.newQName(compiler, propsTypeName);
     propsTypedefNode.setJSDocInfo(jsDocBuilder.build());
     propsTypedefNode = IR.exprResult(propsTypedefNode);
+    propsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsTypedefNode, insertionPoint);
-
     insertionPoint = propsTypedefNode;
 
     // To type check React.createElement calls we wrap the "props" parameter
@@ -319,6 +319,7 @@ class PropTypesExtractor {
     jsDocBuilder.recordReturnType(new JSTypeExpression(
         IR.string(propsTypeName), GENERATED_SOURCE_NAME));
     validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
+    validatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(
         validatorFuncNode, insertionPoint);
     insertionPoint = validatorFuncNode;
@@ -332,6 +333,7 @@ class PropTypesExtractor {
         compiler, interfaceTypeName + ".prototype.props");
     propsNode.setJSDocInfo(jsDocBuilder.build());
     propsNode = IR.exprResult(propsNode);
+    propsNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsNode, insertionPoint);
   }
 
@@ -348,6 +350,7 @@ class PropTypesExtractor {
     propsParamNode.detach();
     Node validatorCallNode = IR.call(
         IR.name(validatorFuncName), propsParamNode);
+    validatorCallNode.useSourceInfoIfMissingFromForTree(propsParamNode);
     callNode.addChildAfter(validatorCallNode, typeNode);
   }
 
