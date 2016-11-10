@@ -60,6 +60,10 @@ class PropTypesExtractor {
       "REACT_COULD_NOT_DETERMINE_PROP_TYPE",
       "Could not determine the prop type of prop {0} of the component {1}.");
 
+  static final DiagnosticType NO_CHILDREN_ARGUMENT = DiagnosticType.error(
+      "REACT_NO_CHILDREN_ARGUMENT",
+      "{0} has a 'children' propType but is created without any children");
+
   private final Node propTypesNode;
   private final String typeName;
   private final String interfaceTypeName;
@@ -68,6 +72,8 @@ class PropTypesExtractor {
   private final String propsTypeName;
   private final String validatorFuncName;
   private JSTypeExpression propsTypeExpression;
+  private final String childrenValidatorFuncName;
+  private Node childrenPropTypeNode;
 
   public PropTypesExtractor(
       Node propTypesNode,
@@ -81,8 +87,10 @@ class PropTypesExtractor {
     this.propsTypeName = typeName + ".Props";
     // Generate a unique global function name (so that the compiler can more
     // easily see that it's a passthrough and inline and remove it).
-    this.validatorFuncName =
-        typeName.replaceAll("\\.", "\\$\\$") + "$$PropsValidator";
+    String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
+    this.validatorFuncName = sanitizedTypeName + "$$PropsValidator";
+    this.childrenValidatorFuncName = sanitizedTypeName + "$$ChildrenValidator";
+    this.childrenPropTypeNode = null;
   }
 
   public static boolean canExtractPropTypes(Node propTypesNode) {
@@ -100,6 +108,14 @@ class PropTypesExtractor {
       Node memberType = convertPropTypeToTypeNode(
           propTypeKeyNode.getFirstChild());
       if (memberType != null) {
+        if (propTypeKeyNode.getString().equals("children")) {
+          // The "children" propType is a bit special, since it's not passed in
+          // directly via the "props" argument to React.createElement. It doesn't
+          // usually show up in propTypes, except for the pattern of requiring
+          // a single child (https://goo.gl/961UCF).
+          childrenPropTypeNode = memberType;
+          continue;
+        }
         colon.addChildToBack(memberType);
       } else {
         compiler.report(JSError.make(
@@ -324,6 +340,26 @@ class PropTypesExtractor {
         validatorFuncNode, insertionPoint);
     insertionPoint = validatorFuncNode;
 
+    // A similar validator function is also necessary to validate the children
+    // parameter of React.createElement.
+    if (childrenPropTypeNode != null) {
+      Node childrenValidatorFuncNode = IR.function(
+          IR.name(childrenValidatorFuncName),
+          IR.paramList(IR.name("children")),
+          IR.block(IR.returnNode(IR.name("children"))));
+      jsDocBuilder = new JSDocInfoBuilder(true);
+      jsDocBuilder.recordParameter(
+          "children",
+          new JSTypeExpression(childrenPropTypeNode, GENERATED_SOURCE_NAME));
+      jsDocBuilder.recordReturnType(new JSTypeExpression(
+          childrenPropTypeNode, GENERATED_SOURCE_NAME));
+      childrenValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
+      childrenValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      insertionPoint.getParent().addChildAfter(
+          childrenValidatorFuncNode, insertionPoint);
+      insertionPoint = childrenValidatorFuncNode;
+    }
+
     // /** @type {Comp.Props} */
     // CompInterface.prototype.props;
     jsDocBuilder = new JSDocInfoBuilder(true);
@@ -335,14 +371,16 @@ class PropTypesExtractor {
     propsNode = IR.exprResult(propsNode);
     propsNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsNode, insertionPoint);
+    insertionPoint = propsNode;
   }
 
   public void visitReactCreateElement(Node callNode) {
+    int callParamCount = callNode.getChildCount() - 1;
     // Replaces
     // React.createElement(Comp, {...});
     // with:
     // React.createElement(Comp, Comp$$PropsValidator({...}));
-    if (callNode.getChildCount() < 3) {
+    if (callParamCount < 2) {
       return;
     }
     Node propsParamNode = callNode.getChildAtIndex(2);
@@ -350,8 +388,23 @@ class PropTypesExtractor {
     propsParamNode.detach();
     Node validatorCallNode = IR.call(
         IR.name(validatorFuncName), propsParamNode);
-    validatorCallNode.useSourceInfoIfMissingFromForTree(propsParamNode);
+    validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
     callNode.addChildAfter(validatorCallNode, typeNode);
+
+    // It's more difficult to validate multiple children, but that use case is
+    // uncommon.
+    if (childrenPropTypeNode != null) {
+      if (callParamCount == 3) {
+        Node childParamNode = callNode.getChildAtIndex(3);
+        childParamNode.detach();
+        Node childValidatorCallNode = IR.call(
+            IR.name(childrenValidatorFuncName), childParamNode);
+        childValidatorCallNode.useSourceInfoIfMissingFrom(childParamNode);
+        callNode.addChildAfter(childValidatorCallNode, validatorCallNode);
+      } else {
+        compiler.report(JSError.make(callNode, NO_CHILDREN_ARGUMENT, typeName));
+      }
+    }
   }
 
   private static Node bang(Node child) {

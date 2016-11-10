@@ -887,7 +887,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node typeNode = callNode.getChildAtIndex(1);
     Node elementTypeExpressionNode;
     if (typeNode.isString()) {
-      elementTypeExpressionNode = IR.string("ReactDOMElement");
+      elementTypeExpressionNode = new Node(
+          Token.BANG, IR.string("ReactDOMElement"));
     } else {
       String typeName = typeNode.getQualifiedName();
       if (!reactClassesByName.containsKey(typeName)) {
@@ -910,7 +911,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node callNodeParent = callNode.getParent();
     callNode.detach();
     Node castNode = IR.cast(callNode, jsDoc);
-    castNode.setJSDocInfo(jsDoc);
     castNode.useSourceInfoFrom(callNode);
     if (callNodePrevious != null) {
       callNodeParent.addChildAfter(castNode, callNodePrevious);
@@ -927,13 +927,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   /**
-   * Creates the equivalent to ReactElement.<typeName>
+   * Creates the equivalent to ReactElement.<!typeName>
    */
   private static Node createReactElementTypeExpressionNode(String typeName) {
-    Node node = IR.string("ReactElement");
-    node.addChildToFront(IR.block());
-    node.getFirstChild().addChildToFront(IR.string(typeName));
-    return node;
+    Node blockNode = IR.block();
+    blockNode.addChildToFront(new Node(Token.BANG, IR.string(typeName)));
+    Node typeNode = IR.string("ReactElement");
+    typeNode.addChildToFront(blockNode);
+    return new Node(Token.BANG, typeNode);
   }
 
   private static JSDocInfoBuilder newJsDocInfoBuilderForNode(Node node) {

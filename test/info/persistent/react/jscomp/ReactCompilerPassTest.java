@@ -776,6 +776,40 @@ public class ReactCompilerPassTest {
         "render: function() {return null;}" +
       "});\n" +
       "React.createElement(Comp, {unionProp: 1});");
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "children: React.PropTypes.element.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {}, React.createElement(\"div\"));");
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "children: React.PropTypes.element.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {}, React.createElement(Comp));");
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "children: React.PropTypes.element.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {});",
+      "REACT_NO_CHILDREN_ARGUMENT");
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "children: React.PropTypes.element.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {}, null);",
+      "JSC_TYPE_MISMATCH");
   }
 
   @Test public void testChildren() {

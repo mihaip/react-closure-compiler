@@ -92,6 +92,7 @@ public class PropTypesExtractorTest {
   private void testPropType(String reactPropType, String typeExpression) {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
+    // So that source dumps still have JSDoc
     options.preserveTypeAnnotations = true;
     compiler.initOptions(options);
     compiler.disableThreads(); // Makes errors easier to track down.

@@ -598,7 +598,7 @@ ReactModule.prototype.createMixin = function(mixin) {};
  * @param {ReactClass.<T>|string} type
  * @param {Object=} props
  * @param {...ReactChildrenArgument} children
- * @return {ReactElement.<T>}
+ * @return {!ReactElement.<T>}
  * @template T
  */
 ReactModule.prototype.createElement = function(type, props, children) {};
