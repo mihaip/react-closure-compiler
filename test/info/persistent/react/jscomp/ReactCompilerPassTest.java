@@ -776,6 +776,7 @@ public class ReactCompilerPassTest {
         "render: function() {return null;}" +
       "});\n" +
       "React.createElement(Comp, {unionProp: 1});");
+    // Validate children prop
     testNoError(
       "var Comp = React.createClass({" +
         "propTypes: {" +
@@ -810,6 +811,24 @@ public class ReactCompilerPassTest {
       "});\n" +
       "React.createElement(Comp, {}, null);",
       "JSC_TYPE_MISMATCH");
+    // Handle spread operator when creating elements
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "aProp: React.PropTypes.number.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, React.__spread({aProp: null}, {}));",
+      "JSC_TYPE_MISMATCH");
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "aProp: React.PropTypes.number.isRequired" +
+        "}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, React.__spread({aProp: 1}, {}));");
   }
 
   @Test public void testChildren() {

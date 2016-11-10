@@ -384,12 +384,35 @@ class PropTypesExtractor {
       return;
     }
     Node propsParamNode = callNode.getChildAtIndex(2);
-    Node typeNode = callNode.getChildAtIndex(1);
-    propsParamNode.detach();
-    Node validatorCallNode = IR.call(
-        IR.name(validatorFuncName), propsParamNode);
-    validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
-    callNode.addChildAfter(validatorCallNode, typeNode);
+    if (propsParamNode.isObjectLit()) {
+      Node typeNode = callNode.getChildAtIndex(1);
+      propsParamNode.detach();
+      Node validatorCallNode = IR.call(
+          IR.name(validatorFuncName), propsParamNode);
+      validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
+      callNode.addChildAfter(validatorCallNode, typeNode);
+    } else if (propsParamNode.isCall()) {
+      // If it's a React.__spread() call then add the validator to the first
+      // object literal parameter instead (it should have all of the explicitly
+      // specified props).
+      String functionName = propsParamNode.getFirstChild().getQualifiedName();
+      if (functionName != null && functionName.equals("React.__spread") &&
+          propsParamNode.getChildCount() > 1) {
+        for (Node spreadParamNode = propsParamNode.getChildAtIndex(1);
+            spreadParamNode != null;
+            spreadParamNode = spreadParamNode.getNext()) {
+          if (spreadParamNode.isObjectLit()) {
+            Node prevNode = spreadParamNode.getPrevious();
+            spreadParamNode.detach();
+            Node validatorCallNode = IR.call(
+                IR.name(validatorFuncName), spreadParamNode);
+            validatorCallNode.useSourceInfoIfMissingFrom(spreadParamNode);
+            propsParamNode.addChildAfter(validatorCallNode, prevNode);
+            break;
+          }
+        }
+      }
+    }
 
     // It's more difficult to validate multiple children, but that use case is
     // uncommon.
@@ -400,7 +423,8 @@ class PropTypesExtractor {
         Node childValidatorCallNode = IR.call(
             IR.name(childrenValidatorFuncName), childParamNode);
         childValidatorCallNode.useSourceInfoIfMissingFrom(childParamNode);
-        callNode.addChildAfter(childValidatorCallNode, validatorCallNode);
+        callNode.addChildAfter(
+          childValidatorCallNode, callNode.getChildAtIndex(2));
       } else {
         compiler.report(JSError.make(callNode, NO_CHILDREN_ARGUMENT, typeName));
       }
