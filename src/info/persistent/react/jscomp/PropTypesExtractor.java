@@ -6,6 +6,7 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
@@ -99,6 +100,23 @@ class PropTypesExtractor {
         propTypesNode.getFirstChild().isObjectLit();
   }
 
+  /**
+   * If we're not doing propType checking we should still clean up the
+   * propTypes node in case there were type checking-related types that
+   * were added.
+   */
+  public static void cleanUpPropTypesWhenNotChecking(Node propTypesNode) {
+    Node propTypesObjectLitNode = propTypesNode.getFirstChild();
+    for (Node propTypeKeyNode : propTypesObjectLitNode.children()) {
+      if (propTypeKeyNode.getJSDocInfo() != null) {
+        JSDocInfo propTypeJsDoc = propTypeKeyNode.getJSDocInfo();
+        if (propTypeJsDoc.hasType()) {
+            propTypeKeyNode.setJSDocInfo(null);
+        }
+      }
+    }
+  }
+
   public void extract() {
     allPropsAreOptional = true;
     Node propTypesObjectLitNode = propTypesNode.getFirstChild();
@@ -107,8 +125,39 @@ class PropTypesExtractor {
       Node colon = new Node(Token.COLON);
       Node member = propTypeKeyNode.cloneNode();
       colon.addChildToBack(member);
-      ConversionResult memberTypeResult = convertPropType(
-          propTypeKeyNode.getFirstChild());
+      ConversionResult memberTypeResult = null;
+      // Allow the type for a prop to be explicitly defined via a @type JSDoc
+      // annotation on the key.
+      if (propTypeKeyNode.getJSDocInfo() != null) {
+        JSDocInfo propTypeJsDoc = propTypeKeyNode.getJSDocInfo();
+        if (propTypeJsDoc.hasType()) {
+            Node propTypeNode = propTypeJsDoc.getType().getRoot();
+            // Infer whether the prop is required or not by looking at whether
+            // it's a union with undefined or null.
+            boolean isRequired = true;
+            if (propTypeNode.getToken() == Token.PIPE) {
+              for (Node child = propTypeNode.getFirstChild();
+                  child != null;
+                  child = child.getNext()) {
+                if (child.getToken() == Token.QMARK ||
+                    (child.isString() &&
+                        (child.getString().equals("null") ||
+                        child.getString().equals("undefined")))) {
+                  isRequired = false;
+                  break;
+                }
+              }
+            }
+            // Remove the custom type, otherwise the compiler will complain that
+            // the key is not typed correctly.
+            propTypeKeyNode.setJSDocInfo(null);
+            memberTypeResult = new ConversionResult(
+                propTypeNode, propTypeNode, isRequired);
+        }
+      }
+      if (memberTypeResult == null) {
+        memberTypeResult = convertPropType(propTypeKeyNode.getFirstChild());
+      }
       if (memberTypeResult != null) {
         if (propTypeKeyNode.getString().equals("children")) {
           // The "children" propType is a bit special, since it's not passed in

@@ -642,13 +642,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             null),
         interfaceTypeNode);
 
-    if (propTypesTypeChecking && propTypesNode != null &&
+    if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
-      PropTypesExtractor extractor = new PropTypesExtractor(
-          propTypesNode, typeName, interfaceTypeName, compiler);
-      extractor.extract();
-      extractor.insert(elementTypedefInsertionPoint);
-      propTypesExtractorsByName.put(typeName, extractor);
+      if (propTypesTypeChecking) {
+        PropTypesExtractor extractor = new PropTypesExtractor(
+            propTypesNode, typeName, interfaceTypeName, compiler);
+        extractor.extract();
+        extractor.insert(elementTypedefInsertionPoint);
+        propTypesExtractorsByName.put(typeName, extractor);
+      } else {
+        PropTypesExtractor.cleanUpPropTypesWhenNotChecking(propTypesNode);
+      }
     }
   }
 

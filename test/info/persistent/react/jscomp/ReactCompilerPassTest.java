@@ -761,6 +761,17 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "React.__spread({aProp: 1}, {})");
+    // Custom type expressions
+    testPropTypesError(
+        "{/** @type {boolean} */ boolProp: function() {}}",
+        "{boolProp: 1}",
+        "JSC_TYPE_MISMATCH");
+    testPropTypesNoError(
+        "{/** @type {boolean} */ boolProp: function() {}}",
+        "{boolProp: true}");
+    testPropTypesNoError(
+        "{/** @type {(boolean|undefined|null)} */ boolProp: function() {}}",
+        "null");
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {
