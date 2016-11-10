@@ -642,206 +642,146 @@ public class ReactCompilerPassTest {
       "});",
       "JSC_NOT_FUNCTION_TYPE");
     // Validate props at creation time.
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {strProp: 1});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{strProp: React.PropTypes.string}",
+        "{strProp: 1}",
+        "JSC_TYPE_MISMATCH");
     // Required props cannot be null
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {strProp: null});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{strProp: React.PropTypes.string.isRequired}",
+        "{strProp: null}",
+        "JSC_TYPE_MISMATCH");
     // Required props cannot be omitted
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {});",
-      "JSC_TYPE_MISMATCH");
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, null);",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{strProp: React.PropTypes.string.isRequired}",
+        "{}",
+        "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{strProp: React.PropTypes.string.isRequired}",
+        "null",
+        "JSC_TYPE_MISMATCH");
     // Optional props can be null
-    testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {strProp: null});");
+    testPropTypesNoError(
+        "{strProp: React.PropTypes.string}",
+        "null");
     // Optional props can be omitted
-    testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {});");
-    testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {strProp: React.PropTypes.string}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, null);");
+    testPropTypesNoError(
+        "{strProp: React.PropTypes.string}",
+        "{}");
+    testPropTypesNoError(
+        "{strProp: React.PropTypes.string}",
+        "null");
     // Validate object prop
-    testError(
-      "/** @constructor */ function Message() {};\n" +
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {objProp: \"foo\"});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{objProp: React.PropTypes.instanceOf(Message).isRequired}",
+        "{objProp: \"foo\"}",
+        "JSC_TYPE_MISMATCH");
     // Required object prop cannot be null
-    testError(
-      "/** @constructor */ function Message() {};\n" +
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {objProp: null});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{objProp: React.PropTypes.instanceOf(Message).isRequired}",
+        "{objProp: null}",
+        "JSC_TYPE_MISMATCH");
     // Required object prop cannot be omitted
-    testError(
-      "/** @constructor */ function Message() {};\n" +
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.instanceOf(Message).isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{objProp: React.PropTypes.instanceOf(Message).isRequired}",
+        "{}",
+        "JSC_TYPE_MISMATCH");
     // Optional object prop can be null
-    testNoError(
-      "/** @constructor */ function Message() {};\n" +
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.instanceOf(Message)" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {objProp: null});");
+    testPropTypesNoError(
+        "{objProp: React.PropTypes.instanceOf(Message)}",
+        "{objProp: null}");
     // Optional object prop can be ommitted
-    testNoError(
-      "/** @constructor */ function Message() {};\n" +
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.instanceOf(Message)" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {});");
+    testPropTypesNoError(
+        "{objProp: React.PropTypes.instanceOf(Message)}",
+        "{}");
     // Validate array prop
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "arrayProp: React.PropTypes.arrayOf(React.PropTypes.string)" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {arrayProp: 1});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{arrayProp: React.PropTypes.arrayOf(React.PropTypes.string)}",
+        "{arrayProp: 1}",
+        "JSC_TYPE_MISMATCH");
     // Validate object prop
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "objProp: React.PropTypes.objectOf(React.PropTypes.string)" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {objProp: 1});",
-      "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{objProp: React.PropTypes.objectOf(React.PropTypes.string)}",
+        "{objProp: 1}",
+        "JSC_TYPE_MISMATCH");
     // Validate oneOfType prop
-    testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "unionProp: React.PropTypes.oneOfType([" +
-            "React.PropTypes.string," +
-            "React.PropTypes.number" +
-          "])" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {unionProp: false});",
-      "JSC_TYPE_MISMATCH");
-    testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "unionProp: React.PropTypes.oneOfType([" +
-            "React.PropTypes.string," +
-            "React.PropTypes.number" +
-          "])" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {unionProp: 1});");
+    testPropTypesError(
+        "{unionProp: React.PropTypes.oneOfType([" +
+          "React.PropTypes.string," +
+          "React.PropTypes.number" +
+        "])}",
+        "{unionProp: false}",
+        "JSC_TYPE_MISMATCH");
+    testPropTypesNoError(
+        "{unionProp: React.PropTypes.oneOfType([" +
+          "React.PropTypes.string," +
+          "React.PropTypes.number" +
+        "])}",
+        "{unionProp: 1}");
     // Validate children prop
     testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "children: React.PropTypes.element.isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {}, React.createElement(\"div\"));");
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.element.isRequired" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {}, React.createElement(\"div\"));");
     testNoError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "children: React.PropTypes.element.isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {}, React.createElement(Comp));");
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.element.isRequired" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {}, React.createElement(Comp));");
     testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "children: React.PropTypes.element.isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {});",
-      "REACT_NO_CHILDREN_ARGUMENT");
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.element.isRequired" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {});",
+        "REACT_NO_CHILDREN_ARGUMENT");
     testError(
-      "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "children: React.PropTypes.element.isRequired" +
-        "}," +
-        "render: function() {return null;}" +
-      "});\n" +
-      "React.createElement(Comp, {}, null);",
-      "JSC_TYPE_MISMATCH");
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.element.isRequired" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {}, null);",
+        "JSC_TYPE_MISMATCH");
     // Handle spread operator when creating elements
+    testPropTypesError(
+        "{aProp: React.PropTypes.number.isRequired}",
+        "React.__spread({aProp: null}, {})",
+        "JSC_TYPE_MISMATCH");
+    testPropTypesNoError(
+        "{aProp: React.PropTypes.number.isRequired}",
+        "React.__spread({aProp: 1}, {})");
+  }
+
+  private void testPropTypesError(String propTypes, String props, String error) {
     testError(
+      "/** @constructor */ function Message() {};\n" +
       "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "aProp: React.PropTypes.number.isRequired" +
-        "}," +
+        "propTypes: " + propTypes + "," +
         "render: function() {return null;}" +
       "});\n" +
-      "React.createElement(Comp, React.__spread({aProp: null}, {}));",
-      "JSC_TYPE_MISMATCH");
+      "React.createElement(Comp, " + props + ");",
+      error);
+  }
+
+  private void testPropTypesNoError(String propTypes, String props) {
     testNoError(
+      "/** @constructor */ function Message() {};\n" +
       "var Comp = React.createClass({" +
-        "propTypes: {" +
-          "aProp: React.PropTypes.number.isRequired" +
-        "}," +
+        "propTypes: " + propTypes + "," +
         "render: function() {return null;}" +
       "});\n" +
-      "React.createElement(Comp, React.__spread({aProp: 1}, {}));");
+      "React.createElement(Comp, " + props + ");");
   }
 
   @Test public void testChildren() {
