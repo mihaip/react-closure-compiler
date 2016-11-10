@@ -72,6 +72,7 @@ class PropTypesExtractor {
   private final String propsTypeName;
   private final String validatorFuncName;
   private JSTypeExpression propsTypeExpression;
+  private boolean allPropsAreOptional;
   private final String childrenValidatorFuncName;
   private Node childrenPropTypeNode;
 
@@ -99,24 +100,28 @@ class PropTypesExtractor {
   }
 
   public void extract() {
+    allPropsAreOptional = true;
     Node propTypesObjectLitNode = propTypesNode.getFirstChild();
     Node lb = new Node(Token.LB);
     for (Node propTypeKeyNode : propTypesObjectLitNode.children()) {
       Node colon = new Node(Token.COLON);
       Node member = propTypeKeyNode.cloneNode();
       colon.addChildToBack(member);
-      Node memberType = convertPropTypeToTypeNode(
+      ConversionResult memberTypeResult = convertPropType(
           propTypeKeyNode.getFirstChild());
-      if (memberType != null) {
+      if (memberTypeResult != null) {
         if (propTypeKeyNode.getString().equals("children")) {
           // The "children" propType is a bit special, since it's not passed in
           // directly via the "props" argument to React.createElement. It doesn't
           // usually show up in propTypes, except for the pattern of requiring
           // a single child (https://goo.gl/961UCF).
-          childrenPropTypeNode = memberType;
+          childrenPropTypeNode = memberTypeResult.typeNode;
           continue;
         }
-        colon.addChildToBack(memberType);
+        if (memberTypeResult.isRequired) {
+          allPropsAreOptional = false;
+        }
+        colon.addChildToBack(memberTypeResult.typeNode);
       } else {
         compiler.report(JSError.make(
             propTypeKeyNode,
@@ -132,27 +137,36 @@ class PropTypesExtractor {
       propsTypeNode, GENERATED_SOURCE_NAME);
   }
 
-  static Node convertPropTypeToTypeNode(Node propTypeNode) {
+  static class ConversionResult {
+    ConversionResult(
+          Node optionalTypeNode,
+          Node requiredTypeNode,
+          boolean isRequired) {
+      this.typeNode = isRequired ? requiredTypeNode : optionalTypeNode;
+      this.optionalTypeNode = optionalTypeNode;
+      this.requiredTypeNode = requiredTypeNode;
+      this.isRequired = isRequired;
+    }
+
+    public final Node typeNode;
+    public final Node optionalTypeNode;
+    public final Node requiredTypeNode;
+    public final boolean isRequired;
+  }
+
+  static ConversionResult convertPropType(Node propTypeNode) {
     String propTypeString = stringifyPropTypeNode(propTypeNode);
     if (propTypeString == null) {
       return null;
     }
-    return convertPropTypeToTypeNode(propTypeString);
+    return convertPropType(propTypeString);
   }
 
-  private static Node convertPropTypeToTypeNode(String propTypeString) {
-    return convertPropTypeToTypeNode(propTypeString, false);
-  }
-
-  private static Node convertPropTypeToTypeNode(
-      String propTypeString, boolean parentIsRequired) {
+  private static ConversionResult convertPropType(String propTypeString) {
     boolean isRequired = propTypeString.endsWith(REQUIRED_SUFFIX);
     if (isRequired) {
       propTypeString = propTypeString.substring(
           0, propTypeString.length() - REQUIRED_SUFFIX.length());
-    }
-    if (parentIsRequired) {
-      isRequired = true;
     }
 
     // Simple prop types to their equivalernt type.
@@ -160,10 +174,10 @@ class PropTypesExtractor {
       String simplePropType = "React.PropTypes." + entry.getKey();
       if (propTypeString.equals(simplePropType)) {
         Node propType = entry.getValue().cloneTree();
-        if (isRequired) {
-          return propType;
-        }
-        return pipe(propType, IR.string("undefined"), IR.string("null"));
+        return new ConversionResult(
+            pipe(propType, IR.string("undefined"), IR.string("null")),
+            propType.cloneTree(),
+            isRequired);
       }
     }
 
@@ -174,10 +188,10 @@ class PropTypesExtractor {
           INSTANCE_OF_PREFIX.length(),
           propTypeString.length() - INSTANCE_OF_SUFFIX.length());
       Node propType = IR.string(objectType);
-      if (isRequired) {
-        return bang(propType);
-      }
-      return pipe(propType, IR.string("undefined"));
+      return new ConversionResult(
+          pipe(propType, IR.string("undefined")),
+          bang(propType.cloneTree()),
+          isRequired);
     }
 
     // React.PropTypes.arrayOf(<Type>) to Array<Type>
@@ -186,17 +200,17 @@ class PropTypesExtractor {
       String arrayTypeString = propTypeString.substring(
           ARRAY_OF_PREFIX.length(),
           propTypeString.length() - ARRAY_OF_SUFFIX.length());
-      Node arrayTypeNode = convertPropTypeToTypeNode(arrayTypeString);
-      if (arrayTypeNode == null) {
+      ConversionResult arrayTypeResult = convertPropType(arrayTypeString);
+      if (arrayTypeResult == null) {
         return null;
       }
       Node propType = IR.string("Array");
       propType.addChildToFront(IR.block());
-      propType.getFirstChild().addChildToFront(arrayTypeNode);
-      if (isRequired) {
-        return bang(propType);
-      }
-      return pipe(propType, IR.string("undefined"));
+      propType.getFirstChild().addChildToFront(arrayTypeResult.typeNode);
+      return new ConversionResult(
+          pipe(propType, IR.string("undefined")),
+          bang(propType.cloneTree()),
+          isRequired);
     }
 
     // React.PropTypes.objectof(<Type>) to Object<Type>
@@ -205,17 +219,17 @@ class PropTypesExtractor {
       String objectTypeString = propTypeString.substring(
           OBJECT_OF_PREFIX.length(),
           propTypeString.length() - OBJECT_OF_SUFFIX.length());
-      Node objectTypeNode = convertPropTypeToTypeNode(objectTypeString);
-      if (objectTypeNode == null) {
+      ConversionResult objectTypeResult = convertPropType(objectTypeString);
+      if (objectTypeResult == null) {
         return null;
       }
       Node propType = IR.string("Object");
       propType.addChildToFront(IR.block());
-      propType.getFirstChild().addChildToFront(objectTypeNode);
-      if (isRequired) {
-        return bang(propType);
-      }
-      return pipe(propType, IR.string("undefined"));
+      propType.getFirstChild().addChildToFront(objectTypeResult.typeNode);
+      return new ConversionResult(
+          pipe(propType, IR.string("undefined")),
+          bang(propType.cloneTree()),
+          isRequired);
     }
 
     // React.PropTypes.oneOfType([<Type1>, <Type2>, ...]) to (Type1|Type2|...)
@@ -227,19 +241,18 @@ class PropTypesExtractor {
       String[] oneOfTypeStrings = oneOfTypeString.split(",");
       Node propType = new Node(Token.PIPE);
       for (String typeString : oneOfTypeStrings) {
-        // Assume that the subtypes are required, we will add the undefined
-        // and null if they are not.
-        Node typeNode = convertPropTypeToTypeNode(typeString, true);
-        if (typeNode == null) {
+        ConversionResult typeResult = convertPropType(typeString);
+        if (typeResult == null) {
           return null;
         }
-        propType.addChildToBack(typeNode);
+        // Assume that the subtypes are required, we will add the undefined
+        // and null if they are not.
+        propType.addChildToBack(typeResult.requiredTypeNode);
       }
-      if (!isRequired) {
-        propType.addChildToBack(IR.string("undefined"));
-        propType.addChildToBack(IR.string("null"));
-      }
-      return propType;
+      Node optionalPropType = propType.cloneTree();
+      optionalPropType.addChildToBack(IR.string("undefined"));
+      optionalPropType.addChildToBack(IR.string("null"));
+      return new ConversionResult(optionalPropType, propType, isRequired);
     }
 
     return null;
@@ -329,11 +342,15 @@ class PropTypesExtractor {
         IR.paramList(IR.name("props")),
         IR.block(IR.returnNode(IR.name("props"))));
     jsDocBuilder = new JSDocInfoBuilder(true);
+    Node propsTypeNode = IR.string(propsTypeName);
+    if (allPropsAreOptional) {
+      propsTypeNode = new Node(Token.QMARK, propsTypeNode);
+    }
     jsDocBuilder.recordParameter(
         "props",
-        new JSTypeExpression(IR.string(propsTypeName), GENERATED_SOURCE_NAME));
-    jsDocBuilder.recordReturnType(new JSTypeExpression(
-        IR.string(propsTypeName), GENERATED_SOURCE_NAME));
+        new JSTypeExpression(propsTypeNode, GENERATED_SOURCE_NAME));
+    jsDocBuilder.recordReturnType(
+        new JSTypeExpression(propsTypeNode, GENERATED_SOURCE_NAME));
     validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
     validatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(
@@ -384,7 +401,7 @@ class PropTypesExtractor {
       return;
     }
     Node propsParamNode = callNode.getChildAtIndex(2);
-    if (propsParamNode.isObjectLit()) {
+    if (propsParamNode.isObjectLit() || propsParamNode.isNull()) {
       Node typeNode = callNode.getChildAtIndex(1);
       propsParamNode.detach();
       Node validatorCallNode = IR.call(

@@ -101,8 +101,8 @@ public class PropTypesExtractorTest {
         .getFirstChild().getFirstChild();
     assertArrayEquals(new JSError[]{}, compiler.getErrors());
 
-    Node typeNode = PropTypesExtractor.convertPropTypeToTypeNode(
-      reactPropTypeNode);
+    Node typeNode = PropTypesExtractor.convertPropType(reactPropTypeNode)
+        .typeNode;
 
     // Easiest way to stringify the type node is to print it out as JSDoc.
     JSDocInfoBuilder jsDocInfoBuilder = new JSDocInfoBuilder(true);

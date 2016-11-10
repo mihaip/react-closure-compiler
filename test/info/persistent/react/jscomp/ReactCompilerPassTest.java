@@ -665,6 +665,13 @@ public class ReactCompilerPassTest {
       "});\n" +
       "React.createElement(Comp, {});",
       "JSC_TYPE_MISMATCH");
+    testError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, null);",
+      "JSC_TYPE_MISMATCH");
     // Optional props can be null
     testNoError(
       "var Comp = React.createClass({" +
@@ -679,6 +686,12 @@ public class ReactCompilerPassTest {
         "render: function() {return null;}" +
       "});\n" +
       "React.createElement(Comp, {});");
+    testNoError(
+      "var Comp = React.createClass({" +
+        "propTypes: {strProp: React.PropTypes.string}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, null);");
     // Validate object prop
     testError(
       "/** @constructor */ function Message() {};\n" +
