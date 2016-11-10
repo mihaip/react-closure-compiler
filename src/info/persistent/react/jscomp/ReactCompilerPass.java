@@ -874,7 +874,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
-    // Add casts of the form /** @type {ReactElement.<type name>} */ around
+    // Add casts of the form /** @type {!ReactElement.<type name>} */ around
     // React.createElement calls, so that the return value of React.render will
     // have the correct type (for string types assume that it's a
     // ReactDOMElement).
@@ -887,8 +887,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node typeNode = callNode.getChildAtIndex(1);
     Node elementTypeExpressionNode;
     if (typeNode.isString()) {
-      elementTypeExpressionNode = new Node(
-          Token.BANG, IR.string("ReactDOMElement"));
+      elementTypeExpressionNode = IR.string("ReactDOMElement");
     } else {
       String typeName = typeNode.getQualifiedName();
       if (!reactClassesByName.containsKey(typeName)) {
@@ -905,7 +904,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        elementTypeExpressionNode, GENERATED_SOURCE_NAME));
+        new Node(Token.BANG, elementTypeExpressionNode), GENERATED_SOURCE_NAME));
     JSDocInfo jsDoc = jsDocBuilder.build();
     Node callNodePrevious = callNode.getPrevious();
     Node callNodeParent = callNode.getParent();
@@ -934,7 +933,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     blockNode.addChildToFront(new Node(Token.BANG, IR.string(typeName)));
     Node typeNode = IR.string("ReactElement");
     typeNode.addChildToFront(blockNode);
-    return new Node(Token.BANG, typeNode);
+    return typeNode;
   }
 
   private static JSDocInfoBuilder newJsDocInfoBuilderForNode(Node node) {
