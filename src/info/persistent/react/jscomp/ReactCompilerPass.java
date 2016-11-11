@@ -476,6 +476,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     interfacePrototypePropsByName.put(typeName, interfacePrototypeProps);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node propTypesNode = null;
+    Node getDefaultPropsNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
     boolean usesPureRenderMixin = false;
     boolean hasShouldComponentUpdate = false;
@@ -496,6 +497,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       if (keyName.equals("propTypes")) {
         propTypesNode = key;
         continue;
+      }
+      if (keyName.equals("getDefaultProps")) {
+        getDefaultPropsNode = key;
       }
       if (keyName.equals("statics")) {
         if (createFuncName.equals("React.createClass")) {
@@ -644,7 +648,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
       if (propTypesTypeChecking) {
         PropTypesExtractor extractor = new PropTypesExtractor(
-            propTypesNode, typeName, interfaceTypeName, compiler);
+            propTypesNode, getDefaultPropsNode, typeName, interfaceTypeName,
+            compiler);
         extractor.extract();
         extractor.insert(elementTypedefInsertionPoint);
         propTypesExtractorsByName.put(typeName, extractor);

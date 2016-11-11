@@ -789,6 +789,42 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{/** @type {(boolean|undefined|null)} */ boolProp: function() {}}",
         "null");
+    // Required props with default values can be ommitted.
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "strProp: React.PropTypes.string.isRequired" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {strProp: \"1\"};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {});");
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "strProp: React.PropTypes.string.isRequired" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {strProp: \"1\"};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, null);");
+    // But if they are provided their types are still checked.
+    testError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "strProp: React.PropTypes.string.isRequired" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {strProp: \"1\"};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {strProp: 1});",
+        "JSC_TYPE_MISMATCH");
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {

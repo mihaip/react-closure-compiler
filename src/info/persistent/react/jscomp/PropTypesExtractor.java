@@ -1,6 +1,10 @@
 package info.persistent.react.jscomp;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.JSError;
@@ -12,7 +16,10 @@ import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Converts propTypes from React component specs into a record type that the
@@ -64,29 +71,30 @@ class PropTypesExtractor {
       "{0} has a 'children' propType but is created without any children");
 
   private final Node propTypesNode;
+  private final Node getDefaultPropsNode;
   private final String sourceFileName;
   private final String typeName;
   private final String interfaceTypeName;
   private final Compiler compiler;
 
-  private final String propsTypeName;
   private final String validatorFuncName;
-  private JSTypeExpression propsTypeExpression;
-  private boolean allPropsAreOptional;
+  private List<Prop> props;
+  private boolean canBeCreatedWithNoProps;
   private final String childrenValidatorFuncName;
   private Node childrenPropTypeNode;
 
   public PropTypesExtractor(
       Node propTypesNode,
+      Node getDefaultPropsNode,
       String typeName,
       String interfaceTypeName,
       Compiler compiler) {
     this.propTypesNode = propTypesNode;
     this.sourceFileName = propTypesNode.getSourceFileName();
+    this.getDefaultPropsNode = getDefaultPropsNode;
     this.typeName = typeName;
     this.interfaceTypeName = interfaceTypeName;
     this.compiler = compiler;
-    this.propsTypeName = typeName + ".Props";
     // Generate a unique global function name (so that the compiler can more
     // easily see that it's a passthrough and inline and remove it).
     String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
@@ -117,77 +125,132 @@ class PropTypesExtractor {
     }
   }
 
+  private static class Prop {
+    public Prop(Node propTypeKeyNode, PropType propType, boolean hasDefaultValue) {
+      this.propTypeKeyNode = propTypeKeyNode;
+      this.propType = propType;
+      this.hasDefaultValue = hasDefaultValue;
+    }
+
+    private final Node propTypeKeyNode;
+    private final PropType propType;
+    private final boolean hasDefaultValue;
+  }
+
   public void extract() {
-    allPropsAreOptional = true;
+    Set<String> propsWithDefaultValues;
+    if (getDefaultPropsNode != null) {
+      propsWithDefaultValues = getPropsWithDefaultValues(getDefaultPropsNode);
+    } else {
+      propsWithDefaultValues = Collections.emptySet();
+    }
+
     Node propTypesObjectLitNode = propTypesNode.getFirstChild();
-    Node lb = new Node(Token.LB);
+    props = Lists.newArrayListWithCapacity(
+        propTypesObjectLitNode.getChildCount());
+    canBeCreatedWithNoProps = true;
+
     for (Node propTypeKeyNode : propTypesObjectLitNode.children()) {
-      Node colon = new Node(Token.COLON);
-      Node member = propTypeKeyNode.cloneNode();
-      colon.addChildToBack(member);
-      ConversionResult memberTypeResult = null;
+      String propName = propTypeKeyNode.getString();
+      PropType propType = null;
       // Allow the type for a prop to be explicitly defined via a @type JSDoc
       // annotation on the key.
       if (propTypeKeyNode.getJSDocInfo() != null) {
         JSDocInfo propTypeJsDoc = propTypeKeyNode.getJSDocInfo();
         if (propTypeJsDoc.hasType()) {
-            Node propTypeNode = propTypeJsDoc.getType().getRoot();
-            // Infer whether the prop is required or not by looking at whether
-            // it's a union with undefined or null.
-            boolean isRequired = true;
-            if (propTypeNode.getToken() == Token.PIPE) {
-              for (Node child = propTypeNode.getFirstChild();
-                  child != null;
-                  child = child.getNext()) {
-                if (child.getToken() == Token.QMARK ||
-                    (child.isString() &&
-                        (child.getString().equals("null") ||
-                        child.getString().equals("undefined")))) {
-                  isRequired = false;
-                  break;
-                }
+          Node propTypeNode = propTypeJsDoc.getType().getRoot();
+          // Infer whether the prop is required or not by looking at whether
+          // it's a union with undefined or null.
+          boolean isRequired = true;
+          if (propTypeNode.getToken() == Token.PIPE) {
+            for (Node child = propTypeNode.getFirstChild();
+                child != null;
+                child = child.getNext()) {
+              if (child.getToken() == Token.QMARK ||
+                  (child.isString() &&
+                      (child.getString().equals("null") ||
+                      child.getString().equals("undefined")))) {
+                isRequired = false;
+                break;
               }
             }
-            // Remove the custom type, otherwise the compiler will complain that
-            // the key is not typed correctly.
-            propTypeKeyNode.setJSDocInfo(null);
-            memberTypeResult = new ConversionResult(
-                propTypeNode, propTypeNode, isRequired);
+          }
+          // Remove the custom type, otherwise the compiler will complain that
+          // the key is not typed correctly.
+          propTypeKeyNode.setJSDocInfo(null);
+          propType = new PropType(propTypeNode, propTypeNode, isRequired);
         }
       }
-      if (memberTypeResult == null) {
-        memberTypeResult = convertPropType(propTypeKeyNode.getFirstChild());
+      if (propType == null) {
+        propType = convertPropType(propTypeKeyNode.getFirstChild());
       }
-      if (memberTypeResult != null) {
-        if (propTypeKeyNode.getString().equals("children")) {
-          // The "children" propType is a bit special, since it's not passed in
-          // directly via the "props" argument to React.createElement. It doesn't
-          // usually show up in propTypes, except for the pattern of requiring
-          // a single child (https://goo.gl/961UCF).
-          childrenPropTypeNode = memberTypeResult.typeNode;
-          continue;
-        }
-        if (memberTypeResult.isRequired) {
-          allPropsAreOptional = false;
-        }
-        colon.addChildToBack(memberTypeResult.typeNode);
-      } else {
+      if (propType == null) {
         compiler.report(JSError.make(
             propTypeKeyNode,
             COULD_NOT_DETERMINE_PROP_TYPE,
-            propTypeKeyNode.getString(),
+            propName,
             typeName));
-        colon.addChildToBack(DEFAULT_PROP_TYPE.cloneTree());
+        propType = new PropType(
+            DEFAULT_PROP_TYPE.cloneTree(), DEFAULT_PROP_TYPE.cloneTree(),
+            false);
       }
-      colon.useSourceInfoFromForTree(propTypeKeyNode);
-      lb.addChildToBack(colon);
+      if (propName.equals("children")) {
+        // The "children" propType is a bit special, since it's not passed in
+        // directly via the "props" argument to React.createElement. It doesn't
+        // usually show up in propTypes, except for the pattern of requiring
+        // a single child (https://goo.gl/961UCF).
+        childrenPropTypeNode = propType.typeNode;
+        continue;
+      }
+      boolean hasDefaultValue = propsWithDefaultValues.contains(propName);
+      if (propType.isRequired && !hasDefaultValue) {
+        canBeCreatedWithNoProps = false;
+      }
+      props.add(new Prop(propTypeKeyNode, propType, hasDefaultValue));
     }
-    Node propsTypeNode = new Node(Token.LC, lb);
-    propsTypeExpression = new JSTypeExpression(propsTypeNode, sourceFileName);
   }
 
-  static class ConversionResult {
-    ConversionResult(
+  /**
+   * Assumes the pattern:
+   *   getDefaultProps: function() {
+   *     return {propName: ...};
+   *   }
+   */
+  private static Set<String> getPropsWithDefaultValues(Node getDefaultPropsNode) {
+    Node getDefaultPropsValueNode = getDefaultPropsNode.getFirstChild();
+    if (!getDefaultPropsValueNode.isFunction()) {
+      return Collections.emptySet();
+    }
+
+    Node getDefaultPropsBlockNode = getDefaultPropsValueNode.getLastChild();
+    if (!getDefaultPropsBlockNode.isBlock()) {
+      return Collections.emptySet();
+    }
+
+    Node getDefaultPropsReturnNode = getDefaultPropsBlockNode.getLastChild();
+    if (!getDefaultPropsReturnNode.isReturn()) {
+      return Collections.emptySet();
+    }
+
+    Node getDefaultPropsReturnValueNode =
+        getDefaultPropsReturnNode.getFirstChild();
+    if (getDefaultPropsReturnValueNode == null ||
+        !getDefaultPropsReturnValueNode.isObjectLit()) {
+      return Collections.emptySet();
+    }
+
+    Set<String> result = Sets.newHashSetWithExpectedSize(
+        getDefaultPropsReturnValueNode.getChildCount());
+    for (Node keyNode : getDefaultPropsReturnValueNode.children()) {
+      if (keyNode.isString() || keyNode.isStringKey()) {
+        result.add(keyNode.getString());
+      }
+    }
+    return result;
+  }
+
+  static class PropType {
+    PropType(
           Node optionalTypeNode,
           Node requiredTypeNode,
           boolean isRequired) {
@@ -203,7 +266,7 @@ class PropTypesExtractor {
     public final boolean isRequired;
   }
 
-  static ConversionResult convertPropType(Node propTypeNode) {
+  static PropType convertPropType(Node propTypeNode) {
     String propTypeString = stringifyPropTypeNode(propTypeNode);
     if (propTypeString == null) {
       return null;
@@ -211,7 +274,7 @@ class PropTypesExtractor {
     return convertPropType(propTypeString);
   }
 
-  private static ConversionResult convertPropType(String propTypeString) {
+  private static PropType convertPropType(String propTypeString) {
     boolean isRequired = propTypeString.endsWith(REQUIRED_SUFFIX);
     if (isRequired) {
       propTypeString = propTypeString.substring(
@@ -223,7 +286,7 @@ class PropTypesExtractor {
       String simplePropType = "React.PropTypes." + entry.getKey();
       if (propTypeString.equals(simplePropType)) {
         Node propType = entry.getValue().cloneTree();
-        return new ConversionResult(
+        return new PropType(
             pipe(propType, IR.string("undefined"), IR.string("null")),
             propType.cloneTree(),
             isRequired);
@@ -237,7 +300,7 @@ class PropTypesExtractor {
           INSTANCE_OF_PREFIX.length(),
           propTypeString.length() - INSTANCE_OF_SUFFIX.length());
       Node propType = IR.string(objectType);
-      return new ConversionResult(
+      return new PropType(
           pipe(propType, IR.string("undefined")),
           bang(propType.cloneTree()),
           isRequired);
@@ -249,14 +312,14 @@ class PropTypesExtractor {
       String arrayTypeString = propTypeString.substring(
           ARRAY_OF_PREFIX.length(),
           propTypeString.length() - ARRAY_OF_SUFFIX.length());
-      ConversionResult arrayTypeResult = convertPropType(arrayTypeString);
+      PropType arrayTypeResult = convertPropType(arrayTypeString);
       if (arrayTypeResult == null) {
         return null;
       }
       Node propType = IR.string("Array");
       propType.addChildToFront(IR.block());
       propType.getFirstChild().addChildToFront(arrayTypeResult.typeNode);
-      return new ConversionResult(
+      return new PropType(
           pipe(propType, IR.string("undefined")),
           bang(propType.cloneTree()),
           isRequired);
@@ -268,14 +331,14 @@ class PropTypesExtractor {
       String objectTypeString = propTypeString.substring(
           OBJECT_OF_PREFIX.length(),
           propTypeString.length() - OBJECT_OF_SUFFIX.length());
-      ConversionResult objectTypeResult = convertPropType(objectTypeString);
+      PropType objectTypeResult = convertPropType(objectTypeString);
       if (objectTypeResult == null) {
         return null;
       }
       Node propType = IR.string("Object");
       propType.addChildToFront(IR.block());
       propType.getFirstChild().addChildToFront(objectTypeResult.typeNode);
-      return new ConversionResult(
+      return new PropType(
           pipe(propType, IR.string("undefined")),
           bang(propType.cloneTree()),
           isRequired);
@@ -290,7 +353,7 @@ class PropTypesExtractor {
       String[] oneOfTypeStrings = oneOfTypeString.split(",");
       Node propType = new Node(Token.PIPE);
       for (String typeString : oneOfTypeStrings) {
-        ConversionResult typeResult = convertPropType(typeString);
+        PropType typeResult = convertPropType(typeString);
         if (typeResult == null) {
           return null;
         }
@@ -301,7 +364,7 @@ class PropTypesExtractor {
       Node optionalPropType = propType.cloneTree();
       optionalPropType.addChildToBack(IR.string("undefined"));
       optionalPropType.addChildToBack(IR.string("null"));
-      return new ConversionResult(optionalPropType, propType, isRequired);
+      return new PropType(optionalPropType, propType, isRequired);
     }
 
     return null;
@@ -367,11 +430,8 @@ class PropTypesExtractor {
     //   ...
     // }} */
     // Comp.Props;
-    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordTypedef(propsTypeExpression);
-    Node propsTypedefNode = NodeUtil.newQName(compiler, propsTypeName);
-    propsTypedefNode.setJSDocInfo(jsDocBuilder.build());
-    propsTypedefNode = IR.exprResult(propsTypedefNode);
+    String propsTypeName = typeName + ".Props";
+    Node propsTypedefNode = getPropsTypedefNode(propsTypeName, false);
     propsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsTypedefNode, insertionPoint);
     insertionPoint = propsTypedefNode;
@@ -386,13 +446,29 @@ class PropTypesExtractor {
     //  * @return {Comp.Props}
     //  */
     // CompPropsValidator = function(props) { return props; };
+    // Props that are required but have default values can be missing at
+    // creation time, so for those cases we need to create an alternate type
+    // that allows them to be skipped.
+    String validatorPropsTypeName = propsTypeName;
+    boolean needsCustomValidatorType = Iterables.any(props, new Predicate<Prop>() {
+      @Override public boolean apply(Prop prop) {
+        return prop.propType.isRequired && prop.hasDefaultValue;
+      }
+    });
+    if (needsCustomValidatorType) {
+      validatorPropsTypeName = typeName + ".CreateProps";
+      Node validatorPropsTypedefNode = getPropsTypedefNode(validatorPropsTypeName, true);
+      validatorPropsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      insertionPoint.getParent().addChildAfter(validatorPropsTypedefNode, insertionPoint);
+      insertionPoint = validatorPropsTypedefNode;
+    }
     Node validatorFuncNode = IR.function(
         IR.name(validatorFuncName),
         IR.paramList(IR.name("props")),
         IR.block(IR.returnNode(IR.name("props"))));
-    jsDocBuilder = new JSDocInfoBuilder(true);
-    Node propsTypeNode = IR.string(propsTypeName);
-    if (allPropsAreOptional) {
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+    Node propsTypeNode = IR.string(validatorPropsTypeName);
+    if (canBeCreatedWithNoProps) {
       propsTypeNode = new Node(Token.QMARK, propsTypeNode);
     }
     jsDocBuilder.recordParameter(
@@ -438,6 +514,38 @@ class PropTypesExtractor {
     propsNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsNode, insertionPoint);
     insertionPoint = propsNode;
+  }
+
+  private Node getPropsTypedefNode(String name, boolean forValidator) {
+    Node lb = new Node(Token.LB);
+    for (Prop prop : props) {
+      PropType propType = prop.propType;
+      Node colon = new Node(Token.COLON);
+      Node member = prop.propTypeKeyNode.cloneNode();
+      colon.addChildToBack(member);
+      Node typeNode;
+      if (forValidator && propType.isRequired && prop.hasDefaultValue) {
+        typeNode = propType.optionalTypeNode;
+      } else {
+        typeNode = propType.typeNode;
+      }
+      if (forValidator && typeNode == propType.typeNode) {
+        // We have already used this node in the regular typedef, so we now
+        // need to use a copy.
+        typeNode = typeNode.cloneTree();
+      }
+      colon.addChildToBack(typeNode);
+      colon.useSourceInfoFromForTree(prop.propTypeKeyNode);
+      lb.addChildToBack(colon);
+    }
+    Node propsRecordTypeNode = new Node(Token.LC, lb);
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        propsRecordTypeNode, sourceFileName));
+    Node propsTypedefNode = NodeUtil.newQName(compiler, name);
+    propsTypedefNode.setJSDocInfo(jsDocBuilder.build());
+    propsTypedefNode = IR.exprResult(propsTypedefNode);
+    return propsTypedefNode;
   }
 
   public void visitReactCreateElement(Node callNode) {
