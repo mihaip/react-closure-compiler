@@ -98,7 +98,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
-  private static final String GENERATED_SOURCE_NAME = "<ReactCompilerPass-generated.js>";
 
   private final Compiler compiler;
   private final boolean propTypesTypeChecking;
@@ -465,8 +464,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // Add the @typedef
     JSDocInfoBuilder jsDocBuilder = newJsDocInfoBuilderForNode(typeAttachNode);
     jsDocBuilder.recordTypedef(new JSTypeExpression(
-        IR.string(interfaceTypeName),
-        GENERATED_SOURCE_NAME));
+        IR.string(interfaceTypeName), callNode.getSourceFileName()));
     typeAttachNode.setJSDocInfo(jsDocBuilder.build());
 
     // Record the type so that we can later look it up in React.createElement
@@ -542,7 +540,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       Node thisTypeNode = keyName.equals("getDefaultProps") ?
           new Node(Token.STAR) : IR.string(typeName);
       jsDocBuilder.recordThisType(new JSTypeExpression(
-        thisTypeNode, GENERATED_SOURCE_NAME));
+        thisTypeNode, key.getSourceFileName()));
       key.setJSDocInfo(jsDocBuilder.build());
     }
 
@@ -567,7 +565,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordTypedef(new JSTypeExpression(
         createReactElementTypeExpressionNode(typeName),
-        GENERATED_SOURCE_NAME));
+        callNode.getSourceFileName()));
     Node elementTypedefNode = NodeUtil.newQName(
         compiler, typeName + "Element");
     if (elementTypedefNode.isName()) {
@@ -629,7 +627,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordInterface();
     jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
         new Node(Token.BANG, IR.string("ReactComponent")),
-        GENERATED_SOURCE_NAME));
+        callNode.getSourceFileName()));
     interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build());
     Node interfaceTypeInsertionPoint = callParentNode.getParent();
     interfaceTypeInsertionPoint.getParent().addChildBefore(
@@ -914,7 +912,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
-        new Node(Token.BANG, elementTypeExpressionNode), GENERATED_SOURCE_NAME));
+        new Node(Token.BANG, elementTypeExpressionNode),
+        callNode.getSourceFileName()));
     JSDocInfo jsDoc = jsDocBuilder.build();
     Node callNodePrevious = callNode.getPrevious();
     Node callNodeParent = callNode.getParent();

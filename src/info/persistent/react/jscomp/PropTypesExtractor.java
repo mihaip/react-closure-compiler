@@ -20,8 +20,6 @@ import java.util.Map;
  * and instantiation via React.createElement.
  */
 class PropTypesExtractor {
-  private static final String GENERATED_SOURCE_NAME =
-      "<PropTypesExtractor-generated.js>";
   private static final String REQUIRED_SUFFIX = ".isRequired";
 
   private static final String INSTANCE_OF_PREFIX = "React.PropTypes.instanceOf(";
@@ -66,6 +64,7 @@ class PropTypesExtractor {
       "{0} has a 'children' propType but is created without any children");
 
   private final Node propTypesNode;
+  private final String sourceFileName;
   private final String typeName;
   private final String interfaceTypeName;
   private final Compiler compiler;
@@ -83,6 +82,7 @@ class PropTypesExtractor {
       String interfaceTypeName,
       Compiler compiler) {
     this.propTypesNode = propTypesNode;
+    this.sourceFileName = propTypesNode.getSourceFileName();
     this.typeName = typeName;
     this.interfaceTypeName = interfaceTypeName;
     this.compiler = compiler;
@@ -179,11 +179,11 @@ class PropTypesExtractor {
             typeName));
         colon.addChildToBack(DEFAULT_PROP_TYPE.cloneTree());
       }
+      colon.useSourceInfoFromForTree(propTypeKeyNode);
       lb.addChildToBack(colon);
     }
     Node propsTypeNode = new Node(Token.LC, lb);
-    propsTypeExpression = new JSTypeExpression(
-      propsTypeNode, GENERATED_SOURCE_NAME);
+    propsTypeExpression = new JSTypeExpression(propsTypeNode, sourceFileName);
   }
 
   static class ConversionResult {
@@ -397,9 +397,9 @@ class PropTypesExtractor {
     }
     jsDocBuilder.recordParameter(
         "props",
-        new JSTypeExpression(propsTypeNode, GENERATED_SOURCE_NAME));
+        new JSTypeExpression(propsTypeNode, sourceFileName));
     jsDocBuilder.recordReturnType(
-        new JSTypeExpression(propsTypeNode, GENERATED_SOURCE_NAME));
+        new JSTypeExpression(propsTypeNode, sourceFileName));
     validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
     validatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(
@@ -416,9 +416,9 @@ class PropTypesExtractor {
       jsDocBuilder = new JSDocInfoBuilder(true);
       jsDocBuilder.recordParameter(
           "children",
-          new JSTypeExpression(childrenPropTypeNode, GENERATED_SOURCE_NAME));
-      jsDocBuilder.recordReturnType(new JSTypeExpression(
-          childrenPropTypeNode, GENERATED_SOURCE_NAME));
+          new JSTypeExpression(childrenPropTypeNode, sourceFileName));
+      jsDocBuilder.recordReturnType(
+          new JSTypeExpression(childrenPropTypeNode, sourceFileName));
       childrenValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
       childrenValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
       insertionPoint.getParent().addChildAfter(
@@ -429,8 +429,8 @@ class PropTypesExtractor {
     // /** @type {Comp.Props} */
     // CompInterface.prototype.props;
     jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordType(new JSTypeExpression(
-        IR.string(propsTypeName), GENERATED_SOURCE_NAME));
+    jsDocBuilder.recordType(
+        new JSTypeExpression(IR.string(propsTypeName), sourceFileName));
     Node propsNode = NodeUtil.newQName(
         compiler, interfaceTypeName + ".prototype.props");
     propsNode.setJSDocInfo(jsDocBuilder.build());
