@@ -458,23 +458,21 @@ class PropTypesExtractor {
       validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
       callNode.addChildAfter(validatorCallNode, typeNode);
     } else if (propsParamNode.isCall()) {
-      // If it's a React.__spread() call then add the validator to the first
-      // object literal parameter instead (it should have all of the explicitly
-      // specified props).
+      // If it's a React.__spread() call then add the validator to object
+      // literal parameters instead.
       String functionName = propsParamNode.getFirstChild().getQualifiedName();
       if (functionName != null && functionName.equals("React.__spread") &&
           propsParamNode.getChildCount() > 1) {
         for (Node spreadParamNode = propsParamNode.getChildAtIndex(1);
             spreadParamNode != null;
             spreadParamNode = spreadParamNode.getNext()) {
-          if (spreadParamNode.isObjectLit()) {
+          if (spreadParamNode.isObjectLit() && spreadParamNode.hasChildren()) {
             Node prevNode = spreadParamNode.getPrevious();
             spreadParamNode.detach();
             Node validatorCallNode = IR.call(
                 IR.name(validatorFuncName), spreadParamNode);
             validatorCallNode.useSourceInfoIfMissingFrom(spreadParamNode);
             propsParamNode.addChildAfter(validatorCallNode, prevNode);
-            break;
           }
         }
       }

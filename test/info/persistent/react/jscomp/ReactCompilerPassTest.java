@@ -775,6 +775,9 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "React.__spread({aProp: 1}, {})");
+    testPropTypesNoError(
+        "{aProp: React.PropTypes.number.isRequired}",
+        "React.__spread({}, {})");
     // Custom type expressions
     testPropTypesError(
         "{/** @type {boolean} */ boolProp: function() {}}",
