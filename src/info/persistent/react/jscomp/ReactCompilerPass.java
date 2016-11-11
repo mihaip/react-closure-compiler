@@ -758,13 +758,19 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           gatherStaticsJsDocs(mixinSpecKey, staticsJsDocs);
           continue;
         }
+        JSDocInfo mixinSpecKeyJsDoc = mixinSpecKey.getJSDocInfo();
+        // Private methods should not be exposed.
+        if (mixinSpecKeyJsDoc != null &&
+            mixinSpecKeyJsDoc.getVisibility() == JSDocInfo.Visibility.PRIVATE) {
+          continue;
+        }
         if (mixinSpecKey.hasOneChild() &&
             mixinSpecKey.getFirstChild().isFunction()) {
           Node keyNode = addFuncToInterface(
               keyName,
               mixinSpecKey.getFirstChild(),
               interfacePrototypeProps,
-              mixinSpecKey.getJSDocInfo());
+              mixinSpecKeyJsDoc);
           // Since mixins are effectively copied into the type, their source
           // file is the type's (allow private methods from mixins to be
           // called).

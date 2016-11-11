@@ -195,6 +195,20 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
     testError(
       "var Mixin = React.createMixin({" +
+        "/** @private */" +
+        "privateMixinMethod_: function() {}" +
+      "});\n" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.privateMixinMethod_();" +
+          "return null;" +
+        "}" +
+      "});",
+      // Private mixin methods should not be exposed to the component.
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
+      "var Mixin = React.createMixin({" +
         "mixinMethod: function() {" +
           "window.foo = this.mixinAbstractMethod().noSuchMethod()" +
         "}" +
