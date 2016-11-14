@@ -178,7 +178,11 @@ class PropTypesExtractor {
           // Remove the custom type, otherwise the compiler will complain that
           // the key is not typed correctly.
           propTypeKeyNode.setJSDocInfo(null);
-          propType = new PropType(propTypeNode, propTypeNode, isRequired);
+          Node optionalPropTypeNode = isRequired ?
+            pipe(propTypeNode, IR.string("undefined"), IR.string("null")) :
+            propTypeNode;
+          propType = new PropType(
+            optionalPropTypeNode, propTypeNode, isRequired);
         }
       }
       if (propType == null) {

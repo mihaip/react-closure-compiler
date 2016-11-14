@@ -812,6 +812,18 @@ public class ReactCompilerPassTest {
           "render: function() {return null;}" +
         "});\n" +
         "React.createElement(Comp, null);");
+    // Applies to custom type expressions too
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "/** @type {boolean} */ boolProp: function() {}" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {boolProp: true};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {});");
     // But if they are provided their types are still checked.
     testError(
         "var Comp = React.createClass({" +
