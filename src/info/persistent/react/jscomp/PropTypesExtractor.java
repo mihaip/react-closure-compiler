@@ -452,7 +452,7 @@ class PropTypesExtractor {
     String validatorPropsTypeName = propsTypeName;
     boolean needsCustomValidatorType = Iterables.any(props, new Predicate<Prop>() {
       @Override public boolean apply(Prop prop) {
-        return prop.propType.isRequired && prop.hasDefaultValue;
+        return prop.hasDefaultValue;
       }
     });
     if (needsCustomValidatorType) {
@@ -526,10 +526,15 @@ class PropTypesExtractor {
       Node typeNode;
       if (forValidator && propType.isRequired && prop.hasDefaultValue) {
         typeNode = propType.optionalTypeNode;
+      } else if (!forValidator && !propType.isRequired &&
+          prop.hasDefaultValue) {
+        // If a prop is not required but it has a default value then its type
+        // inside the component can be treated as required.
+        typeNode = propType.requiredTypeNode;
       } else {
         typeNode = propType.typeNode;
       }
-      if (forValidator && typeNode == propType.typeNode) {
+      if (typeNode.getParent() != null) {
         // We have already used this node in the regular typedef, so we now
         // need to use a copy.
         typeNode = typeNode.cloneTree();

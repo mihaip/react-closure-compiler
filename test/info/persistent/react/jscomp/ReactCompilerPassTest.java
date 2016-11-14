@@ -825,6 +825,29 @@ public class ReactCompilerPassTest {
         "});\n" +
         "React.createElement(Comp, {strProp: 1});",
         "JSC_TYPE_MISMATCH");
+    // Even if not required, if they have a default value their value inside
+    // the component is not null or undefined.
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "strProp: React.PropTypes.string" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {strProp: \"1\"};" +
+          "}," +
+          "render: function() {" +
+            "this.strMethod_(this.props.strProp);" +
+            "return null;" +
+          "},\n" +
+          "/**" +
+          " * @param {string} param" +
+          " * @return {string}" +
+          " * @private" +
+          " */" +
+          "strMethod_: function(param) {return param;}" +
+        "});\n" +
+        "React.createElement(Comp, null);");
+
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {
