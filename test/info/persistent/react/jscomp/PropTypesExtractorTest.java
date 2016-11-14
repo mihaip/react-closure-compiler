@@ -87,6 +87,25 @@ public class PropTypesExtractorTest {
     testPropType(
         "React.PropTypes.objectOf(React.PropTypes.number.isRequired)",
         "(Object<number>|undefined)");
+
+    testPropType(
+        "React.PropTypes.shape({" +
+            "label: React.PropTypes.string.isRequired," +
+            "handler: React.PropTypes.func.isRequired" +
+        "}).isRequired",
+        "{" +
+            "label:string," +
+            "handler:!Function" +
+        "}");
+    testPropType(
+        "React.PropTypes.shape({" +
+            "label: React.PropTypes.string.isRequired," +
+            "handler: React.PropTypes.func.isRequired" +
+        "})",
+        "({" +
+            "label:string," +
+            "handler:!Function" +
+        "}|undefined|null)");
   }
 
   private void testPropType(String reactPropType, String typeExpression) {

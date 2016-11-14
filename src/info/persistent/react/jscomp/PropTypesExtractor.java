@@ -41,6 +41,9 @@ class PropTypesExtractor {
   private static final String ONE_OF_TYPE_PREFIX = "React.PropTypes.oneOfType([";
   private static final String ONE_OF_TYPE_SUFFIX = "])";
 
+  private static final String SHAPE_PREFIX = "React.PropTypes.shape({";
+  private static final String SHAPE_SUFFIX = "})";
+
   // Maped to the required variant, the "null" and "undefined" union will be
   // added if the prop turns out not to be required.
   private static final Map<String, Node> SIMPLE_PROP_TYPES =
@@ -348,7 +351,7 @@ class PropTypesExtractor {
           isRequired);
     }
 
-    // React.PropTypes.oneOfType([<Type1>, <Type2>, ...]) to (Type1|Type2|...)
+    // React.PropTypes.oneOfType([<Type1>,<Type2>,...]) to (Type1|Type2|...)
     if (propTypeString.startsWith(ONE_OF_TYPE_PREFIX) &&
         propTypeString.endsWith(ONE_OF_TYPE_SUFFIX)) {
       String oneOfTypeString = propTypeString.substring(
@@ -368,6 +371,35 @@ class PropTypesExtractor {
       Node optionalPropType = propType.cloneTree();
       optionalPropType.addChildToBack(IR.string("undefined"));
       optionalPropType.addChildToBack(IR.string("null"));
+      return new PropType(optionalPropType, propType, isRequired);
+    }
+
+    // React.PropTypes.shape({prop1:<Type1>,prop2:<Type2>,...]) to
+    // {prop1:Type1,prop2:Type2}
+    if (propTypeString.startsWith(SHAPE_PREFIX) &&
+        propTypeString.endsWith(SHAPE_SUFFIX)) {
+      String shapeString = propTypeString.substring(
+          SHAPE_PREFIX.length(),
+          propTypeString.length() - SHAPE_SUFFIX.length());
+      String[] shapeStrings = shapeString.split(",");
+      Node lb = new Node(Token.LB);
+      for (String typeString : shapeStrings) {
+        String[] typeStringPieces = typeString.split(":", 2);
+        if (typeStringPieces.length != 2) {
+          return null;
+        }
+        PropType typeResult = convertPropType(typeStringPieces[1]);
+        if (typeResult == null) {
+          return null;
+        }
+        Node colon = new Node(Token.COLON);
+        colon.addChildToBack(IR.stringKey(typeStringPieces[0]));
+        colon.addChildToBack(typeResult.typeNode);
+        lb.addChildToBack(colon);
+      }
+      Node propType = new Node(Token.LC, lb);
+      Node optionalPropType =
+          pipe(propType.cloneTree(), IR.string("undefined"), IR.string("null"));
       return new PropType(optionalPropType, propType, isRequired);
     }
 
@@ -422,6 +454,20 @@ class PropTypesExtractor {
         }
         arrayString += "]";
         return arrayString;
+      case OBJECTLIT:
+        String objectString = "{";
+        for (Node child = first; child != null; child = child.getNext()) {
+          String childString = stringifyPropTypeNode(child.getFirstChild());
+          if (childString == null) {
+            return null;
+          }
+          if (child != first) {
+            objectString += ",";
+          }
+          objectString += child.getString() + ":" + childString;
+        }
+        objectString += "}";
+        return objectString;
       default:
         return null;
     }
