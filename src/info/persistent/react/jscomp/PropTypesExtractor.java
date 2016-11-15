@@ -1,6 +1,7 @@
 package info.persistent.react.jscomp;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -15,6 +16,9 @@ import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.google.javascript.rhino.jstype.FunctionType;
+import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.jstype.PrototypeObjectType;
 
 import java.util.Collections;
 import java.util.List;
@@ -73,6 +77,13 @@ class PropTypesExtractor {
       "REACT_NO_CHILDREN_ARGUMENT",
       "{0} has a 'children' propType but is created without any children");
 
+  static final DiagnosticType PROP_TYPES_VALIDATION_MISMATCH = DiagnosticType.error(
+      "REACT_PROP_TYPES_VALIDATION_MISMATCH",
+      "Invalid props provided when creating a {0} element:\n{1}");
+
+  private static final String PROPS_VALIDATOR_SUFFIX = "$$PropsValidator";
+  private static final String CHILDREN_VALIDATOR_SUFFIX = "$$ChildrenValidator";
+
   private final Node propTypesNode;
   private final Node getDefaultPropsNode;
   private final String sourceFileName;
@@ -81,6 +92,7 @@ class PropTypesExtractor {
   private final Compiler compiler;
 
   private final String validatorFuncName;
+  private Node validatorFuncNode;
   private List<Prop> props;
   private boolean canBeCreatedWithNoProps;
   private final String childrenValidatorFuncName;
@@ -101,9 +113,22 @@ class PropTypesExtractor {
     // Generate a unique global function name (so that the compiler can more
     // easily see that it's a passthrough and inline and remove it).
     String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
-    this.validatorFuncName = sanitizedTypeName + "$$PropsValidator";
-    this.childrenValidatorFuncName = sanitizedTypeName + "$$ChildrenValidator";
+    this.validatorFuncName = sanitizedTypeName + PROPS_VALIDATOR_SUFFIX;
+    this.childrenValidatorFuncName =
+        sanitizedTypeName + CHILDREN_VALIDATOR_SUFFIX;
     this.childrenPropTypeNode = null;
+  }
+
+  static String getTypeNameForFunctionName(String functionName) {
+    String sanitizedTypeName = null;
+    if (functionName.endsWith(PROPS_VALIDATOR_SUFFIX)) {
+      sanitizedTypeName = functionName.substring(
+          0, functionName.length() - PROPS_VALIDATOR_SUFFIX.length());
+    }
+    if (sanitizedTypeName == null) {
+      return null;
+    }
+    return sanitizedTypeName.replaceAll("\\$\\$", ".");
   }
 
   public static boolean canExtractPropTypes(Node propTypesNode) {
@@ -512,7 +537,7 @@ class PropTypesExtractor {
       insertionPoint.getParent().addChildAfter(validatorPropsTypedefNode, insertionPoint);
       insertionPoint = validatorPropsTypedefNode;
     }
-    Node validatorFuncNode = IR.function(
+    validatorFuncNode = IR.function(
         IR.name(validatorFuncName),
         IR.paramList(IR.name("props")),
         IR.block(IR.returnNode(IR.name("props"))));
@@ -656,6 +681,59 @@ class PropTypesExtractor {
         compiler.report(JSError.make(callNode, NO_CHILDREN_ARGUMENT, typeName));
       }
     }
+  }
+
+  JSError generatePropTypesError(Node paramNode) {
+    JSType paramType = paramNode.getJSType();
+    if (paramType == null) {
+      return null;
+    }
+    JSType validatorFuncType = validatorFuncNode.getJSType();
+    if (!(validatorFuncType instanceof FunctionType)) {
+      return null;
+    }
+    JSType expectedType = ((FunctionType) validatorFuncType).getReturnType();
+    if (expectedType == null) {
+      return null;
+    }
+    if (paramType.isSubtype(expectedType)) {
+      return null;
+    }
+    if (!(paramType instanceof PrototypeObjectType)) {
+      return null;
+    }
+    if (!(expectedType instanceof PrototypeObjectType)) {
+      return null;
+    }
+    PrototypeObjectType expectedRecordType = (PrototypeObjectType) expectedType;
+    PrototypeObjectType paramRecordType = (PrototypeObjectType) paramType;
+    if (expectedRecordType == null || paramRecordType == null) {
+      return null;
+    }
+    List<String> errors = Lists.newArrayList();
+    for (String property : expectedRecordType.getPropertyNames()) {
+      JSType expectedPropertyType =
+          expectedRecordType.getPropertyType(property);
+      if (!paramRecordType.hasProperty(property)) {
+        if (!expectedPropertyType.isExplicitlyVoidable()) {
+          errors.add("\"" + property + "\" was missing, expected to be of " +
+              "type " + expectedPropertyType);
+        }
+        continue;
+      }
+      JSType paramPropertyType = paramRecordType.getPropertyType(property);
+      if (!paramPropertyType.isSubtype(expectedPropertyType)) {
+          errors.add("\"" + property + "\" was expected to be of type " +
+              expectedPropertyType + ", instead was " +paramPropertyType);
+      }
+    }
+
+    if (errors.isEmpty()) {
+      return null;
+    }
+
+    return JSError.make(paramNode, PROP_TYPES_VALIDATION_MISMATCH, typeName,
+        "  " + Joiner.on("\n  ").join(errors));
   }
 
   private static Node bang(Node child) {

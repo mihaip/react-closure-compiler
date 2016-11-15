@@ -957,4 +957,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     return JSDocInfoBuilder.copyFrom(existing);
   }
+
+  PropTypesExtractor getPropTypesExtractor(String typeName) {
+    return propTypesExtractorsByName.get(typeName);
+  }
 }
