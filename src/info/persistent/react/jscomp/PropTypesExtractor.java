@@ -73,11 +73,11 @@ class PropTypesExtractor {
       "REACT_COULD_NOT_DETERMINE_PROP_TYPE",
       "Could not determine the prop type of prop {0} of the component {1}.");
 
-  static final DiagnosticType NO_CHILDREN_ARGUMENT = DiagnosticType.error(
+  static final DiagnosticType NO_CHILDREN_ARGUMENT = DiagnosticType.warning(
       "REACT_NO_CHILDREN_ARGUMENT",
       "{0} has a 'children' propType but is created without any children");
 
-  static final DiagnosticType PROP_TYPES_VALIDATION_MISMATCH = DiagnosticType.error(
+  static final DiagnosticType PROP_TYPES_VALIDATION_MISMATCH = DiagnosticType.warning(
       "REACT_PROP_TYPES_VALIDATION_MISMATCH",
       "Invalid props provided when creating a {0} element:\n{1}");
 
