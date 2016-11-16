@@ -58,7 +58,7 @@ public class ReactWarningsGuardTest {
     options.addWarningsGuard(new ReactWarningsGuard(compiler, compilerPass));
     String inputJs = "var Comp = React.createClass({" +
         "propTypes: {" +
-          "strProp: React.PropTypes.string.isRequired" +
+          "strProp: React.PropTypes.string" +
         "}," +
         "render: function() {return null;}" +
       "});\n" +

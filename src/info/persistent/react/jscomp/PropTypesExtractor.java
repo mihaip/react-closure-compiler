@@ -18,7 +18,9 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.jstype.NamedType;
 import com.google.javascript.rhino.jstype.PrototypeObjectType;
+import com.google.javascript.rhino.jstype.UnionType;
 
 import java.util.Collections;
 import java.util.List;
@@ -698,6 +700,19 @@ class PropTypesExtractor {
     }
     if (paramType.isSubtype(expectedType)) {
       return null;
+    }
+    // Unpack the union with null if elements can be created with no props.
+    if (canBeCreatedWithNoProps && expectedType instanceof UnionType) {
+        UnionType unionExpectedType = (UnionType) expectedType;
+        for (JSType expectedAlternateType : unionExpectedType.getAlternates()) {
+            if (!expectedAlternateType.isNullType()) {
+                expectedType = expectedAlternateType;
+                break;
+            }
+        }
+    }
+    if (expectedType instanceof NamedType) {
+        expectedType = ((NamedType) expectedType).getReferencedType();
     }
     if (!(paramType instanceof PrototypeObjectType)) {
       return null;
