@@ -246,13 +246,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
                   n.getJSDocInfo());
             }
           });
-      // Inject ReactDOMModule methods for each tag, of the form:
+      // Inject ReactDOMFactories methods for each tag, of the form:
       // /**
       // * @param {Object=} props
       // * @param {...ReactChildrenArgument} children
       // * @return {ReactDOMElement}
       // */
-      // ReactDOMModule.prototype.<tagName> = function(props, children) {};
+      // ReactDOMFactories.prototype.<tagName> = function(props, children) {};
       Node tagFuncNode = IR.function(
           IR.name(""),
           IR.paramList(IR.name("props"), IR.name("children")),
