@@ -407,6 +407,13 @@ ReactPropTypes.prototype.oneOfType = function(arrayOfTypeCheckers) {};
 ReactPropTypes.prototype.shape = function(shapeTypes) {};
 
 /**
+ * Populated programatically with all of the DOM tag name factory methods.
+ *
+ * @interface
+ */
+function ReactDOMFactories() {}
+
+/**
  * @interface
  * @extends {ReactComponent}
  */
@@ -536,6 +543,7 @@ ReactAddons.UpdateSpec;
  */
 ReactAddons.prototype.update = function(value, updateSpec) {};
 
+
 /**
  * @interface
  */
@@ -553,7 +561,7 @@ ReactModule.prototype.Children;
 ReactModule.prototype.Component;
 
 /**
- * @type {ReactDOMModule}
+ * @type {ReactDOMFactories}
  * @const
  */
 ReactModule.prototype.DOM;

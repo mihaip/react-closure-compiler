@@ -91,9 +91,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     "tfoot", "th", "thead", "time", "title", "tr", "track", "u", "ul", "var",
     "video", "wbr",
     // SVG
-    "circle", "defs", "ellipse", "g", "line", "linearGradient", "mask", "path",
-    "pattern", "polygon", "polyline", "radialGradient", "rect", "stop", "svg",
-    "text", "tspan"
+    "circle", "clipPath", "defs", "ellipse", "g", "image", "line",
+    "linearGradient", "mask", "path", "pattern", "polygon", "polyline",
+    "radialGradient", "rect", "stop", "svg", "text", "tspan"
   };
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
@@ -274,7 +274,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       for (String tagName : REACT_DOM_TAG_NAMES) {
         templateTypesNode.addChildToBack(NodeUtil.newQNameDeclaration(
           compiler,
-          "ReactDOMModule.prototype." + tagName,
+          "ReactDOMFactories.prototype." + tagName,
           tagFuncNode.cloneTree(),
           null));
       }
