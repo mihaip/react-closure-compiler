@@ -98,10 +98,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
+  private static final String CREATE_ELEMENT_ALIAS_NAME = "React$createElement";
 
   private final Compiler compiler;
   private final boolean propTypesTypeChecking;
   private boolean stripPropTypes = false;
+  private boolean addCreateElementAlias = false;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
       Maps.newHashMap();
@@ -290,8 +292,34 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         typesNode.removeChildren();
         inputNode.addChildrenToFront(typesChildren);
         foundReactSource = true;
-        stripPropTypes = React.isReactMinSourceName(
+        stripPropTypes = addCreateElementAlias = React.isReactMinSourceName(
             inputNode.getSourceFileName());
+        if (addCreateElementAlias) {
+          // Add an alias of the form:
+          // /** @type {Function} */
+          // var React$createElement = React.createElement;
+          // Normally React.createElement calls are not renamed at all, due to
+          // React being an extern and createElement showing up in the built-in
+          // browser DOM externs. By adding an alias and then rewriting calls
+          // (see visitReactCreateElement) we allow the compiler to rename the
+          // function used at all the calls. This is most beneficial before
+          // gzip, but when after gzip there is still some benefit.
+          // The Function type is necessary to convince the compiler that we
+          // don't need the "this" type to be defined when calling the alias
+          // (it thinks that React is an instance of the ReactModule type, but
+          // it's actually a static namespace, so we can use unbound functions
+          // from it)
+          Node createElementAliasNode = IR.var(
+              IR.name(CREATE_ELEMENT_ALIAS_NAME),
+              IR.getprop(
+                  IR.name("React"),
+                  IR.string("createElement")));
+          JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+          jsDocBuilder.recordType(new JSTypeExpression(
+              IR.string("Function"), inputNode.getSourceFileName()));
+          createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
+          inputNode.addChildToBack(createElementAliasNode);
+        }
         break;
       }
     }
@@ -882,6 +910,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       compiler.report(JSError.make(callNode, CREATE_ELEMENT_UNEXPECTED_PARAMS));
       return;
     }
+
+    if (addCreateElementAlias) {
+      // If we're adding aliases that means we're doing an optimized build, so
+      // there's no need for extra type checks.
+      Node functionNameNode = callNode.getFirstChild();
+      if (functionNameNode.getToken() == Token.GETPROP) {
+        functionNameNode.replaceWith(IR.name(CREATE_ELEMENT_ALIAS_NAME));
+      }
+      return;
+    }
+
     if (callNode.getParent().getToken() == Token.CAST) {
       // There's already a cast around the call, there's no need to add another.
       return;

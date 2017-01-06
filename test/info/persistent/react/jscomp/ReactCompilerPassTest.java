@@ -614,21 +614,23 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
-  @Test public void testPropTypesStripping() {
+  @Test public void testMinifiedReact() {
     // propTypes should get stripped if we're using the minimized React build
     // (since they're not checked).
+    // Additionally, React.createElement calls should be replaced with a
+    // React$createElement alias (which can get fully renamed).
     test(
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+        "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
       null);
-    // But ones tagged with @struct should be preserved.
+    // But propTypes tagged with @struct should be preserved.
     test(
       "var Comp = React.createClass({" +
         "/** @struct */" +
@@ -636,9 +638,9 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
         "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+        "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
       null);
