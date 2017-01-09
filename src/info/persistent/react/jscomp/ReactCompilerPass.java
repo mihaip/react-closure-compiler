@@ -734,6 +734,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     Node abstractFuncNode = IR.function(
         IR.name(""), abstractFuncParamList, IR.block());
+    abstractFuncNode.useSourceInfoFrom(value);
     if (abstractFuncJsDoc != null) {
       abstractFuncNode.setJSDocInfo(abstractFuncJsDoc.clone());
     }
@@ -827,6 +828,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
     }
     Node keyNode = IR.stringKey(name, methodNode);
+    keyNode.useSourceInfoFrom(funcNode);
     keyNode.setStaticSourceFile(funcNode.getStaticSourceFile());
     if (jsDocInfo != null) {
         keyNode.setJSDocInfo(jsDocInfo.clone());
