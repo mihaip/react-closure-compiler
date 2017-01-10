@@ -10,6 +10,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
+import com.google.javascript.jscomp.AbstractCommandLineRunner;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.CompilationLevel;
@@ -450,7 +451,7 @@ public class ReactCompilerPassTest {
       // displayName is a valid string property of classes
       "window.$foo$=React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}" +
-      "}).$displayName$.charAt(0);");
+      "}).displayName.charAt(0);");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
@@ -1095,20 +1096,23 @@ public class ReactCompilerPassTest {
         SourceFile.fromCode(reactSourceName, REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
     );
-    List<SourceFile> externs = ImmutableList.of(
-        SourceFile.fromCode("externs.js",
-          "/** @constructor */ function Element() {};" +
-          "var document;" +
-          "document.body;" +
-          "var window;" +
-          "var String;" +
-          "/**\n" +
-          " * @param {number} index\n" +
-          " * @return {string}\n" +
-          " * @nosideeffects\n" +
-          " */" +
-          "String.prototype.charAt = function(index) {};")
-    );
+    List<SourceFile> builtInExterns;
+    try {
+      // We need the built-in externs so that Object and other built-in types
+      // are defined when using NTI.
+      builtInExterns = AbstractCommandLineRunner.getBuiltinExterns(
+          CompilerOptions.Environment.CUSTOM);
+    } catch (IOException err) {
+      throw new RuntimeException(err);
+    }
+    List<SourceFile> externs = new ImmutableList.Builder()
+        .addAll(builtInExterns)
+        .add(SourceFile.fromCode("externs.js",
+            "/** @constructor */ function Element() {};" +
+            "var document;" +
+            "document.body;" +
+            "var window;"))
+        .build();
 
     ReactCompilerPass.saveLastOutputForTests = true;
 

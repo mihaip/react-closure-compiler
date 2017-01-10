@@ -570,7 +570,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // TODO: Generate type for statics to use as the "this" type for
       // getDefaultProps.
       Node thisTypeNode = keyName.equals("getDefaultProps") ?
-          new Node(Token.STAR) : IR.string(typeName);
+          new Node(Token.STAR) : new Node(Token.BANG, IR.string(typeName));
       jsDocBuilder.recordThisType(new JSTypeExpression(
         thisTypeNode, key.getSourceFileName()));
       key.setJSDocInfo(jsDocBuilder.build());

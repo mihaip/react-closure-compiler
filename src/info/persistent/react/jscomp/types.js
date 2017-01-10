@@ -350,7 +350,7 @@ ReactDOMServerModule.prototype.renderToString = function(element) {};
  * Parameters are: props, propName, componentName, location.
  * @typedef {function(Object, string, string, string): Error}
  */
-var ReactPropsChainableTypeChecker = function() {};
+var ReactPropsChainableTypeChecker;
 
 /**
  * @interface
