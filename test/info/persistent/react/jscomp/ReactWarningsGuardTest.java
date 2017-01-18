@@ -53,7 +53,10 @@ public class ReactWarningsGuardTest {
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
     // Report warnings as errors to make tests simpler
     options.addWarningsGuard(new StrictWarningsGuard());
-    ReactCompilerPass compilerPass = new ReactCompilerPass(compiler, true);
+    ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
+    passOptions.propTypesTypeChecking = true;
+    ReactCompilerPass compilerPass = new ReactCompilerPass(
+        compiler, passOptions);
     options.addCustomPass(CustomPassExecutionTime.BEFORE_CHECKS, compilerPass);
     options.addWarningsGuard(new ReactWarningsGuard(compiler, compilerPass));
     String inputJs = "var Comp = React.createClass({" +

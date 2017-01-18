@@ -101,7 +101,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static final String CREATE_ELEMENT_ALIAS_NAME = "React$createElement";
 
   private final Compiler compiler;
-  private final boolean propTypesTypeChecking;
+  private final Options options;
   private boolean stripPropTypes = false;
   private boolean addCreateElementAlias = false;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
@@ -121,15 +121,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   static boolean saveLastOutputForTests = false;
   static String lastOutputForTests;
 
-  public ReactCompilerPass(AbstractCompiler compiler) {
+  public static class Options {
     // TODO: flip default once all known issues are resolved
-    this(compiler, false);
+    public boolean propTypesTypeChecking = false;
   }
 
-  public ReactCompilerPass(
-      AbstractCompiler compiler, boolean propTypesTypeChecking) {
+  public ReactCompilerPass(AbstractCompiler compiler) {
+    this(compiler, new Options());
+  }
+
+  public ReactCompilerPass(AbstractCompiler compiler, Options options) {
     this.compiler = (Compiler) compiler;
-    this.propTypesTypeChecking = propTypesTypeChecking;
+    this.options = options;
   }
 
   @Override
@@ -674,7 +677,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
-      if (propTypesTypeChecking) {
+      if (options.propTypesTypeChecking) {
         PropTypesExtractor extractor = new PropTypesExtractor(
             propTypesNode, getDefaultPropsNode, typeName, interfaceTypeName,
             compiler);

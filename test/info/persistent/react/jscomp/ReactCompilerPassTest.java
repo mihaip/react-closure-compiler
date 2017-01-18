@@ -1089,9 +1089,11 @@ public class ReactCompilerPassTest {
     // Report warnings as errors to make tests simpler
     options.addWarningsGuard(new StrictWarningsGuard());
     options.setPrintInputDelimiter(true);
+    ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
+    passOptions.propTypesTypeChecking = true;
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
-        new ReactCompilerPass(compiler, true));
+        new ReactCompilerPass(compiler, passOptions));
     List<SourceFile> inputs = ImmutableList.of(
         SourceFile.fromCode(reactSourceName, REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
