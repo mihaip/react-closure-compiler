@@ -630,6 +630,7 @@ public class ReactCompilerPassTest {
         "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
+      null,
       null);
     // But propTypes tagged with @struct should be preserved.
     test(
@@ -644,6 +645,46 @@ public class ReactCompilerPassTest {
         "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
+      null,
+      null);
+  }
+
+  @Test public void testNoRenameReactApi() {
+    ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
+    passOptions.renameReactApi = false;
+    test(
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {\n" +
+          "return React.createElement(\"div\", {onClick: null});\n" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "propTypes:{$aProp$:React.PropTypes.string}," +
+        "render:function(){" +
+          "return React.createElement(\"div\",{onClick:null})" +
+        "}" +
+      "})),document.body);",
+      null,
+      passOptions,
+      null);
+    // Even with a minified build there is no renaming.
+    test(
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {\n" +
+          "return React.createElement(\"div\", {onClick: null});\n" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render($React$createElement$$(React.createClass({" +
+        "render:function(){" +
+          "return $React$createElement$$(\"div\",{onClick:null})" +
+        "}" +
+      "})),document.body);",
+      "/src/react.min.js",
+      passOptions,
       null);
   }
 
@@ -1052,25 +1093,26 @@ public class ReactCompilerPassTest {
   }
 
   private static void test(String inputJs, String expectedJs) {
-    test(inputJs, expectedJs, null, null);
+    test(inputJs, expectedJs, null, null, null);
   }
 
   private static void testError(String inputJs, String expectedErrorName) {
-    test(inputJs, "", null, DiagnosticType.error(expectedErrorName, ""));
+    test(inputJs, "", null, null, DiagnosticType.error(expectedErrorName, ""));
   }
 
   private static void testError(String inputJs, DiagnosticType expectedError) {
-    test(inputJs, "", null, expectedError);
+    test(inputJs, "", null, null, expectedError);
   }
 
   private static void testNoError(String inputJs) {
-    test(inputJs, null, null, null);
+    test(inputJs, null, null, null, null);
   }
 
   private static void test(
         String inputJs,
         String expectedJs,
         String reactSourceName,
+        ReactCompilerPass.Options passOptions,
         DiagnosticType expectedError) {
     if (reactSourceName == null) {
       reactSourceName = "/src/react.js";
@@ -1089,8 +1131,10 @@ public class ReactCompilerPassTest {
     // Report warnings as errors to make tests simpler
     options.addWarningsGuard(new StrictWarningsGuard());
     options.setPrintInputDelimiter(true);
-    ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
-    passOptions.propTypesTypeChecking = true;
+    if (passOptions == null) {
+      passOptions = new ReactCompilerPass.Options();
+      passOptions.propTypesTypeChecking = true;
+    }
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
         new ReactCompilerPass(compiler, passOptions));
@@ -1111,6 +1155,7 @@ public class ReactCompilerPassTest {
         .addAll(builtInExterns)
         .add(SourceFile.fromCode("externs.js",
             "/** @constructor */ function Element() {};" +
+            "/** @constructor */ function Event() {};" +
             "var document;" +
             "document.body;" +
             "var window;"))

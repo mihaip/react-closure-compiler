@@ -95,6 +95,32 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     "linearGradient", "mask", "path", "pattern", "polygon", "polyline",
     "radialGradient", "rect", "stop", "svg", "text", "tspan"
   };
+  // From https://github.com/facebook/react/blob/c7129ce1f0bba7d04e9d5fce806a/
+  // src/renderers/dom/shared/eventPlugins/..
+  private static final String[] REACT_EVENT_NAMES = {
+    // SimpleEventPlugin.js
+    "abort", "animationEnd", "animationIteration", "animationStart", "blur",
+    "canPlay", "canPlayThrough", "click", "contextMenu", "copy", "cut",
+    "doubleClick", "drag", "dragEnd", "dragEnter", "dragExit", "dragLeave",
+    "dragOver", "dragStart", "drop", "durationChange", "emptied", "encrypted",
+    "ended", "error", "focus", "input", "invalid", "keyDown", "keyPress",
+    "keyUp", "load", "loadedData", "loadedMetadata", "loadStart", "mouseDown",
+    "mouseMove", "mouseOut", "mouseOver", "mouseUp", "paste", "pause", "play",
+    "playing", "progress", "rateChange", "reset", "scroll", "seeked", "seeking",
+    "stalled", "submit", "suspend", "timeUpdate", "touchCancel", "touchEnd",
+    "touchMove", "touchStart", "transitionEnd", "volumeChange", "waiting",
+    "wheel",
+    // TapEventPlugin.js
+    "touchTap",
+    // SelectEventPlugin.js
+    "select",
+    // EnterLeaveEventPlugin.js
+    "mouseEnter", "mouseLeave",
+    // ChangeEventPlugin.js
+    "change",
+    // BeforeInputEventPlugin.js
+    "beforeInput", "compositionEnd", "compositionStart", "compositionUpdate"
+  };
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
@@ -124,6 +150,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   public static class Options {
     // TODO: flip default once all known issues are resolved
     public boolean propTypesTypeChecking = false;
+    // By default React API method names are renamed, since it is assumed that
+    // React is not publicly exposed.
+    public boolean renameReactApi = true;
   }
 
   public ReactCompilerPass(AbstractCompiler compiler) {
@@ -167,14 +196,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
    * var <moduleName>;
    */
   private void addExternModule(String moduleName, String moduleType,
-      CompilerInput externsInput) {
+        Node root) {
     Node reactVarNode = IR.var(IR.name(moduleName));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(new JSTypeExpression(
         IR.string(moduleType), EXTERNS_SOURCE_NAME));
     jsDocBuilder.recordConstancy();
     reactVarNode.setJSDocInfo(jsDocBuilder.build());
-    externsInput.getAstRoot(compiler).addChildToBack(reactVarNode);
+    root.addChildToBack(reactVarNode);
   }
 
   /**
@@ -185,10 +214,80 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
    * symbols can get renamed.
    */
   private void addExterns() {
-    CompilerInput externsInput = CompilerAccessor.getSynthesizedExternsInputAtEnd(compiler);
-    addExternModule("React", "ReactModule", externsInput);
-    addExternModule("ReactDOM", "ReactDOMModule", externsInput);
-    addExternModule("ReactDOMServer", "ReactDOMServerModule", externsInput);
+    CompilerInput externsInput =
+        CompilerAccessor.getSynthesizedExternsInputAtEnd(compiler);
+    Node externsRoot = externsInput.getAstRoot(compiler);
+    addExternModule("React", "ReactModule", externsRoot);
+    addExternModule("ReactDOM", "ReactDOMModule", externsRoot);
+    addExternModule("ReactDOMServer", "ReactDOMServerModule", externsRoot);
+    if (!options.renameReactApi) {
+      Node typesNode = createTypesNode();
+      typesNode.useSourceInfoFromForTree(externsRoot);
+      Node typesChildren = typesNode.getFirstChild();
+      typesNode.removeChildren();
+      externsRoot.addChildrenToBack(typesChildren);
+    }
+    compiler.reportCodeChange();
+  }
+
+  /**
+   * Inject React type definitions (if we want these to get renamed, they're
+   * not part of the externs). {@link Compiler#getNodeForCodeInsertion(JSModule)}
+   * is  package-private, so we instead add the types to the React source file.
+   */
+  private void addTypes(Node root) {
+    Node typesNode = null;
+    if (options.renameReactApi) {
+      typesNode = createTypesNode();
+    }
+
+    boolean foundReactSource = false;
+    for (Node inputNode : root.children()) {
+      if (inputNode.getToken() == Token.SCRIPT &&
+          inputNode.getSourceFileName() != null &&
+          React.isReactSourceName(inputNode.getSourceFileName())) {
+        if (typesNode != null) {
+          Node typesChildren = typesNode.getFirstChild();
+          typesNode.removeChildren();
+          inputNode.addChildrenToFront(typesChildren);
+        }
+        foundReactSource = true;
+        stripPropTypes = addCreateElementAlias = React.isReactMinSourceName(
+            inputNode.getSourceFileName());
+        if (addCreateElementAlias) {
+          // Add an alias of the form:
+          // /** @type {Function} */
+          // var React$createElement = React.createElement;
+          // Normally React.createElement calls are not renamed at all, due to
+          // React being an extern and createElement showing up in the built-in
+          // browser DOM externs. By adding an alias and then rewriting calls
+          // (see visitReactCreateElement) we allow the compiler to rename the
+          // function used at all the calls. This is most beneficial before
+          // gzip, but when after gzip there is still some benefit.
+          // The Function type is necessary to convince the compiler that we
+          // don't need the "this" type to be defined when calling the alias
+          // (it thinks that React is an instance of the ReactModule type, but
+          // it's actually a static namespace, so we can use unbound functions
+          // from it)
+          Node createElementAliasNode = IR.var(
+              IR.name(CREATE_ELEMENT_ALIAS_NAME),
+              IR.getprop(
+                  IR.name("React"),
+                  IR.string("createElement")));
+          JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+          jsDocBuilder.recordType(new JSTypeExpression(
+              IR.string("Function"), inputNode.getSourceFileName()));
+          createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
+          inputNode.addChildToBack(createElementAliasNode);
+        }
+        break;
+      }
+    }
+    if (!foundReactSource) {
+      compiler.report(JSError.make(root, REACT_SOURCE_NOT_FOUND));
+      return;
+    }
+
     compiler.reportCodeChange();
   }
 
@@ -204,12 +303,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static Map<String, JSDocInfo> componentMethodJsDocs =
       Maps.newHashMap();
 
-  /**
-   * Inject React type definitions (we want these to get renamed, so they're
-   * not part of the externs). {@link Compiler#getNodeForCodeInsertion(JSModule)} is
-   * package-private, so we instead add the types to the React source file.
-   */
-  private void addTypes(Node root) {
+  private Node createTypesNode() {
     if (templateTypesNode == null) {
       URL typesUrl = Resources.getResource(TYPES_JS_RESOURCE_PATH);
       String typesJs;
@@ -283,55 +377,32 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           tagFuncNode.cloneTree(),
           null));
       }
-    }
+      // Inject ReactDOMProps properties for each event name, of the form:
+      // /**
+      //  * @type {ReactEventHandler}
+      //  */
+      // ReactDOMProps.prototype.on<EventName>;
+      // (And the same for on<EventName>Capture).
+      for (String eventName : REACT_EVENT_NAMES) {
+        String onEventName = "on" + eventName.substring(0, 1).toUpperCase() +
+            eventName.substring(1);
+        jsDocBuilder = new JSDocInfoBuilder(true);
+        jsDocBuilder.recordType(new JSTypeExpression(
+            IR.string("ReactEventHandler"), TYPES_JS_RESOURCE_PATH));
+        JSDocInfo jsDocInfo = jsDocBuilder.build();
 
-    Node typesNode = templateTypesNode.cloneTree();
-    boolean foundReactSource = false;
-    for (Node inputNode : root.children()) {
-      if (inputNode.getToken() == Token.SCRIPT &&
-          inputNode.getSourceFileName() != null &&
-          React.isReactSourceName(inputNode.getSourceFileName())) {
-        Node typesChildren = typesNode.getFirstChild();
-        typesNode.removeChildren();
-        inputNode.addChildrenToFront(typesChildren);
-        foundReactSource = true;
-        stripPropTypes = addCreateElementAlias = React.isReactMinSourceName(
-            inputNode.getSourceFileName());
-        if (addCreateElementAlias) {
-          // Add an alias of the form:
-          // /** @type {Function} */
-          // var React$createElement = React.createElement;
-          // Normally React.createElement calls are not renamed at all, due to
-          // React being an extern and createElement showing up in the built-in
-          // browser DOM externs. By adding an alias and then rewriting calls
-          // (see visitReactCreateElement) we allow the compiler to rename the
-          // function used at all the calls. This is most beneficial before
-          // gzip, but when after gzip there is still some benefit.
-          // The Function type is necessary to convince the compiler that we
-          // don't need the "this" type to be defined when calling the alias
-          // (it thinks that React is an instance of the ReactModule type, but
-          // it's actually a static namespace, so we can use unbound functions
-          // from it)
-          Node createElementAliasNode = IR.var(
-              IR.name(CREATE_ELEMENT_ALIAS_NAME),
-              IR.getprop(
-                  IR.name("React"),
-                  IR.string("createElement")));
-          JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-          jsDocBuilder.recordType(new JSTypeExpression(
-              IR.string("Function"), inputNode.getSourceFileName()));
-          createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
-          inputNode.addChildToBack(createElementAliasNode);
-        }
-        break;
+        Node onEventNode = NodeUtil.newQName(
+            compiler, "ReactDOMProps.prototype." + onEventName);
+        onEventNode.setJSDocInfo(jsDocInfo);
+        templateTypesNode.addChildToBack(IR.exprResult(onEventNode));
+        String onEventCaptureName = onEventName + "Capture";
+        Node onEventCaptureNode = NodeUtil.newQName(
+            compiler, "ReactDOMProps.prototype." + onEventCaptureName);
+        onEventCaptureNode.setJSDocInfo(jsDocInfo.clone());
+        templateTypesNode.addChildToBack(IR.exprResult(onEventCaptureNode));
       }
     }
-    if (!foundReactSource) {
-      compiler.report(JSError.make(root, REACT_SOURCE_NOT_FOUND));
-      return;
-    }
-
-    compiler.reportCodeChange();
+    return templateTypesNode.cloneTree();
   }
 
   @Override

@@ -71,13 +71,19 @@ public class ReactWarningsGuardTest {
         SourceFile.fromCode("/src/test.js", inputJs));
     List<SourceFile> externs = ImmutableList.of(
         SourceFile.fromCode(
-          "externs", "/** @constructor */ function Element() {};"));
+          "externs",
+          "/** @constructor */ function Element() {};\n" +
+          "/** @constructor */ function Event() {};"));
     Result result = compiler.compile(externs, inputs, options);
     assertFalse(result.success);
     assertEquals(1, result.errors.length);
     JSError error = result.errors[0];
-    assertFalse(error.description.contains("Comp$$PropsValidator"));
-    assertTrue(error.description.contains("\"strProp\" was expected to be of type"));
+    assertFalse(
+        error.description,
+        error.description.contains("Comp$$PropsValidator"));
+    assertTrue(
+        error.description,
+        error.description.contains("\"strProp\" was expected to be of type"));
     assertEquals(
         PropTypesExtractor.PROP_TYPES_VALIDATION_MISMATCH, error.getType());
   }

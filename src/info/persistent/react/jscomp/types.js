@@ -414,6 +414,24 @@ ReactPropTypes.prototype.shape = function(shapeTypes) {};
 function ReactDOMFactories() {}
 
 /**
+ * Populated programatically with all of the event handler names.
+ *
+ * @interface
+ */
+function ReactDOMProps() {}
+
+/** @type {{__html: string}} */
+ReactDOMProps.prototype.dangerouslySetInnerHTML;
+
+/** @type {string} */
+ReactDOMProps.prototype.dangerouslySetInnerHTML.__html;
+
+/**
+ * @typedef {function(Event): void}
+ */
+var ReactEventHandler;
+
+/**
  * @interface
  * @extends {ReactComponent}
  */
