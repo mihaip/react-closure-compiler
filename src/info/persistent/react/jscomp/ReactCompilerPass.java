@@ -73,54 +73,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           "REACT_PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE",
           "{0} uses React.addons.PureRenderMixin, it should not define shouldComponentUpdate.");
 
-  private static final String TYPES_JS_RESOURCE_PATH = "info/persistent/react/jscomp/types.js";
-  private static final String[] REACT_DOM_TAG_NAMES = {
-    // HTML
-    "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base",
-    "bdi", "bdo", "big", "blockquote", "body", "br", "button", "canvas",
-    "caption", "cite", "code", "col", "colgroup", "data", "datalist", "dd",
-    "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed",
-    "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3",
-    "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "i", "iframe",
-    "img", "input", "ins", "kbd", "keygen", "label", "legend", "li", "link",
-    "main", "map", "mark", "menu", "menuitem", "meta", "meter", "nav",
-    "noscript", "object", "ol", "optgroup", "option", "output", "p", "param",
-    "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp",
-    "script", "section", "select", "small", "source", "span", "strong",
-    "style", "sub", "summary", "sup", "table", "tbody", "td", "textarea",
-    "tfoot", "th", "thead", "time", "title", "tr", "track", "u", "ul", "var",
-    "video", "wbr",
-    // SVG
-    "circle", "clipPath", "defs", "ellipse", "g", "image", "line",
-    "linearGradient", "mask", "path", "pattern", "polygon", "polyline",
-    "radialGradient", "rect", "stop", "svg", "text", "tspan"
-  };
-  // From https://github.com/facebook/react/blob/c7129ce1f0bba7d04e9d5fce806a/
-  // src/renderers/dom/shared/eventPlugins/..
-  private static final String[] REACT_EVENT_NAMES = {
-    // SimpleEventPlugin.js
-    "abort", "animationEnd", "animationIteration", "animationStart", "blur",
-    "canPlay", "canPlayThrough", "click", "contextMenu", "copy", "cut",
-    "doubleClick", "drag", "dragEnd", "dragEnter", "dragExit", "dragLeave",
-    "dragOver", "dragStart", "drop", "durationChange", "emptied", "encrypted",
-    "ended", "error", "focus", "input", "invalid", "keyDown", "keyPress",
-    "keyUp", "load", "loadedData", "loadedMetadata", "loadStart", "mouseDown",
-    "mouseMove", "mouseOut", "mouseOver", "mouseUp", "paste", "pause", "play",
-    "playing", "progress", "rateChange", "reset", "scroll", "seeked", "seeking",
-    "stalled", "submit", "suspend", "timeUpdate", "touchCancel", "touchEnd",
-    "touchMove", "touchStart", "transitionEnd", "volumeChange", "waiting",
-    "wheel",
-    // TapEventPlugin.js
-    "touchTap",
-    // SelectEventPlugin.js
-    "select",
-    // EnterLeaveEventPlugin.js
-    "mouseEnter", "mouseLeave",
-    // ChangeEventPlugin.js
-    "change",
-    // BeforeInputEventPlugin.js
-    "beforeInput", "compositionEnd", "compositionStart", "compositionUpdate"
-  };
+
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
@@ -217,9 +170,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     CompilerInput externsInput =
         CompilerAccessor.getSynthesizedExternsInputAtEnd(compiler);
     Node externsRoot = externsInput.getAstRoot(compiler);
-    addExternModule("React", "ReactModule", externsRoot);
-    addExternModule("ReactDOM", "ReactDOMModule", externsRoot);
-    addExternModule("ReactDOMServer", "ReactDOMServerModule", externsRoot);
+    for (Map.Entry<String, String> entry : React.REACT_MODULES.entrySet()) {
+      String moduleName = entry.getKey();
+      String moduleType = entry.getValue();
+      addExternModule(moduleName, moduleType, externsRoot);
+    }
     if (!options.renameReactApi) {
       Node typesNode = createTypesNode();
       typesNode.useSourceInfoFromForTree(externsRoot);
@@ -305,21 +260,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   private Node createTypesNode() {
     if (templateTypesNode == null) {
-      URL typesUrl = Resources.getResource(TYPES_JS_RESOURCE_PATH);
-      String typesJs;
-      try {
-        typesJs = Resources.toString(typesUrl, Charsets.UTF_8);
-      } catch (IOException e) {
-        throw new RuntimeException(e); // Should never happen
-      }
+      String typesJs = React.getTypesJs();
       Result previousResult = compiler.getResult();
       templateTypesNode =
-        compiler.parse(SourceFile.fromCode(TYPES_JS_RESOURCE_PATH, typesJs));
+        compiler.parse(SourceFile.fromCode(React.TYPES_JS_RESOURCE_PATH, typesJs));
       Result result = compiler.getResult();
       if ((result.success != previousResult.success && previousResult.success) ||
           result.errors.length > previousResult.errors.length ||
           result.warnings.length > previousResult.warnings.length) {
-        String message = "Could not parse " + TYPES_JS_RESOURCE_PATH + ".";
+        String message = "Could not parse " + React.TYPES_JS_RESOURCE_PATH + ".";
         if (result.errors.length > 0) {
           message += "\nErrors: " + Joiner.on(",").join(result.errors);
         }
@@ -345,62 +294,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
                   n.getJSDocInfo());
             }
           });
-      // Inject ReactDOMFactories methods for each tag, of the form:
-      // /**
-      // * @param {Object=} props
-      // * @param {...ReactChildrenArgument} children
-      // * @return {ReactDOMElement}
-      // */
-      // ReactDOMFactories.prototype.<tagName> = function(props, children) {};
-      Node tagFuncNode = IR.function(
-          IR.name(""),
-          IR.paramList(IR.name("props"), IR.name("children")),
-          IR.block());
-      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-      jsDocBuilder.recordParameter(
-          "props",
-          new JSTypeExpression(
-            new Node(Token.EQUALS, IR.string("Object")),
-            TYPES_JS_RESOURCE_PATH));
-      jsDocBuilder.recordParameter(
-          "children",
-          new JSTypeExpression(
-            new Node(Token.ELLIPSIS, IR.string("ReactChildrenArgument")),
-            TYPES_JS_RESOURCE_PATH));
-      jsDocBuilder.recordReturnType(new JSTypeExpression(
-          IR.string("ReactDOMElement"), TYPES_JS_RESOURCE_PATH));
-      tagFuncNode.setJSDocInfo(jsDocBuilder.build());
-      for (String tagName : REACT_DOM_TAG_NAMES) {
-        templateTypesNode.addChildToBack(NodeUtil.newQNameDeclaration(
-          compiler,
-          "ReactDOMFactories.prototype." + tagName,
-          tagFuncNode.cloneTree(),
-          null));
-      }
-      // Inject ReactDOMProps properties for each event name, of the form:
-      // /**
-      //  * @type {ReactEventHandler}
-      //  */
-      // ReactDOMProps.prototype.on<EventName>;
-      // (And the same for on<EventName>Capture).
-      for (String eventName : REACT_EVENT_NAMES) {
-        String onEventName = "on" + eventName.substring(0, 1).toUpperCase() +
-            eventName.substring(1);
-        jsDocBuilder = new JSDocInfoBuilder(true);
-        jsDocBuilder.recordType(new JSTypeExpression(
-            IR.string("ReactEventHandler"), TYPES_JS_RESOURCE_PATH));
-        JSDocInfo jsDocInfo = jsDocBuilder.build();
-
-        Node onEventNode = NodeUtil.newQName(
-            compiler, "ReactDOMProps.prototype." + onEventName);
-        onEventNode.setJSDocInfo(jsDocInfo);
-        templateTypesNode.addChildToBack(IR.exprResult(onEventNode));
-        String onEventCaptureName = onEventName + "Capture";
-        Node onEventCaptureNode = NodeUtil.newQName(
-            compiler, "ReactDOMProps.prototype." + onEventCaptureName);
-        onEventCaptureNode.setJSDocInfo(jsDocInfo.clone());
-        templateTypesNode.addChildToBack(IR.exprResult(onEventCaptureNode));
-      }
     }
     return templateTypesNode.cloneTree();
   }

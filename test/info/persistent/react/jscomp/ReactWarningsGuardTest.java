@@ -49,6 +49,7 @@ public class ReactWarningsGuardTest {
     CompilationLevel.ADVANCED_OPTIMIZATIONS
         .setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT5);
     options.setWarningLevel(
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
     // Report warnings as errors to make tests simpler

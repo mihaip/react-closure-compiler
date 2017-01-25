@@ -1124,6 +1124,7 @@ public class ReactCompilerPassTest {
     CompilationLevel.ADVANCED_OPTIMIZATIONS
         .setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
+    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT5);
     options.setWarningLevel(
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
     options.setGeneratePseudoNames(true);
