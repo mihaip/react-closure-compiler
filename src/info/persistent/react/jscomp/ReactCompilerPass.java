@@ -83,6 +83,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final Options options;
   private boolean stripPropTypes = false;
   private boolean addCreateElementAlias = false;
+  private Node externsRoot;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
       Maps.newHashMap();
@@ -169,7 +170,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private void addExterns() {
     CompilerInput externsInput =
         CompilerAccessor.getSynthesizedExternsInputAtEnd(compiler);
-    Node externsRoot = externsInput.getAstRoot(compiler);
+    externsRoot = externsInput.getAstRoot(compiler);
     for (Map.Entry<String, String> entry : React.REACT_MODULES.entrySet()) {
       String moduleName = entry.getKey();
       String moduleType = entry.getValue();
@@ -641,6 +642,25 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
+      JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
+      if (jsDocInfo != null && jsDocInfo.isExport()) {
+        // Synthesize an externs entry of the form
+        // ComponentProps = {propA: 0, propB: 1};
+        // To disable naming of exported component props.
+        Node exportedPropsObjectLitNode = IR.objectlit();
+        for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
+          Node keyNode = propTypeKeyNode.cloneNode();
+          keyNode.addChildToBack(IR.number(0));
+          exportedPropsObjectLitNode.addChildToBack(keyNode);
+        }
+        Node exportedPropsNode = NodeUtil.newQNameDeclaration(
+            compiler,
+            typeName.replaceAll("\\.", "\\$\\$") + "Props",
+            exportedPropsObjectLitNode,
+            null);
+        externsRoot.addChildToBack(exportedPropsNode);
+      }
+
       if (options.propTypesTypeChecking) {
         PropTypesExtractor extractor = new PropTypesExtractor(
             propTypesNode, getDefaultPropsNode, typeName, interfaceTypeName,

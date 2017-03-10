@@ -688,6 +688,45 @@ public class ReactCompilerPassTest {
       null);
   }
 
+  @Test public void testNoRenameProps() {
+    // Props where the class is tagged with @export should not get renamed.
+    test(
+      "/** @export */" +
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {\n" +
+          "return React.createElement(\"div\", null, this.props.aProp);\n" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(" +
+          "Comp, {aProp: \"foo\"}), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+        "$propTypes$:{aProp:React.$PropTypes$.$string$}," +
+        "$render$:function(){" +
+          "return React.$createElement$(\"div\",null,this.$props$.aProp)" +
+        "}" +
+      "}),{aProp:\"foo\"}),document.body);");
+    // Even with a minified build there is no renaming.
+    test(
+      "/** @export */" +
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {\n" +
+          "return React.createElement(\"div\", null, this.props.aProp);\n" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(" +
+          "Comp, {aProp: \"foo\"}), document.body);",
+      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+        "$render$:function(){" +
+          "return $React$createElement$$(\"div\",null,this.$props$.aProp)" +
+        "}" +
+      "}),{aProp:\"foo\"}),document.body);",
+      "/src/react.min.js",
+      null,
+      null);
+  }
+
   @Test public void testPropTypesTypeChecking() {
     // Validate use of props within methods.
     testError(
