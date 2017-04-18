@@ -701,3 +701,25 @@ ReactModule.prototype.addons;
  * @return {Object}
  */
 ReactModule.prototype.__spread = function(target, sources) {};
+
+/**
+ * Technically there is a parallel class hierarchy for mouse events, etc.
+ * However, rather than repeating all of the fields for each event type,
+ * pretend like the React additions are their own subclass.
+ *
+ * @constructor
+ * @extends {Event}
+ */
+function ReactSyntheticEvent() {};
+
+/** @type {!Event} */
+ReactSyntheticEvent.prototype.nativeEvent;
+
+/** @return {boolean} */
+ReactSyntheticEvent.prototype.isDefaultPrevented = function() {};
+
+/** @return {boolean} */
+ReactSyntheticEvent.prototype.isPropagationStopped = function() {};
+
+/** @return {void} */
+ReactSyntheticEvent.prototype.persist = function() {};
