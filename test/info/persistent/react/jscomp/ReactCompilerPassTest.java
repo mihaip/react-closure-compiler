@@ -688,12 +688,19 @@ public class ReactCompilerPassTest {
       null);
   }
 
-  @Test public void testNoRenameProps() {
-    // Props where the class is tagged with @export should not get renamed.
+  @Test public void testExport() {
+    // Props where the class is tagged with @export should not get renamed,
+    // nor should methods explicitly tagged with @public.
     test(
       "/** @export */" +
       "var Comp = React.createClass({" +
-        "propTypes: {aProp: React.PropTypes.string}," +
+        "propTypes: {aProp: React.PropTypes.string},\n" +
+        "/** @public */ publicFunction: function() {\n" +
+            "return \"dont_rename_me_bro\";\n" +
+        "},\n" +
+        "/** @private */ privateFunction_: function() {\n" +
+            "return 1;\n" +
+        "},\n" +
         "render: function() {\n" +
           "return React.createElement(\"div\", null, this.props.aProp);\n" +
         "}" +
@@ -702,6 +709,12 @@ public class ReactCompilerPassTest {
           "Comp, {aProp: \"foo\"}), document.body);",
       "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$propTypes$:{aProp:React.$PropTypes$.$string$}," +
+        "publicFunction:function(){" +
+            "return\"dont_rename_me_bro\"" +
+        "}," +
+        "$privateFunction_$:function(){" +
+            "return 1" +
+        "}," +
         "$render$:function(){" +
           "return React.$createElement$(\"div\",null,this.$props$.aProp)" +
         "}" +
@@ -711,6 +724,12 @@ public class ReactCompilerPassTest {
       "/** @export */" +
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
+        "/** @public */ publicFunction: function() {\n" +
+            "return \"dont_rename_me_bro\";\n" +
+        "},\n" +
+        "/** @private */ privateFunction_: function() {\n" +
+            "return 1;\n" +
+        "},\n" +
         "render: function() {\n" +
           "return React.createElement(\"div\", null, this.props.aProp);\n" +
         "}" +
@@ -718,6 +737,12 @@ public class ReactCompilerPassTest {
       "ReactDOM.render(React.createElement(" +
           "Comp, {aProp: \"foo\"}), document.body);",
       "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+        "publicFunction:function(){" +
+            "return\"dont_rename_me_bro\"" +
+        "}," +
+        "$privateFunction_$:function(){" +
+            "return 1" +
+        "}," +
         "$render$:function(){" +
           "return $React$createElement$$(\"div\",null,this.$props$.aProp)" +
         "}" +

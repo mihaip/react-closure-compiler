@@ -457,6 +457,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     String interfaceTypeName = typeName + "Interface";
 
+    // For compomnents tagged with @export don't rename their props or public
+    // methods.
+    JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
+    boolean isExportedType = jsDocInfo != null && jsDocInfo.isExport();
+
     // Add the @typedef
     JSDocInfoBuilder jsDocBuilder = newJsDocInfoBuilderForNode(typeAttachNode);
     jsDocBuilder.recordTypedef(new JSTypeExpression(
@@ -474,6 +479,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node propTypesNode = null;
     Node getDefaultPropsNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
+    List<String> exportedNames = Lists.newArrayList();
     boolean usesPureRenderMixin = false;
     boolean hasShouldComponentUpdate = false;
     for (Node key : specNode.children()) {
@@ -524,6 +530,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
       if (abstractMethodJsDoc != null) {
         mergeInJsDoc(key, func, abstractMethodJsDoc);
+      }
+
+      // Require an explicit @public annotation (we can't use @export since
+      // it's not allowed on object literal keys and we can't easily remove it
+      // while keeping the rest of the JSDoc intact).
+      if (isExportedType && componentMethodJsDoc == null &&
+          key.getJSDocInfo() != null &&
+          key.getJSDocInfo().getVisibility() == JSDocInfo.Visibility.PUBLIC) {
+        exportedNames.add(keyName);
       }
 
       // Gather method signatures so that we can declare them where the compiler
@@ -642,23 +657,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
-      JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
-      if (jsDocInfo != null && jsDocInfo.isExport()) {
-        // Synthesize an externs entry of the form
-        // ComponentProps = {propA: 0, propB: 1};
-        // To disable naming of exported component props.
-        Node exportedPropsObjectLitNode = IR.objectlit();
+      if (isExportedType) {
         for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
-          Node keyNode = propTypeKeyNode.cloneNode();
-          keyNode.addChildToBack(IR.number(0));
-          exportedPropsObjectLitNode.addChildToBack(keyNode);
+          exportedNames.add(propTypeKeyNode.getString());
         }
-        Node exportedPropsNode = NodeUtil.newQNameDeclaration(
-            compiler,
-            typeName.replaceAll("\\.", "\\$\\$") + "Props",
-            exportedPropsObjectLitNode,
-            null);
-        externsRoot.addChildToBack(exportedPropsNode);
       }
 
       if (options.propTypesTypeChecking) {
@@ -671,6 +673,23 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       } else {
         PropTypesExtractor.cleanUpPropTypesWhenNotChecking(propTypesNode);
       }
+    }
+
+    if (!exportedNames.isEmpty()) {
+      // Synthesize an externs entry of the form
+      // ComponentExports = {propA: 0, propB: 0, publicMethod: 0};
+      // To disable naming of exported component props and methods.
+      Node exportedNamesObjectLitNode = IR.objectlit();
+      for (String exportedName : exportedNames) {
+        Node keyNode = IR.stringKey(exportedName, IR.number(0));
+        exportedNamesObjectLitNode.addChildToBack(keyNode);
+      }
+      Node exportedNamesNode = NodeUtil.newQNameDeclaration(
+          compiler,
+          typeName.replaceAll("\\.", "\\$\\$") + "Exports",
+          exportedNamesObjectLitNode,
+          null);
+      externsRoot.addChildToBack(exportedNamesNode);
     }
   }
 
