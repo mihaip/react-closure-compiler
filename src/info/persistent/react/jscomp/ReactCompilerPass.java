@@ -30,6 +30,7 @@ import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -461,6 +462,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // methods.
     JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
     boolean isExportedType = jsDocInfo != null && jsDocInfo.isExport();
+    List<JSTypeExpression> implementedInterfaces = jsDocInfo != null ?
+        jsDocInfo.getImplementedInterfaces() :
+        Collections.<JSTypeExpression>emptyList();
 
     // Add the @typedef
     JSDocInfoBuilder jsDocBuilder = newJsDocInfoBuilderForNode(typeAttachNode);
@@ -643,6 +647,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
         new Node(Token.BANG, IR.string("ReactComponent")),
         callNode.getSourceFileName()));
+    for (JSTypeExpression implementedInterface : implementedInterfaces) {
+        jsDocBuilder.recordExtendedInterface(implementedInterface);
+    }
     interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build());
     Node interfaceTypeInsertionPoint = callParentNode.getParent();
     interfaceTypeInsertionPoint.getParent().addChildBefore(

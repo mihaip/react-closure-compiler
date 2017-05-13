@@ -548,6 +548,37 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  /**
+   * Tests that components can be marked as implementing interfaces.
+   */
+  @Test public void testInterfaces() {
+    test(
+      "/** @interface */ function AnInterface() {}\n" +
+      "/** @return {number} */\n" +
+      "AnInterface.prototype.interfaceMethod = function() {};\n" +
+      "/** @implements {AnInterface} */" +
+      "var Comp = React.createClass({" +
+        "/** @override */ interfaceMethod: function() {\n" +
+            "return 1;\n" +
+        "},\n" +
+        "render: function() {\n" +
+          "return React.createElement(\"div\");\n" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+        "$interfaceMethod$:function(){" +
+            "return 1" +
+        "}," +
+        "$render$:function(){" +
+          "return React.$createElement$(\"div\")" +
+        "}" +
+      "})),document.body);");
+    // We can't test that missing methods cause compiler warnings since we're
+    // declaring CompInterface as extending AnInterface, thus the methods
+    // assumed to be there.
+  }
+
   @Test public void testPropTypes() {
     // Basic prop types
     test(
