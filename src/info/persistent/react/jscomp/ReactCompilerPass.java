@@ -23,6 +23,7 @@ import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSDocInfoAccessor;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
@@ -489,8 +490,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     for (Node key : specNode.children()) {
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
-        Set<String> mixinNames =
-            addMixinsToType(key, interfacePrototypeProps, staticsJsDocs);
+        Set<String> mixinNames = addMixinsToType(
+            typeName, key, interfacePrototypeProps, staticsJsDocs);
         usesPureRenderMixin = mixinNames.contains(REACT_PURE_RENDER_MIXIN_NAME);
         for (String mixinName : mixinNames) {
           if (mixinAbstractMethodJsDocsByName.containsKey(mixinName)) {
@@ -764,6 +765,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private Set<String> addMixinsToType(
+      String typeName,
       Node mixinsNode,
       Node interfacePrototypeProps,
       Map<String, JSDocInfo> staticsJsDocs) {
@@ -773,6 +775,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       compiler.report(JSError.make(mixinsNode, MIXINS_UNEXPECTED_TYPE));
       return mixinNames;
     }
+    Node thisTypeNode = new Node(Token.BANG, IR.string(typeName));
     for (Node mixinNameNode : mixinsNode.getFirstChild().children()) {
       if (!mixinNameNode.isQualifiedName()) {
         compiler.report(JSError.make(mixinNameNode, MIXIN_EXPECTED_NAME));
@@ -796,7 +799,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         String keyName = mixinSpecKey.getString();
         if (keyName.equals("mixins")) {
           mixinNames.addAll(addMixinsToType(
-              mixinSpecKey, interfacePrototypeProps, staticsJsDocs));
+              typeName, mixinSpecKey, interfacePrototypeProps, staticsJsDocs));
           continue;
         }
         if (keyName.equals("statics")) {
@@ -811,6 +814,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
         if (mixinSpecKey.hasOneChild() &&
             mixinSpecKey.getFirstChild().isFunction()) {
+          // Ensure that the @this type inside mixin functions refers to the
+          // type we're copying into, not the mixin type.
+          if (mixinSpecKeyJsDoc != null) {
+              // We can't use JSDocInfoBuilder because it will not override the
+              // "this" type if it's already set.
+              mixinSpecKeyJsDoc = mixinSpecKeyJsDoc.clone();
+              JSDocInfoAccessor.setJSDocInfoThisType(
+                  mixinSpecKeyJsDoc,
+                  new JSTypeExpression(
+                      thisTypeNode, mixinSpecKey.getSourceFileName()));
+          }
           Node keyNode = addFuncToInterface(
               keyName,
               mixinSpecKey.getFirstChild(),
