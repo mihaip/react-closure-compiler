@@ -91,7 +91,7 @@ public class ReactCompilerPassTest {
       // Private methods should be invokable.
       "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
         "$render$:function(){return React.$createElement$(\"div\")}," +
-        "$privateMethod1_$:function($a$jscomp$2$$){window.$foo$=123+$a$jscomp$2$$}," +
+        "$privateMethod1_$:function($a$jscomp$1$$){window.$foo$=123+$a$jscomp$1$$}," +
         "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
       "})),document.body);");
     testError(
@@ -909,14 +909,14 @@ public class ReactCompilerPassTest {
     // Handle spread operator when creating elements
     testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired}",
-        "React.__spread({aProp: null}, {})",
+        "Object.assign({aProp: null}, {})",
         "JSC_TYPE_MISMATCH");
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
-        "React.__spread({aProp: 1}, {})");
+        "Object.assign({aProp: 1}, {})");
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
-        "React.__spread({}, {})");
+        "Object.assign({}, {})");
     // Custom type expressions
     testPropTypesError(
         "{/** @type {boolean} */ boolProp: function() {}}",

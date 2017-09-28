@@ -648,10 +648,10 @@ class PropTypesExtractor {
       validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
       callNode.addChildAfter(validatorCallNode, typeNode);
     } else if (propsParamNode.isCall()) {
-      // If it's a React.__spread() call then add the validator to object
-      // literal parameters instead.
+      // If it's a Object.asign() call (created because of a spread operator)
+      // then add the validator to object literal parameters instead.
       String functionName = propsParamNode.getFirstChild().getQualifiedName();
-      if (functionName != null && functionName.equals("React.__spread") &&
+      if (functionName != null && functionName.equals("Object.assign") &&
           propsParamNode.getChildCount() > 1) {
         for (Node spreadParamNode = propsParamNode.getChildAtIndex(1);
             spreadParamNode != null;

@@ -137,22 +137,6 @@ ReactComponent.prototype.getInitialState = function() {};
 ReactComponent.prototype.getChildContext = function() {};
 
 /**
- * @param {ReactProps} props
- * @param {function(): void=} callback
- * @return {void}
- * @deprecated
- */
-ReactComponent.prototype.setProps = function(props, callback) {};
-
-/**
- * @param {ReactProps} props
- * @param {function(): void=} callback
- * @return {void}
- * @deprecated
- */
-ReactComponent.prototype.replaceProps = function(props, callback) {};
-
-/**
  * @param {Object|function(ReactState, ReactState): ReactState} stateOrFunction
  * @param {function(): void=} callback
  * @return {void}
@@ -176,11 +160,6 @@ ReactComponent.prototype.render = function() {};
  * @return {void}
  */
 ReactComponent.prototype.forceUpdate = function(callback) {};
-
-/**
- * @return {Element}
- */
-ReactComponent.prototype.getDOMNode = function() {};
 
 /**
  * @return {boolean}
@@ -368,6 +347,8 @@ function ReactPropTypes() {};
 /** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.object.isRequired;
 /** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.string;
 /** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.string.isRequired;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.symbol;
+/** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.symbol.isRequired;
 
 /** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.any;
 /** @type {ReactPropsChainableTypeChecker} */ ReactPropTypes.prototype.any.isRequired;
@@ -453,6 +434,11 @@ ReactAddonsPerf.prototype.start = function() {};
 ReactAddonsPerf.prototype.stop = function() {};
 
 /**
+ * @return {boolean}
+ */
+ReactAddonsPerf.prototype.isRunning = function() {};
+
+/**
  * @return {Array.<ReactAddonsPerf.Measurement>}
  */
 ReactAddonsPerf.prototype.getLastMeasurements = function() {};
@@ -470,18 +456,17 @@ ReactAddonsPerf.prototype.printInclusive = function(measurements) {};
 /**
  * @param {ReactAddonsPerf.Measurement=} measurements
  */
+ReactAddonsPerf.prototype.printOperations = function(measurements) {};
+
+/**
+ * @param {ReactAddonsPerf.Measurement=} measurements
+ */
 ReactAddonsPerf.prototype.printWasted = function(measurements) {};
 
 /**
- * @typedef {{
- *     exclusive: !Object.<string, number>,
- *     inclusive: !Object.<string, number>,
- *     render: !Object.<string, number>,
- *     counts: !Object.<string, number>,
- *     writes: !Object.<string, {type: string, time: number, args: Array}>,
- *     displayNames: !Object.<string, {current: string, owner: string}>,
- *     totalTime: number
- * }}
+ * An opaque type as of React 15.0.
+ *
+ * @typedef {!Object}
  */
 ReactAddonsPerf.Measurement;
 
@@ -509,32 +494,6 @@ ReactAddons.prototype.Perf;
  * @type {Object}
  */
 ReactAddons.prototype.PureRenderMixin;
-
-/**
- * @param {Function} callback
- * @param {*=} a
- * @param {*=} b
- * @param {*=} c
- * @param {*=} d
- */
-ReactAddons.prototype.batchedUpdates = function(callback, a, b, c, d) {};
-
-/**
- * @param {Object|string} objectOrClassName
- * @param {...string} classNames
- * @return {string}
- * @deprecated
- */
-ReactAddons.prototype.classSet = function(objectOrClassName, classNames) {};
-
-/**
- * @param {ReactElement.<T>} element
- * @param {Object=} extraProps
- * @return {ReactElement.<T>}
- * @template T
- * @deprecated
- */
-ReactAddons.prototype.cloneWithProps = function(element, extraProps) {};
 
 /**
  * @param {Object.<string, ReactElement>} object
@@ -646,44 +605,6 @@ ReactModule.prototype.cloneElement = function(element, props, children) {};
 ReactModule.prototype.createFactory = function(type) {};
 
 /**
- * @param {ReactComponent|Element} componentOrElement
- * @return {Element}
- * @deprecated
- */
-ReactModule.prototype.findDOMNode = function(componentOrElement) {};
-
-/**
- * @param {ReactElement.<T>} element
- * @param {Element} container
- * @param {function()=} callback
- * @return {T}
- * @template T
- * @deprecated
- */
-ReactModule.prototype.render = function(element, container, callback) {};
-
-/**
- * @param {ReactElement} element
- * @return {string}
- * @deprecated
- */
-ReactModule.prototype.renderToString = function(element) {};
-
-/**
- * @param {ReactElement} element
- * @return {string}
- * @deprecated
- */
-ReactModule.prototype.renderToStaticMarkup = function(element) {};
-
-/**
- * @param {Element} container
- * @return {boolean}
- * @deprecated
- */
-ReactModule.prototype.unmountComponentAtNode = function(container) {};
-
-/**
  * @param {Object} element
  * @return {boolean}
  */
@@ -699,6 +620,7 @@ ReactModule.prototype.addons;
  * @param {Object} target
  * @param {...Object} sources
  * @return {Object}
+ * @deprecated
  */
 ReactModule.prototype.__spread = function(target, sources) {};
 
