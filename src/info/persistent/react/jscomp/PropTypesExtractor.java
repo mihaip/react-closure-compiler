@@ -93,6 +93,7 @@ class PropTypesExtractor {
   private final String interfaceTypeName;
   private final Compiler compiler;
 
+  private String validatorPropsTypeName;
   private final String validatorFuncName;
   private Node validatorFuncNode;
   private List<Prop> props;
@@ -526,7 +527,7 @@ class PropTypesExtractor {
     // Props that are required but have default values can be missing at
     // creation time, so for those cases we need to create an alternate type
     // that allows them to be skipped.
-    String validatorPropsTypeName = propsTypeName;
+    validatorPropsTypeName = propsTypeName;
     boolean needsCustomValidatorType = Iterables.any(props, new Predicate<Prop>() {
       @Override public boolean apply(Prop prop) {
         return prop.hasDefaultValue;
@@ -661,6 +662,16 @@ class PropTypesExtractor {
             spreadParamNode.detach();
             Node validatorCallNode = IR.call(
                 IR.name(validatorFuncName), spreadParamNode);
+            // Object.assign expects non-nullable values, so ensure that the validator function
+            // does that.
+            if (canBeCreatedWithNoProps) {
+              JSDocInfoBuilder castJsDocBuilder = new JSDocInfoBuilder(true);
+              castJsDocBuilder.recordType(new JSTypeExpression(
+                  IR.string(validatorPropsTypeName),
+                  propsParamNode.getSourceFileName()));
+              JSDocInfo castJsDoc = castJsDocBuilder.build();
+              validatorCallNode = IR.cast(validatorCallNode, castJsDoc);
+            }
             validatorCallNode.useSourceInfoIfMissingFrom(spreadParamNode);
             propsParamNode.addChildAfter(validatorCallNode, prevNode);
           }

@@ -917,6 +917,17 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {})");
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "aProp: React.PropTypes.string.isRequired" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {aProp: \"1\"};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, Object.assign({aProp: \"1\"}, {}))");
     // Custom type expressions
     testPropTypesError(
         "{/** @type {boolean} */ boolProp: function() {}}",
