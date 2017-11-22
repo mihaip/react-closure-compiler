@@ -114,6 +114,8 @@ public class PropTypesExtractorTest {
     // So that source dumps still have JSDoc
     options.preserveTypeAnnotations = true;
     compiler.initOptions(options);
+    // Avoid extra "use strict" boilerplate in output.
+    options.setEmitUseStrict(false);
     compiler.disableThreads(); // Makes errors easier to track down.
     Node reactPropTypeNode = compiler.parse(
         SourceFile.fromCode("/src/test.js", reactPropType))

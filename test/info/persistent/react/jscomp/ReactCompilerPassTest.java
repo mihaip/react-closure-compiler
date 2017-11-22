@@ -1052,10 +1052,10 @@ public class ReactCompilerPassTest {
   }
 
   @Test public void testReactDOM() {
-    test("React.DOM.span()", "");
-    test("React.DOM.span(null)", "");
-    test("React.DOM.span(null, \"1\")", "");
-    test("React.DOM.span(null, \"1\", React.DOM.i())", "");
+    testNoError("React.DOM.span()");
+    testNoError("React.DOM.span(null)");
+    testNoError("React.DOM.span(null, \"1\")");
+    testNoError("React.DOM.span(null, \"1\", React.DOM.i())");
     test("var Comp = React.createClass({});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "ReactDOM.$render$(React.$createElement$(" +

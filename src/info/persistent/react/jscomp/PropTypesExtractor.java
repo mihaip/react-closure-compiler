@@ -258,7 +258,7 @@ class PropTypesExtractor {
     }
 
     Node getDefaultPropsBlockNode = getDefaultPropsValueNode.getLastChild();
-    if (!getDefaultPropsBlockNode.isBlock()) {
+    if (!getDefaultPropsBlockNode.isNormalBlock()) {
       return Collections.emptySet();
     }
 

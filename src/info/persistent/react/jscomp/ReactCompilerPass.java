@@ -185,7 +185,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       typesNode.removeChildren();
       externsRoot.addChildrenToBack(typesChildren);
     }
-    compiler.reportCodeChange();
+    compiler.reportChangeToEnclosingScope(externsRoot);
   }
 
   /**
@@ -238,6 +238,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
           inputNode.addChildToBack(createElementAliasNode);
         }
+        compiler.reportChangeToEnclosingScope(inputNode);
         break;
       }
     }
@@ -245,8 +246,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       compiler.report(JSError.make(root, REACT_SOURCE_NOT_FOUND));
       return;
     }
-
-    compiler.reportCodeChange();
   }
 
   /**
@@ -305,7 +304,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     NodeTraversal.traverseEs6(compiler, scriptRoot, this);
     // Inline React.createMixin calls, since they're just decorators.
-    boolean inlinedMixin = false;
     for (Node mixinSpecNode : reactMixinsByName.values()) {
       Node mixinSpecParentNode = mixinSpecNode.getParent();
       if (mixinSpecParentNode.isCall() &&
@@ -316,11 +314,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         mixinSpecParentNode.getParent().replaceChild(
           mixinSpecParentNode,
           mixinSpecNode);
-        inlinedMixin = true;
+        compiler.reportChangeToEnclosingScope(mixinSpecNode.getParent());
       }
-    }
-    if (inlinedMixin) {
-      compiler.reportCodeChange();
     }
   }
 
