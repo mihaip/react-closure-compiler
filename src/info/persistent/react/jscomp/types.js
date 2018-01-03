@@ -46,6 +46,13 @@ ReactClass.prototype.defaultProps;
 ReactClass.prototype.getDefaultProps = function() {};
 
 /**
+ * Functional component function signature.
+ *
+ * @typedef {function(Object=): ReactElement|boolean}
+ */
+var ReactComponentFunction;
+
+/**
  * @typedef {!Object|{children: (Object|undefined)}}
  */
 var ReactProps;
@@ -580,7 +587,7 @@ ReactModule.prototype.createClass = function(specification) {};
 ReactModule.prototype.createMixin = function(mixin) {};
 
 /**
- * @param {ReactClass.<T>|string} type
+ * @param {ReactClass.<T>|ReactComponentFunction|string} type
  * @param {Object=} props
  * @param {...ReactChildrenArgument} children
  * @return {!ReactElement.<T>}
