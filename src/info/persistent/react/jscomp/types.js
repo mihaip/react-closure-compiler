@@ -46,16 +46,18 @@ ReactClass.prototype.defaultProps;
 ReactClass.prototype.getDefaultProps = function() {};
 
 /**
- * Functional component function signature.
- *
- * @typedef {function(Object=): ReactElement|boolean}
- */
-var ReactComponentFunction;
-
-/**
  * @typedef {!Object|{children: (Object|undefined)}}
  */
 var ReactProps;
+
+/**
+ * Functional component function signature.
+ *
+ * @typedef {function(ReactProps=): !ReactElement}
+ */
+var ReactComponentFunction;
+
+
 
 /**
  * @typedef {Object}
