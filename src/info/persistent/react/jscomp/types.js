@@ -547,6 +547,11 @@ ReactModule.prototype.Children;
 ReactModule.prototype.Component;
 
 /**
+ * @typedef {ReactComponent}
+ */
+ReactModule.prototype.PureComponent;
+
+/**
  * @type {ReactDOMFactories}
  * @const
  */

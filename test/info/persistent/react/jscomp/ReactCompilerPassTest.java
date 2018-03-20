@@ -717,6 +717,18 @@ public class ReactCompilerPassTest {
       "/src/react.min.js",
       passOptions,
       null);
+    // Test that other API symbols are not renamed either.
+    List<String> reactApiSymbols = ImmutableList.of("React", "React.Component",
+      "React.PureComponent", "React.cloneElement", "ReactDOM.findDOMNode",
+      "ReactDOM.unmountComponentAtNode");
+    for (String reactApiSymbol : reactApiSymbols) {
+      test(
+        "window['test'] = " + reactApiSymbol + ";",
+        "window.test=" + reactApiSymbol + ";",
+        null,
+        passOptions,
+        null);
+    }
   }
 
   @Test public void testExport() {
