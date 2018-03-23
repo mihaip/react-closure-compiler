@@ -844,7 +844,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     for (Node funcChild = funcNode.getFirstChild();
          funcChild != null; funcChild = funcChild.getNext()) {
         if (funcChild.isParamList()) {
-          methodNode.addChildToBack(funcChild.cloneTree());
+          Node methodParamList = new Node(Token.PARAM_LIST);
+          for (Node paramNode : funcChild.children()) {
+            // Don't include parameter default values on the interface. They're
+            // not needed and they confuse the compiler (since they'll end up
+            // getting transpiled, and thus the interface method body will not
+            // be empty).
+            if (paramNode.isDefaultValue()) {
+              paramNode = paramNode.getFirstChild();
+            }
+            methodParamList.addChildToBack(paramNode.cloneTree());
+          }
+          methodNode.addChildToBack(methodParamList);
         } else {
           methodNode.addChildToBack(funcChild.cloneNode());
         }

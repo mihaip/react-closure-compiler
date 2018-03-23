@@ -549,6 +549,19 @@ public class ReactCompilerPassTest {
   }
 
   /**
+   * Tests that component methods can have default parameters.
+   */
+  @Test public void testMethodDefaultParameters() {
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {return React.createElement(\"div\");}," +
+        "/** @param {number=} numberParam @return {number}*/" +
+        "someMethod: function(numberParam = 1) {return numberParam * 2;}" +
+      "});",
+      "");
+  }
+
+  /**
    * Tests that components can be marked as implementing interfaces.
    */
   @Test public void testInterfaces() {
@@ -1242,7 +1255,8 @@ public class ReactCompilerPassTest {
     CompilationLevel.ADVANCED_OPTIMIZATIONS
         .setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
-    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT5);
+    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2015);
+    options.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5);
     options.setWarningLevel(
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
     options.setGeneratePseudoNames(true);
