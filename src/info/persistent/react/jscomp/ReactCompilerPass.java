@@ -80,11 +80,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       "React.addons.PureRenderMixin";
   private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
   private static final String CREATE_ELEMENT_ALIAS_NAME = "React$createElement";
+  private static final String CREATE_CLASS_ALIAS_NAME = "React$createClass";
 
   private final Compiler compiler;
   private final Options options;
   private boolean stripPropTypes = false;
-  private boolean addCreateElementAlias = false;
+  private boolean addReactApiAliases = false;
   private Node externsRoot;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
@@ -210,9 +211,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           inputNode.addChildrenToFront(typesChildren);
         }
         foundReactSource = true;
-        stripPropTypes = addCreateElementAlias = React.isReactMinSourceName(
+        stripPropTypes = addReactApiAliases = React.isReactMinSourceName(
             inputNode.getSourceFileName());
-        if (addCreateElementAlias) {
+        if (addReactApiAliases) {
           // Add an alias of the form:
           // /** @type {Function} */
           // var React$createElement = React.createElement;
@@ -237,6 +238,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
               IR.string("Function"), inputNode.getSourceFileName()));
           createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
           inputNode.addChildToBack(createElementAliasNode);
+          // Same thing for React.createClass, which partially gets renamed but
+          // still shows up often enough that shortening it is worthwhile.
+          Node createClassAliasNode = IR.var(
+              IR.name(CREATE_CLASS_ALIAS_NAME),
+              IR.getprop(
+                  IR.name("React"),
+                  IR.string("createClass")));
+          jsDocBuilder = new JSDocInfoBuilder(true);
+          jsDocBuilder.recordType(new JSTypeExpression(
+              IR.string("Function"), inputNode.getSourceFileName()));
+          createClassAliasNode.setJSDocInfo(jsDocBuilder.build());
+          inputNode.addChildToBack(createClassAliasNode);
         }
         compiler.reportChangeToEnclosingScope(inputNode);
         break;
@@ -315,6 +328,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           mixinSpecParentNode,
           mixinSpecNode);
         compiler.reportChangeToEnclosingScope(mixinSpecNode.getParent());
+      }
+    }
+    if (addReactApiAliases) {
+      for (Node classSpecNode : reactClassesByName.values()) {
+        Node functionNameNode = classSpecNode.getPrevious();
+        if (functionNameNode.getToken() == Token.GETPROP) {
+          functionNameNode.replaceWith(IR.name(CREATE_CLASS_ALIAS_NAME));
+        }
       }
     }
   }
@@ -946,7 +967,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
-    if (addCreateElementAlias) {
+    if (addReactApiAliases) {
       // If we're adding aliases that means we're doing an optimized build, so
       // there's no need for extra type checks.
       Node functionNameNode = callNode.getFirstChild();

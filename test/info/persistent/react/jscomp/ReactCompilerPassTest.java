@@ -662,15 +662,16 @@ public class ReactCompilerPassTest {
   @Test public void testMinifiedReact() {
     // propTypes should get stripped if we're using the minimized React build
     // (since they're not checked).
-    // Additionally, React.createElement calls should be replaced with a
-    // React$createElement alias (which can get fully renamed).
+    // Additionally, React.createClass and React.createElement calls should be
+    // replaced with React$createClass and React$createElement aliases (which
+    // can get fully renamed).
     test(
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
         "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
       "/src/react.min.js",
@@ -684,7 +685,7 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
         "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
         "$render$:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
@@ -722,7 +723,7 @@ public class ReactCompilerPassTest {
         "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.render($React$createElement$$(React.createClass({" +
+      "ReactDOM.render($React$createElement$$($React$createClass$$({" +
         "render:function(){" +
           "return $React$createElement$$(\"div\",{onClick:null})" +
         "}" +
@@ -792,7 +793,7 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(" +
           "Comp, {aProp: \"foo\"}), document.body);",
-      "ReactDOM.$render$($React$createElement$$(React.$createClass$({" +
+      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
         "publicFunction:function(){" +
             "return\"dont_rename_me_bro\"" +
         "}," +
