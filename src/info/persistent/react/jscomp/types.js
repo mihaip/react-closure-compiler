@@ -275,7 +275,7 @@ ReactChildren.prototype.only = function(children) {};
 
 /**
  * @param {Object|undefined} children
- * @return {Array<Object>|undefined}
+ * @return {!Array<ReactChild>}
  */
 ReactChildren.prototype.toArray = function(children) {};
 
