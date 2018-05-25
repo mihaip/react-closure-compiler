@@ -1035,7 +1035,73 @@ public class ReactCompilerPassTest {
           "strMethod_: function(param) {return param;}" +
         "});\n" +
         "React.createElement(Comp, null);");
+  }
 
+  @Test public void testPropTypesMixins() {
+    testError(
+        "var Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "mixinNumberProp: React.PropTypes.number.isRequired" +
+          "}" +
+        "});\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "propTypes: {" +
+            "numberProp: React.PropTypes.number.isRequired" +
+          "}," +
+          "render: function() {return this.props.mixinNumberProp();}" +
+        "});\n",
+        "JSC_NOT_FUNCTION_TYPE");
+      // Even when the component doesn't have its own propTypes those of the
+      // mixin are considered.
+      testError(
+        "var Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "mixinNumberProp: React.PropTypes.number.isRequired" +
+          "}" +
+        "});\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "render: function() {return this.props.mixinNumberProp();}" +
+        "});\n",
+        "JSC_NOT_FUNCTION_TYPE");
+    testNoError(
+        "var Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "mixinFuncProp: React.PropTypes.func.isRequired" +
+          "}" +
+        "});\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "render: function() {return this.props.mixinFuncProp();}" +
+        "});\n");
+      // The same propTypes can be in both mixins and components (and the
+      // component one has precedence).
+      testNoError(
+        "var Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "aProp: React.PropTypes.number.isRequired" +
+          "}" +
+        "});\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "propTypes: {" +
+            "aProp: React.PropTypes.number.isRequired" +
+          "},\n" +
+          "render: function() {return null;}" +
+        "});\n");
+      // Custom type expressions are handled
+      testNoError(
+        "var Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "/** @type {boolean} */ boolProp: function() {}" +
+          "}" +
+        "});\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {boolProp: true});");
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {

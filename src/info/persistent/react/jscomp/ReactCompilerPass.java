@@ -91,6 +91,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
       Maps.newHashMap();
   private final Map<String, Node> reactMixinsByName = Maps.newHashMap();
+  private final Map<String, List<Node>> reactMixinsPropTypesByName =
+      Maps.newHashMap();
   private final Map<String, Node> reactMixinInterfacePrototypePropsByName =
       Maps.newHashMap();
   // Mixin name -> method name -> JSDoc
@@ -126,6 +128,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     reactClassesByName.clear();
     reactClassInterfacePrototypePropsByName.clear();
     reactMixinsByName.clear();
+    reactMixinsPropTypesByName.clear();
     reactMixinInterfacePrototypePropsByName.clear();
     mixinAbstractMethodJsDocsByName.clear();
     propTypesExtractorsByName.clear();
@@ -498,6 +501,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     interfacePrototypePropsByName.put(typeName, interfacePrototypeProps);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node propTypesNode = null;
+    List<Node> mixinPropTypeKeyNodes = Lists.newArrayList();
     Node getDefaultPropsNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
     List<String> exportedNames = Lists.newArrayList();
@@ -507,7 +511,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
         Set<String> mixinNames = addMixinsToType(
-            typeName, key, interfacePrototypeProps, staticsJsDocs);
+            typeName,
+            key,
+            interfacePrototypeProps,
+            staticsJsDocs,
+            mixinPropTypeKeyNodes);
         usesPureRenderMixin = mixinNames.contains(REACT_PURE_RENDER_MIXIN_NAME);
         for (String mixinName : mixinNames) {
           if (mixinAbstractMethodJsDocsByName.containsKey(mixinName)) {
@@ -679,6 +687,28 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             null),
         interfaceTypeNode);
 
+    // Merge in propTypes from mixins.
+    if (options.propTypesTypeChecking && !mixinPropTypeKeyNodes.isEmpty()) {
+      Set<String> seenPropNames = Sets.newHashSet();
+      if (propTypesNode == null) {
+        propTypesNode = IR.stringKey("propType", IR.objectlit());
+        specNode.addChildToBack(propTypesNode);
+      } else {
+        for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
+          seenPropNames.add(propTypeKeyNode.getString());
+        }
+      }
+      for (Node mixinPropTypeKeyNode : mixinPropTypeKeyNodes) {
+        String propName = mixinPropTypeKeyNode.getString();
+        if (seenPropNames.contains(propName)) {
+          continue;
+        }
+        seenPropNames.add(propName);
+        propTypesNode.getFirstChild().addChildToBack(
+            mixinPropTypeKeyNode.cloneTree(true));
+      }
+    }
+
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
       if (isExportedType) {
@@ -687,6 +717,21 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
       }
 
+    // Save mixin propTypes so that they can be merged into classes that use
+    // them.
+    if (createFuncName.equals("React.createMixin")) {
+        List<Node> propTypeKeyNodes = Lists.newArrayList();
+        for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
+          // Clone nodes PropTypesExtractor will mutate.
+          if (propTypeKeyNode.getJSDocInfo() != null &&
+              propTypeKeyNode.getJSDocInfo().hasType()) {
+            propTypeKeyNodes.add(propTypeKeyNode.cloneTree(true));
+          } else {
+            propTypeKeyNodes.add(propTypeKeyNode);
+          }
+        }
+        reactMixinsPropTypesByName.put(typeName, propTypeKeyNodes);
+      }
       if (options.propTypesTypeChecking) {
         PropTypesExtractor extractor = new PropTypesExtractor(
             propTypesNode, getDefaultPropsNode, typeName, interfaceTypeName,
@@ -784,7 +829,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       String typeName,
       Node mixinsNode,
       Node interfacePrototypeProps,
-      Map<String, JSDocInfo> staticsJsDocs) {
+      Map<String, JSDocInfo> staticsJsDocs,
+      List<Node> propTypeKeyNodes) {
     Set<String> mixinNames = Sets.newHashSet();
     if (!mixinsNode.hasOneChild() ||
           !mixinsNode.getFirstChild().isArrayLit()) {
@@ -811,11 +857,19 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));
         continue;
       }
+      List<Node> mixinPropTypes = reactMixinsPropTypesByName.get(mixinName);
+      if (mixinPropTypes != null) {
+        propTypeKeyNodes.addAll(mixinPropTypes);
+      }
       for (Node mixinSpecKey : mixinSpecNode.children()) {
         String keyName = mixinSpecKey.getString();
         if (keyName.equals("mixins")) {
           mixinNames.addAll(addMixinsToType(
-              typeName, mixinSpecKey, interfacePrototypeProps, staticsJsDocs));
+              typeName,
+              mixinSpecKey,
+              interfacePrototypeProps,
+              staticsJsDocs,
+              propTypeKeyNodes));
           continue;
         }
         if (keyName.equals("statics")) {
