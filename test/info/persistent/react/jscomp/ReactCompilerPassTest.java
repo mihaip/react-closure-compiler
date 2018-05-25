@@ -935,7 +935,7 @@ public class ReactCompilerPassTest {
     // Handle spread operator when creating elements
     testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired}",
-        "Object.assign({aProp: null}, {})",
+        "Object.assign({aProp: '1'}, {})",
         "JSC_TYPE_MISMATCH");
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
@@ -943,6 +943,15 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {})");
+    testPropTypesNoError(
+        "{aProp: React.PropTypes.number.isRequired," +
+        "bProp: React.PropTypes.number.isRequired}",
+        "Object.assign({}, {aProp: 1})");
+    testPropTypesError(
+        "{aProp: React.PropTypes.number.isRequired," +
+        "bProp: React.PropTypes.number.isRequired}",
+        "Object.assign({}, {aProp: '1'})",
+        "JSC_TYPE_MISMATCH");
     testNoError(
         "var Comp = React.createClass({" +
           "propTypes: {" +

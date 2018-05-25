@@ -1,9 +1,7 @@
 package info.persistent.react.jscomp;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.Compiler;
@@ -100,6 +98,8 @@ class PropTypesExtractor {
   private boolean canBeCreatedWithNoProps;
   private final String childrenValidatorFuncName;
   private Node childrenPropTypeNode;
+  private String spreadValidatorFuncName;
+  private String spreadValidatorPropsTypeName;
 
   public PropTypesExtractor(
       Node propTypesNode,
@@ -509,7 +509,8 @@ class PropTypesExtractor {
     // }} */
     // Comp.Props;
     String propsTypeName = typeName + ".Props";
-    Node propsTypedefNode = getPropsTypedefNode(propsTypeName, false);
+    Node propsTypedefNode = getPropsTypedefNode(
+        propsTypeName, RequiredMode.COMPONENT);
     propsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(propsTypedefNode, insertionPoint);
     insertionPoint = propsTypedefNode;
@@ -528,14 +529,12 @@ class PropTypesExtractor {
     // creation time, so for those cases we need to create an alternate type
     // that allows them to be skipped.
     validatorPropsTypeName = propsTypeName;
-    boolean needsCustomValidatorType = Iterables.any(props, new Predicate<Prop>() {
-      @Override public boolean apply(Prop prop) {
-        return prop.hasDefaultValue;
-      }
-    });
+    boolean needsCustomValidatorType = props.stream().anyMatch(
+         prop -> prop.hasDefaultValue);
     if (needsCustomValidatorType) {
       validatorPropsTypeName = typeName + ".CreateProps";
-      Node validatorPropsTypedefNode = getPropsTypedefNode(validatorPropsTypeName, true);
+      Node validatorPropsTypedefNode = getPropsTypedefNode(
+          validatorPropsTypeName, RequiredMode.VALIDATOR);
       validatorPropsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
       insertionPoint.getParent().addChildAfter(validatorPropsTypedefNode, insertionPoint);
       insertionPoint = validatorPropsTypedefNode;
@@ -580,6 +579,40 @@ class PropTypesExtractor {
       insertionPoint = childrenValidatorFuncNode;
     }
 
+    // And yet another validation function is needed to validate props used in
+    // spread calls if some are required (we can't easily check that the union
+    // of all objects passed into the spread call has the required props)
+    spreadValidatorPropsTypeName = validatorPropsTypeName;
+    spreadValidatorFuncName = validatorFuncName;
+    if (!canBeCreatedWithNoProps) {
+      spreadValidatorFuncName = validatorFuncName + "Spread";
+      spreadValidatorPropsTypeName = typeName + ".SpreadProps";
+      Node spreadValidatorPropsTypedefNode = getPropsTypedefNode(
+          spreadValidatorPropsTypeName, RequiredMode.SPREAD_VALIDATOR);
+      spreadValidatorPropsTypedefNode.useSourceInfoIfMissingFromForTree(
+          insertionPoint);
+      insertionPoint.getParent().addChildAfter(
+          spreadValidatorPropsTypedefNode, insertionPoint);
+      insertionPoint = spreadValidatorPropsTypedefNode;
+
+      Node spreadValidatorFuncNode = IR.function(
+          IR.name(spreadValidatorFuncName),
+          IR.paramList(IR.name("props")),
+          IR.block(IR.returnNode(IR.name("props"))));
+      jsDocBuilder = new JSDocInfoBuilder(true);
+      Node spreadPropsTypeNode = IR.string(spreadValidatorPropsTypeName);
+      jsDocBuilder.recordParameter(
+          "props",
+          new JSTypeExpression(spreadPropsTypeNode, sourceFileName));
+      jsDocBuilder.recordReturnType(
+          new JSTypeExpression(spreadPropsTypeNode, sourceFileName));
+      spreadValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
+      spreadValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      insertionPoint.getParent().addChildAfter(
+          spreadValidatorFuncNode, insertionPoint);
+      insertionPoint = spreadValidatorFuncNode;
+    }
+
     // /** @type {Comp.Props} */
     // CompInterface.prototype.props;
     jsDocBuilder = new JSDocInfoBuilder(true);
@@ -594,7 +627,13 @@ class PropTypesExtractor {
     insertionPoint = propsNode;
   }
 
-  private Node getPropsTypedefNode(String name, boolean forValidator) {
+  private static enum RequiredMode {
+    COMPONENT,
+    VALIDATOR,
+    SPREAD_VALIDATOR
+  }
+
+  private Node getPropsTypedefNode(String name, RequiredMode requiredMode) {
     Node lb = new Node(Token.LB);
     for (Prop prop : props) {
       PropType propType = prop.propType;
@@ -602,13 +641,16 @@ class PropTypesExtractor {
       Node member = prop.propTypeKeyNode.cloneNode();
       colon.addChildToBack(member);
       Node typeNode;
-      if (forValidator && propType.isRequired && prop.hasDefaultValue) {
-        typeNode = propType.optionalTypeNode;
-      } else if (!forValidator && !propType.isRequired &&
+      if (requiredMode == RequiredMode.VALIDATOR && propType.isRequired &&
           prop.hasDefaultValue) {
+        typeNode = propType.optionalTypeNode;
+      } else if (requiredMode == RequiredMode.COMPONENT &&
+          !propType.isRequired && prop.hasDefaultValue) {
         // If a prop is not required but it has a default value then its type
         // inside the component can be treated as required.
         typeNode = propType.requiredTypeNode;
+      } else if (requiredMode == RequiredMode.SPREAD_VALIDATOR) {
+        typeNode = propType.optionalTypeNode;
       } else {
         typeNode = propType.typeNode;
       }
@@ -661,13 +703,13 @@ class PropTypesExtractor {
             Node prevNode = spreadParamNode.getPrevious();
             spreadParamNode.detach();
             Node validatorCallNode = IR.call(
-                IR.name(validatorFuncName), spreadParamNode);
-            // Object.assign expects non-nullable values, so ensure that the validator function
-            // does that.
+                IR.name(spreadValidatorFuncName), spreadParamNode);
+            // Object.assign expects non-nullable values, so ensure that the
+            // validator function does that.
             if (canBeCreatedWithNoProps) {
               JSDocInfoBuilder castJsDocBuilder = new JSDocInfoBuilder(true);
               castJsDocBuilder.recordType(new JSTypeExpression(
-                  IR.string(validatorPropsTypeName),
+                  IR.string(spreadValidatorPropsTypeName),
                   propsParamNode.getSourceFileName()));
               JSDocInfo castJsDoc = castJsDocBuilder.build();
               validatorCallNode = IR.cast(validatorCallNode, castJsDoc);

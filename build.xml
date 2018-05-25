@@ -1,8 +1,8 @@
 <project name="react-closure-compiler" basedir="." default="jar">
 
-  <!-- Force Java 7 -->
-  <property name="ant.build.javac.source" value="1.7" />
-  <property name="ant.build.javac.target" value="1.7" />
+  <!-- Force Java 8 -->
+  <property name="ant.build.javac.source" value="1.8" />
+  <property name="ant.build.javac.target" value="1.8" />
 
   <property name="javac.debug" value="on" />
   <property name="src.dir" value="${basedir}/src" />
