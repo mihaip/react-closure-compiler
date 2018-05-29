@@ -1113,6 +1113,41 @@ public class ReactCompilerPassTest {
         "React.createElement(Comp, {boolProp: true});");
   }
 
+  @Test public void testPropTypesComponentMethods() {
+    // React component/lifecycle methods automatically get the specific prop
+    // type injected.
+    testError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "numberProp: React.PropTypes.number.isRequired" +
+          "}," +
+          "componentWillReceiveProps: function(nextProps) {" +
+             "nextProps.numberProp();" +
+          "},\n" +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {numberProp: 1});",
+        "JSC_NOT_FUNCTION_TYPE");
+    // As do abstract mixin methods that use ReactProps as the type.
+    testError(
+        "var Mixin = React.createMixin({" +
+        "});" +
+        "/** @param {ReactProps} props @protected */" +
+        "Mixin.mixinAbstractMethod;\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [Mixin],\n" +
+          "propTypes: {" +
+            "numberProp: React.PropTypes.number.isRequired" +
+          "}," +
+          "mixinAbstractMethod: function(props) {" +
+             "props.numberProp();" +
+          "},\n" +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {numberProp: 1});",
+        "JSC_NOT_FUNCTION_TYPE");
+  }
+
   private void testPropTypesError(String propTypes, String props, String error) {
     testError(
       "/** @constructor */ function Message() {};\n" +

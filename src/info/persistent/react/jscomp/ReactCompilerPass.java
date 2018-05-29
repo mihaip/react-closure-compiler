@@ -507,6 +507,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     List<String> exportedNames = Lists.newArrayList();
     boolean usesPureRenderMixin = false;
     boolean hasShouldComponentUpdate = false;
+    List<Node> componentMethodKeys = Lists.newArrayList();
     for (Node key : specNode.children()) {
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
@@ -553,11 +554,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // for interface extending interfaces in any case).
       JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
       if (componentMethodJsDoc != null) {
+        componentMethodKeys.add(key);
         mergeInJsDoc(key, func, componentMethodJsDoc);
       }
       // Ditto for abstract methods from mixins.
       JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
       if (abstractMethodJsDoc != null) {
+        // Treat mixin methods as component ones too, as far as making the type
+        // used for props more specific.
+        componentMethodKeys.add(key);
         mergeInJsDoc(key, func, abstractMethodJsDoc);
       }
 
@@ -738,6 +743,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             compiler);
         extractor.extract();
         extractor.insert(elementTypedefInsertionPoint);
+        if (createFuncName.equals("React.createClass")) {
+          extractor.addToComponentMethods(componentMethodKeys);
+        }
         propTypesExtractorsByName.put(typeName, extractor);
       } else {
         PropTypesExtractor.cleanUpPropTypesWhenNotChecking(propTypesNode);

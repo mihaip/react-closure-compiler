@@ -84,10 +84,14 @@ class PropTypesExtractor {
   private static final String PROPS_VALIDATOR_SUFFIX = "$$PropsValidator";
   private static final String CHILDREN_VALIDATOR_SUFFIX = "$$ChildrenValidator";
 
+  private static final JSTypeExpression REACT_PROPS_TYPE = new JSTypeExpression(
+      IR.string("ReactProps"), null);
+
   private final Node propTypesNode;
   private final Node getDefaultPropsNode;
   private final String sourceFileName;
   private final String typeName;
+  private final String propsTypeName;
   private final String interfaceTypeName;
   private final Compiler compiler;
 
@@ -111,6 +115,7 @@ class PropTypesExtractor {
     this.sourceFileName = propTypesNode.getSourceFileName();
     this.getDefaultPropsNode = getDefaultPropsNode;
     this.typeName = typeName;
+    this.propsTypeName = typeName + ".Props";
     this.interfaceTypeName = interfaceTypeName;
     this.compiler = compiler;
     // Generate a unique global function name (so that the compiler can more
@@ -501,6 +506,45 @@ class PropTypesExtractor {
     }
   }
 
+  public void addToComponentMethods(List<Node> componentMethodKeys) {
+    // Changes the ReactProps parameter type from built-in component methods to
+    // the more specific prop type.
+    for (Node key : componentMethodKeys) {
+      boolean changedParameterType = false;
+      JSDocInfo existing = key.getJSDocInfo();
+      // Unfortunately we can't override the type of already-declared
+      // parameters, so we need to recreate the entire JSDocInfo with the new
+      // type.
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+      for (String parameterName : existing.getParameterNames()) {
+        JSTypeExpression parameterType = existing.getParameterType(parameterName);
+        if (parameterType.equals(REACT_PROPS_TYPE)) {
+          changedParameterType = true;
+          parameterType = new JSTypeExpression(
+              IR.string(propsTypeName), sourceFileName);
+        }
+        jsDocBuilder.recordParameter(parameterName, parameterType);
+      }
+      if (!changedParameterType) {
+        continue;
+      }
+      if (existing.hasReturnType()) {
+        jsDocBuilder.recordReturnType(existing.getReturnType());
+      }
+      if (existing.hasThisType()) {
+        jsDocBuilder.recordThisType(existing.getThisType());
+      }
+      for (String templateTypeName : existing.getTemplateTypeNames()) {
+        jsDocBuilder.recordTemplateTypeName(templateTypeName);
+      }
+      for (Map.Entry<String, Node> entry :
+          existing.getTypeTransformations().entrySet()) {
+        jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
+      }
+      key.setJSDocInfo(jsDocBuilder.build());
+    }
+  }
+
   public void insert(Node insertionPoint) {
     // /** @typedef {{
     //   propA: number,
@@ -508,7 +552,6 @@ class PropTypesExtractor {
     //   ...
     // }} */
     // Comp.Props;
-    String propsTypeName = typeName + ".Props";
     Node propsTypedefNode = getPropsTypedefNode(
         propsTypeName, RequiredMode.COMPONENT);
     propsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
