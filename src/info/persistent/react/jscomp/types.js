@@ -131,6 +131,12 @@ ReactComponent.prototype.state;
 ReactComponent.prototype.context;
 
 /**
+ * @type {Object}
+ * @const
+ */
+ReactComponent.prototype.isReactComponent;
+
+/**
  * @type {ReactRefs}
  */
 ReactComponent.prototype.refs;
