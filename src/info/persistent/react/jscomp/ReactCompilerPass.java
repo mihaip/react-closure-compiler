@@ -476,7 +476,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           callParentNode, COULD_NOT_DETERMINE_TYPE_NAME, createFuncName));
       return;
     }
-    String interfaceTypeName = typeName + "Interface";
+    String interfaceTypeName = generateInterfaceTypeName(typeName);
 
     // For compomnents tagged with @export don't rename their props or public
     // methods.
@@ -1117,5 +1117,37 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   PropTypesExtractor getPropTypesExtractor(String typeName) {
     return propTypesExtractorsByName.get(typeName);
+  }
+
+  /**
+   * Generates the type name for the interface that we generate for a component.
+   * Normally of the form <ComponentName>Interface, but for nested components,
+   * we avoid putting the interface as a nested property, since the compiler
+   * appears to have trouble removing it in that case. That is, given:
+   *
+   * const ns = {};
+   * ns.Comp = React.createClass(...);
+   * ns.Comp.Inner = React.createClass(...);
+   *
+   * We generate interface names ns.CompInterface and ns.Comp_InnerInterface;
+   */
+  private String generateInterfaceTypeName(String typeName) {
+    String[] typeNameParts = typeName.split("\\.");
+    String typeNamePrefix = "";
+    for (int i = 0; i < typeNameParts.length; i++) {
+      String prefixCandidate = typeNamePrefix.isEmpty() ?
+          typeNameParts[i] :
+          typeNamePrefix + "." + typeNameParts[i];
+      if (reactClassesByName.containsKey(prefixCandidate)) {
+        for (; i < typeNameParts.length; i++) {
+          typeNamePrefix += "_" + typeNameParts[i];
+        }
+        break;
+      } else {
+        typeNamePrefix = prefixCandidate;
+      }
+    }
+
+    return typeNamePrefix + "Interface";
   }
 }
