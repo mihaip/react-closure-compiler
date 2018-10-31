@@ -932,26 +932,51 @@ public class ReactCompilerPassTest {
         "});\n" +
         "React.createElement(Comp, {}, null);",
         "JSC_TYPE_MISMATCH");
+
     // Handle spread operator when creating elements
     testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({aProp: '1'}, {})",
         "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{aProp: React.PropTypes.number.isRequired}",
+        "{aProp: '1', ...{}}",
+        "JSC_TYPE_MISMATCH");
+
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({aProp: 1}, {})");
     testPropTypesNoError(
+          "{aProp: React.PropTypes.number.isRequired}",
+          "{aProp: 1, ...{}}");
+
+    testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {})");
+    testPropTypesNoError(
+        "{aProp: React.PropTypes.number.isRequired}",
+        "{...{}}");
+    
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired," +
         "bProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {aProp: 1})");
+    testPropTypesNoError(
+        "{aProp: React.PropTypes.number.isRequired," +
+        "bProp: React.PropTypes.number.isRequired}",
+        "{...{aProp: 1}}");
+
     testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired," +
         "bProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {aProp: '1'})",
         "JSC_TYPE_MISMATCH");
+    testPropTypesError(
+        "{aProp: React.PropTypes.number.isRequired," +
+        "bProp: React.PropTypes.number.isRequired}",
+        "{...{aProp: '1'}}",
+        "JSC_TYPE_MISMATCH");
+
     testNoError(
         "var Comp = React.createClass({" +
           "propTypes: {" +
@@ -963,6 +988,18 @@ public class ReactCompilerPassTest {
           "render: function() {return null;}" +
         "});\n" +
         "React.createElement(Comp, Object.assign({aProp: \"1\"}, {}))");
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "aProp: React.PropTypes.string.isRequired" +
+          "}," +
+          "getDefaultProps: function() {" +
+            "return {aProp: \"1\"};" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {aProp: \"1\",...{}})");
+  
     // Custom type expressions
     testPropTypesError(
         "{/** @type {boolean} */ boolProp: function() {}}",
@@ -1366,7 +1403,7 @@ public class ReactCompilerPassTest {
     CompilationLevel.ADVANCED_OPTIMIZATIONS
         .setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
-    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2015);
+    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
     options.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5);
     options.setWarningLevel(
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);

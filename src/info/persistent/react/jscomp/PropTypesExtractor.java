@@ -716,6 +716,125 @@ class PropTypesExtractor {
     return propsTypedefNode;
   }
 
+  private boolean hasSpread(Node object) {
+    for (Node property = object.getFirstChild();
+        property != null;
+        property = property.getNext()) {
+      if (property.isSpread()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private Node transformSpreadObjectToObjectAssign(Node object) {
+    // Transforms
+    //   {a: 1, b: 2, ...c, d: 3, e: 4}
+    // into
+    //   Object.assign({a: 1, b: 2}, c, {d: 3, e: 4})
+    //
+    // Transforms
+    //   {...a, b: 1, c: 2}
+    // into
+    //   Object.assign({}, a, {b: 1, c: 1})
+    //
+    // Transforms
+    //   {...a}
+    // into
+    //   a
+
+    Node objectAssignNode = IR.call(IR.getprop(IR.name("Object"), "assign"));
+    boolean isFirst = true;
+    for (Node property = object.getFirstChild(); property != null; ) {
+      if (property.isSpread()) {
+        if (isFirst) {
+          // Need to add an empty object to not mutate value.
+          objectAssignNode.addChildToBack(IR.objectlit());
+        }
+        Node spreadExpression = property.getFirstChild();
+        Node next = property.getNext();
+        property.detach();
+        spreadExpression.detach();
+        objectAssignNode.addChildToBack(spreadExpression);
+        property = next;
+      } else {
+        Node spreadObject = IR.objectlit();
+        while (property != null) {
+          if (property.isSpread()) {
+            break;
+          }
+          Node next = property.getNext();
+          property.detach();
+          spreadObject.addChildToBack(property);
+          property = next;
+        }
+        objectAssignNode.addChildToBack(spreadObject);
+      }
+      isFirst = false;
+    }
+
+    if (objectAssignNode.getChildCount() == 2) {
+      // Single argument. No need for Object.assign.
+      Node arg = objectAssignNode.getChildAtIndex(1);
+      arg.detach();
+      objectAssignNode = arg;
+    }
+
+    Node prevNode = object.getPrevious();
+    Node parentNode = object.getParent();
+    object.detach();
+    parentNode.addChildAfter(objectAssignNode, prevNode);
+    return objectAssignNode;
+  }
+
+  private void visitObjectAssign(Node callNode) {
+    for (Node spreadParamNode = callNode.getChildAtIndex(1);
+        spreadParamNode != null;
+        spreadParamNode = spreadParamNode.getNext()) {
+      if (spreadParamNode.isObjectLit() && spreadParamNode.hasChildren()) {
+        Node prevNode = spreadParamNode.getPrevious();
+        spreadParamNode.detach();
+        Node validatorCallNode = IR.call(
+            IR.name(spreadValidatorFuncName), spreadParamNode);
+        // Object.assign expects non-nullable values, so ensure that the
+        // validator function does that.
+        if (canBeCreatedWithNoProps) {
+          JSDocInfoBuilder castJsDocBuilder = new JSDocInfoBuilder(true);
+          castJsDocBuilder.recordType(new JSTypeExpression(
+              IR.string(spreadValidatorPropsTypeName),
+              callNode.getSourceFileName()));
+          JSDocInfo castJsDoc = castJsDocBuilder.build();
+          validatorCallNode = IR.cast(validatorCallNode, castJsDoc);
+        }
+        validatorCallNode.useSourceInfoIfMissingFrom(spreadParamNode);
+        callNode.addChildAfter(validatorCallNode, prevNode);
+      }
+    }
+  }
+
+  public void visitReactProp(Node propsNode) {
+    if (propsNode.isObjectLit() && hasSpread(propsNode)) {
+      propsNode = transformSpreadObjectToObjectAssign(propsNode);
+    }
+
+    if (propsNode.isObjectLit() || propsNode.isNull()) {
+      Node prevNode = propsNode.getPrevious();
+      Node parentNode = propsNode.getParent();
+      propsNode.detach();
+      Node validatorCallNode = IR.call(
+          IR.name(validatorFuncName), propsNode);
+      validatorCallNode.useSourceInfoIfMissingFrom(propsNode);
+      parentNode.addChildAfter(validatorCallNode, prevNode);
+    } else if (propsNode.isCall()) {
+      // If it's a Object.asign() call (created because of a spread operator)
+      // then add the validator to object literal parameters instead.
+      String functionName = propsNode.getFirstChild().getQualifiedName();
+      if (functionName != null && functionName.equals("Object.assign")) {
+        visitObjectAssign(propsNode);
+      }
+    }
+  }
+
   public void visitReactCreateElement(Node callNode) {
     int callParamCount = callNode.getChildCount() - 1;
     // Replaces
@@ -725,44 +844,9 @@ class PropTypesExtractor {
     if (callParamCount < 2) {
       return;
     }
+
     Node propsParamNode = callNode.getChildAtIndex(2);
-    if (propsParamNode.isObjectLit() || propsParamNode.isNull()) {
-      Node typeNode = callNode.getChildAtIndex(1);
-      propsParamNode.detach();
-      Node validatorCallNode = IR.call(
-          IR.name(validatorFuncName), propsParamNode);
-      validatorCallNode.useSourceInfoIfMissingFrom(propsParamNode);
-      callNode.addChildAfter(validatorCallNode, typeNode);
-    } else if (propsParamNode.isCall()) {
-      // If it's a Object.asign() call (created because of a spread operator)
-      // then add the validator to object literal parameters instead.
-      String functionName = propsParamNode.getFirstChild().getQualifiedName();
-      if (functionName != null && functionName.equals("Object.assign") &&
-          propsParamNode.getChildCount() > 1) {
-        for (Node spreadParamNode = propsParamNode.getChildAtIndex(1);
-            spreadParamNode != null;
-            spreadParamNode = spreadParamNode.getNext()) {
-          if (spreadParamNode.isObjectLit() && spreadParamNode.hasChildren()) {
-            Node prevNode = spreadParamNode.getPrevious();
-            spreadParamNode.detach();
-            Node validatorCallNode = IR.call(
-                IR.name(spreadValidatorFuncName), spreadParamNode);
-            // Object.assign expects non-nullable values, so ensure that the
-            // validator function does that.
-            if (canBeCreatedWithNoProps) {
-              JSDocInfoBuilder castJsDocBuilder = new JSDocInfoBuilder(true);
-              castJsDocBuilder.recordType(new JSTypeExpression(
-                  IR.string(spreadValidatorPropsTypeName),
-                  propsParamNode.getSourceFileName()));
-              JSDocInfo castJsDoc = castJsDocBuilder.build();
-              validatorCallNode = IR.cast(validatorCallNode, castJsDoc);
-            }
-            validatorCallNode.useSourceInfoIfMissingFrom(spreadParamNode);
-            propsParamNode.addChildAfter(validatorCallNode, prevNode);
-          }
-        }
-      }
-    }
+    visitReactProp(propsParamNode);
 
     // It's more difficult to validate multiple children, but that use case is
     // uncommon.
