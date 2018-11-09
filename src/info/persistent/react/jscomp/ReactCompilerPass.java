@@ -1029,6 +1029,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
+    // Replace spreads in props with Object.assign (or even inline them
+    // altogether, it's just a single value being spread in an otherwise empty
+    // object). This allows the props type checking to work better.
+    int callParamCount = callNode.getChildCount() - 1;
+    if (callParamCount >= 2) {
+      Node propsParamNode = callNode.getChildAtIndex(2);
+      if (propsParamNode.isObjectLit() && Props.hasSpread(propsParamNode)) {
+        Props.transformSpreadObjectToObjectAssign(propsParamNode);
+      }
+    }
+
     if (addReactApiAliases) {
       // If we're adding aliases that means we're doing an optimized build, so
       // there's no need for extra type checks.

@@ -716,76 +716,6 @@ class PropTypesExtractor {
     return propsTypedefNode;
   }
 
-  private boolean hasSpread(Node object) {
-    for (Node property = object.getFirstChild();
-        property != null;
-        property = property.getNext()) {
-      if (property.isSpread()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private Node transformSpreadObjectToObjectAssign(Node object) {
-    // Transforms
-    //   {a: 1, b: 2, ...c, d: 3, e: 4}
-    // into
-    //   Object.assign({a: 1, b: 2}, c, {d: 3, e: 4})
-    //
-    // Transforms
-    //   {...a, b: 1, c: 2}
-    // into
-    //   Object.assign({}, a, {b: 1, c: 1})
-    //
-    // Transforms
-    //   {...a}
-    // into
-    //   a
-
-    Node objectAssignNode = IR.call(IR.getprop(IR.name("Object"), "assign"));
-    boolean isFirst = true;
-    for (Node property = object.getFirstChild(); property != null; ) {
-      if (property.isSpread()) {
-        if (isFirst) {
-          // Need to add an empty object to not mutate value.
-          objectAssignNode.addChildToBack(IR.objectlit());
-        }
-        Node spreadExpression = property.getFirstChild();
-        Node next = property.getNext();
-        property.detach();
-        spreadExpression.detach();
-        objectAssignNode.addChildToBack(spreadExpression);
-        property = next;
-      } else {
-        Node spreadObject = IR.objectlit();
-        while (property != null) {
-          if (property.isSpread()) {
-            break;
-          }
-          Node next = property.getNext();
-          property.detach();
-          spreadObject.addChildToBack(property);
-          property = next;
-        }
-        objectAssignNode.addChildToBack(spreadObject);
-      }
-      isFirst = false;
-    }
-
-    if (objectAssignNode.getChildCount() == 2) {
-      // Single argument. No need for Object.assign.
-      Node arg = objectAssignNode.getChildAtIndex(1);
-      arg.detach();
-      objectAssignNode = arg;
-    }
-
-    Node prevNode = object.getPrevious();
-    Node parentNode = object.getParent();
-    object.detach();
-    parentNode.addChildAfter(objectAssignNode, prevNode);
-    return objectAssignNode;
-  }
 
   private void visitObjectAssign(Node callNode) {
     for (Node spreadParamNode = callNode.getChildAtIndex(1);
@@ -813,10 +743,6 @@ class PropTypesExtractor {
   }
 
   public void visitReactProp(Node propsNode) {
-    if (propsNode.isObjectLit() && hasSpread(propsNode)) {
-      propsNode = transformSpreadObjectToObjectAssign(propsNode);
-    }
-
     if (propsNode.isObjectLit() || propsNode.isNull()) {
       Node prevNode = propsNode.getPrevious();
       Node parentNode = propsNode.getParent();

@@ -953,18 +953,20 @@ public class ReactCompilerPassTest {
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {})");
-    testPropTypesNoError(
+    testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired}",
-        "{...{}}");
-    
+        "{...{}}",
+        "JSC_TYPE_MISMATCH");
+
     testPropTypesNoError(
         "{aProp: React.PropTypes.number.isRequired," +
         "bProp: React.PropTypes.number.isRequired}",
         "Object.assign({}, {aProp: 1})");
-    testPropTypesNoError(
+    testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired," +
         "bProp: React.PropTypes.number.isRequired}",
-        "{...{aProp: 1}}");
+        "{...{aProp: 1}}",
+        "JSC_TYPE_MISMATCH");
 
     testPropTypesError(
         "{aProp: React.PropTypes.number.isRequired," +
@@ -999,7 +1001,7 @@ public class ReactCompilerPassTest {
           "render: function() {return null;}" +
         "});\n" +
         "React.createElement(Comp, {aProp: \"1\",...{}})");
-  
+
     // Custom type expressions
     testPropTypesError(
         "{/** @type {boolean} */ boolProp: function() {}}",
@@ -1369,6 +1371,22 @@ public class ReactCompilerPassTest {
       "/** @return {ns.CompElement} */\n" +
       "function create() {return React.createElement(ns.Comp);}",
       "");
+  }
+
+  @Test public void testPropsSpreadInlining() {
+    test(
+      "var Comp = React.createClass({" +
+        "render: function() {" +
+          "const props = {a: \"1\"};\n" +
+          "return React.createElement(\"div\", {...props});" +
+        "}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+        "$render$:function(){" +
+          "return React.$createElement$(\"div\",{$a$:\"1\"})" +
+        "}" +
+      "})),document.body);");
   }
 
   private static void test(String inputJs, String expectedJs) {
