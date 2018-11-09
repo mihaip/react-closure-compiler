@@ -65,7 +65,7 @@ public class Props {
     }
 
     if (objectAssignNode.getChildCount() == 2) {
-      // // No need for Object.assign({...})
+      // No need for Object.assign({...})
       Node arg = objectAssignNode.getChildAtIndex(1);
       arg.detach();
       objectAssignNode = arg;
