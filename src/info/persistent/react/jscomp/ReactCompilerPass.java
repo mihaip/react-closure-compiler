@@ -139,7 +139,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       lastOutputForTests = new CodePrinter.Builder(root)
           .setPrettyPrint(true)
           .setOutputTypes(true)
-          .setTypeRegistry(compiler.getTypeIRegistry())
+          .setTypeRegistry(compiler.getTypeRegistry())
           .build();
     } else {
       lastOutputForTests = null;

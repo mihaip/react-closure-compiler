@@ -1469,7 +1469,7 @@ public class ReactCompilerPassTest {
       lastOutput += "Final compiler output:\n" + new CodePrinter.Builder(compiler.getRoot())
           .setPrettyPrint(true)
           .setOutputTypes(true)
-          .setTypeRegistry(compiler.getTypeIRegistry())
+          .setTypeRegistry(compiler.getTypeRegistry())
           .build() +
           "\n";
     }

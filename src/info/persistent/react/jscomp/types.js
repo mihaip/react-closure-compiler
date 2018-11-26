@@ -228,15 +228,13 @@ ReactComponent.prototype.componentWillUnmount = function() {};
 function ReactFragment() {}
 
 /**
- * @typedef {boolean|number|string|ReactElement|ReactFragment}
+ * @typedef {boolean|number|string|null|undefined|ReactElement|ReactFragment}
  */
 var ReactChild;
 
 /**
  * @typedef {
- *   ReactChild|
- *   Array.<boolean>|Array.<number>|Array.<string>|Array.<ReactElement>|
- *   Object.<boolean>|Object.<number>|Object.<string>|Object.<ReactElement>
+ *   ReactChild|Array.<ReactChild>|undefined
  * }
  */
 var ReactChildrenArgument;

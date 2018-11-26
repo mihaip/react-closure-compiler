@@ -74,7 +74,8 @@ public class ReactWarningsGuardTest {
         SourceFile.fromCode(
           "externs",
           "/** @constructor */ function Element() {};\n" +
-          "/** @constructor */ function Event() {};"));
+          "/** @constructor */ function Event() {};\n"+
+          "/** @constructor */ function Error() {};"));
     Result result = compiler.compile(externs, inputs, options);
     assertFalse(result.success);
     assertEquals(1, result.errors.length);
