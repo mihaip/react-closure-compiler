@@ -234,7 +234,10 @@ var ReactChild;
 
 /**
  * @typedef {
- *   ReactChild|Array.<ReactChild>|undefined
+ *   ReactChild|
+ *   Array.<ReactChild>|
+ *   Object.<ReactChild>|
+ *   undefined
  * }
  */
 var ReactChildrenArgument;
