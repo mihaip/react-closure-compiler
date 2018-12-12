@@ -87,6 +87,10 @@ class PropTypesExtractor {
 
   private static final JSTypeExpression REACT_PROPS_TYPE = new JSTypeExpression(
       IR.string("ReactProps"), null);
+  private static final JSTypeExpression REACT_PROPS_TYPE_BANG = new JSTypeExpression(
+      new Node(Token.BANG, IR.string("ReactProps")), null);
+  private static final JSTypeExpression REACT_PROPS_TYPE_QMARK = new JSTypeExpression(
+      new Node(Token.QMARK, IR.string("ReactProps")), null);
 
   private final Node propTypesNode;
   private final Node getDefaultPropsNode;
@@ -510,40 +514,17 @@ class PropTypesExtractor {
   public void addToComponentMethods(List<Node> componentMethodKeys) {
     // Changes the ReactProps parameter type from built-in component methods to
     // the more specific prop type.
-    for (Node key : componentMethodKeys) {
-      boolean changedParameterType = false;
-      JSDocInfo existing = key.getJSDocInfo();
-      // Unfortunately we can't override the type of already-declared
-      // parameters, so we need to recreate the entire JSDocInfo with the new
-      // type.
-      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-      for (String parameterName : existing.getParameterNames()) {
-        JSTypeExpression parameterType = existing.getParameterType(parameterName);
-        if (parameterType.equals(REACT_PROPS_TYPE)) {
-          changedParameterType = true;
-          parameterType = new JSTypeExpression(
-              IR.string(propsTypeName), sourceFileName);
-        }
-        jsDocBuilder.recordParameter(parameterName, parameterType);
-      }
-      if (!changedParameterType) {
-        continue;
-      }
-      if (existing.hasReturnType()) {
-        jsDocBuilder.recordReturnType(existing.getReturnType());
-      }
-      if (existing.hasThisType()) {
-        jsDocBuilder.recordThisType(existing.getThisType());
-      }
-      for (String templateTypeName : existing.getTemplateTypeNames()) {
-        jsDocBuilder.recordTemplateTypeName(templateTypeName);
-      }
-      for (Map.Entry<String, Node> entry :
-          existing.getTypeTransformations().entrySet()) {
-        jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
-      }
-      key.setJSDocInfo(jsDocBuilder.build());
-    }
+    JSTypeExpression replacementType = new JSTypeExpression(
+        IR.string(propsTypeName), sourceFileName);
+    JSTypeExpression replacementTypeQMark = new JSTypeExpression(
+        new Node(Token.QMARK, IR.string(propsTypeName)), sourceFileName);
+    React.replaceComponentMethodParameterTypes(
+        componentMethodKeys,
+        ImmutableMap.<JSTypeExpression, JSTypeExpression>builder()
+            .put(REACT_PROPS_TYPE, replacementType)
+            .put(REACT_PROPS_TYPE_BANG, replacementType)
+            .put(REACT_PROPS_TYPE_QMARK, replacementTypeQMark)
+            .build());
   }
 
   public void insert(Node insertionPoint) {

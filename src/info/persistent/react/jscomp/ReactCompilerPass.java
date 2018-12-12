@@ -503,6 +503,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node propTypesNode = null;
     List<Node> mixinPropTypeKeyNodes = Lists.newArrayList();
     Node getDefaultPropsNode = null;
+    Node getInitialStateNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
     List<String> exportedNames = Lists.newArrayList();
     boolean usesPureRenderMixin = false;
@@ -532,6 +533,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
       if (keyName.equals("getDefaultProps")) {
         getDefaultPropsNode = key;
+      }
+      if (keyName.equals("getInitialState")) {
+        getInitialStateNode = key;
       }
       if (keyName.equals("statics")) {
         if (createFuncName.equals("React.createClass")) {
@@ -722,9 +726,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
       }
 
-    // Save mixin propTypes so that they can be merged into classes that use
-    // them.
-    if (createFuncName.equals("React.createMixin")) {
+      // Save mixin propTypes so that they can be merged into classes that use
+      // them.
+      if (createFuncName.equals("React.createMixin")) {
         List<Node> propTypeKeyNodes = Lists.newArrayList();
         for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
           // Clone nodes PropTypesExtractor will mutate.
@@ -749,6 +753,16 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         propTypesExtractorsByName.put(typeName, extractor);
       } else {
         PropTypesExtractor.cleanUpPropTypesWhenNotChecking(propTypesNode);
+      }
+    }
+
+    if (createFuncName.equals("React.createClass") &&
+        getInitialStateNode != null) {
+      StateTypeExtractor extractor = new StateTypeExtractor(
+          getInitialStateNode, typeName, interfaceTypeName, compiler);
+      if (extractor.hasStateType()) {
+        extractor.insert(elementTypedefInsertionPoint);
+        extractor.addToComponentMethods(componentMethodKeys);
       }
     }
 
@@ -977,6 +991,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc) {
+    JSDocInfo existingJsDoc = key.getJSDocInfo();
     List<String> funcParamNames = Lists.newArrayList();
     for (Node param : NodeUtil.getFunctionParameters(func).children()) {
       if (param.isName()) {
@@ -995,7 +1010,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
       }
     }
-    if (jsDoc.hasReturnType()) {
+    if (jsDoc.hasReturnType() && (existingJsDoc == null ||
+        !existingJsDoc.hasReturnType())) {
       jsDocBuilder.recordReturnType(jsDoc.getReturnType());
     }
     for (String templateTypeName : jsDoc.getTemplateTypeNames()) {

@@ -4,9 +4,14 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.SourceFile;
+import com.google.javascript.rhino.JSDocInfo;
+import com.google.javascript.rhino.JSDocInfoBuilder;
+import com.google.javascript.rhino.JSTypeExpression;
+import com.google.javascript.rhino.Node;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -150,5 +155,49 @@ public class React {
 
       return SourceFile.builder()
             .buildFromCode("react.js", externsJs);
+  }
+
+  public static void replaceComponentMethodParameterTypes(
+      List<Node> componentMethodKeys,
+      Map<JSTypeExpression, JSTypeExpression> replacements) {
+    for (Node key : componentMethodKeys) {
+      boolean changedParameterType = false;
+      JSDocInfo existing = key.getJSDocInfo();
+      // Unfortunately we can't override the type of already-declared
+      // parameters, so we need to recreate the entire JSDocInfo with the new
+      // type.
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+      for (String parameterName : existing.getParameterNames()) {
+        JSTypeExpression parameterType = existing.getParameterType(parameterName);
+        JSTypeExpression replacementType = null;
+        // JSTypeExpression does not implement hashCode correctly, therefore we
+        // can't get() to find in the map.
+        for (Map.Entry<JSTypeExpression, JSTypeExpression> entry: replacements.entrySet()) {
+          if (entry.getKey().equals(parameterType)) {
+            parameterType = entry.getValue();
+            changedParameterType = true;
+            break;
+          }
+        }
+        jsDocBuilder.recordParameter(parameterName, parameterType);
+      }
+      if (!changedParameterType) {
+        continue;
+      }
+      if (existing.hasReturnType()) {
+        jsDocBuilder.recordReturnType(existing.getReturnType());
+      }
+      if (existing.hasThisType()) {
+        jsDocBuilder.recordThisType(existing.getThisType());
+      }
+      for (String templateTypeName : existing.getTemplateTypeNames()) {
+        jsDocBuilder.recordTemplateTypeName(templateTypeName);
+      }
+      for (Map.Entry<String, Node> entry :
+          existing.getTypeTransformations().entrySet()) {
+        jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
+      }
+      key.setJSDocInfo(jsDocBuilder.build());
+    }
   }
 }

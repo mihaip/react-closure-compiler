@@ -136,7 +136,7 @@ ReactComponent.prototype.context;
 ReactComponent.prototype.refs;
 
 /**
- * @return {ReactState}
+ * @return {?ReactState}
  */
 ReactComponent.prototype.getInitialState = function() {};
 
@@ -146,7 +146,7 @@ ReactComponent.prototype.getInitialState = function() {};
 ReactComponent.prototype.getChildContext = function() {};
 
 /**
- * @param {Object|function(ReactState, ReactState): ReactState} stateOrFunction
+ * @param {ReactState|function(ReactState, ReactProps): ReactState} stateOrFunction
  * @param {function(): void=} callback
  * @return {void}
  */
@@ -626,7 +626,7 @@ ReactModule.prototype.cloneElement = function(element, props, children) {};
 ReactModule.prototype.createFactory = function(type) {};
 
 /**
- * @param {Object} element
+ * @param {*} element
  * @return {boolean}
  */
 ReactModule.prototype.isValidElement = function(element) {};

@@ -592,6 +592,112 @@ public class ReactCompilerPassTest {
     // assumed to be there.
   }
 
+  @Test public void testState() {
+    // this.state accesses are checked
+    testError(
+      "var Comp = React.createClass({" +
+        "/** @return {{enabled: boolean}} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "render() {" +
+          "this.state.enabled.toFixed(2);" +
+          "return null" +
+        "}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+    // this.setState() calls are checked
+    testError(
+      "var Comp = React.createClass({" +
+        "/** @return {{enabled: boolean}} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "render() {" +
+          "this.setState({enabled: 123});" +
+          "return null;" +
+        "},\n" +
+      "});",
+      "JSC_TYPE_MISMATCH");
+    // this.setState() calls with an updater function should be checked, but the
+    // compiler does not appear to be doing this.
+    // testError(
+    //   "var Comp = React.createClass({" +
+    //     "/** @return {{enabled: boolean}} */ getInitialState() {" +
+    //       "return {enabled: false};" +
+    //     "},\n" +
+    //     "render() {" +
+    //       "this.setState((state, props) => ({enabled: 123}));" +
+    //       "return null;" +
+    //     "},\n" +
+    //   "});",
+    //   "JSC_TYPE_MISMATCH");
+    // this.setState() accepts a subset of state fields
+    testNoError(
+      "var Comp = React.createClass({" +
+        "/** @return {{f1: boolean, f2: number, f3: (number|boolean)}} */" +
+        "getInitialState() {" +
+          "return {f1: false, f2: 1, f3: 2};" +
+        "},\n" +
+        "render() {" +
+          "this.setState({f1: true});" +
+          "return null;" +
+        "},\n" +
+      "});");
+    // without a return type for getInitialState we don't do checks
+    testNoError(
+      "var Comp = React.createClass({" +
+        "getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "render() {" +
+          "this.state.enabled.toFixed(2);" +
+          "return null;" +
+        "}" +
+      "});");
+    // return type for getInitialState must be a record
+    testError(
+      "var Comp = React.createClass({" +
+        "/** @return {number} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "});",
+      "REACT_UNEXPECTED_STATE_TYPE");
+    // component methods that take state parameters are checked
+    testError(
+      "var Comp = React.createClass({" +
+        "/** @return {{enabled: boolean}} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "componentWillUpdate(nextProps, nextState) {" +
+          "nextState.enabled.toFixed(2);" +
+        "},\n" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+    // Mixin methods that take state parameters are checked
+    testError(
+      "var Mixin = React.createMixin({});\n" +
+      "/** @param {!ReactState} state */" +
+      "Mixin.mixinMethod;\n" +
+      "var Comp = React.createClass({" +
+        "mixins: [Mixin],\n" +
+        "/** @return {{enabled: boolean}} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "mixinMethod(state) {" +
+          "state.enabled.toFixed(2);" +
+        "},\n" +
+        "render: function() {" +
+          "return null;" +
+        "}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+  }
+
   @Test public void testPropTypes() {
     // Basic prop types
     test(
