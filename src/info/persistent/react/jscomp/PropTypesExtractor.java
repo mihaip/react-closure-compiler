@@ -245,7 +245,6 @@ class PropTypesExtractor {
         // usually show up in propTypes, except for the pattern of requiring
         // a single child (https://goo.gl/961UCF).
         childrenPropTypeNode = propType.typeNode;
-        continue;
       }
       boolean hasDefaultValue = propsWithDefaultValues.contains(propName);
       if (propType.isRequired && !hasDefaultValue) {
@@ -326,7 +325,7 @@ class PropTypesExtractor {
           0, propTypeString.length() - REQUIRED_SUFFIX.length());
     }
 
-    // Simple prop types to their equivalernt type.
+    // Simple prop types to their equivalent type.
     for (Map.Entry<String, Node> entry : SIMPLE_PROP_TYPES.entrySet()) {
       String simplePropType = "React.PropTypes." + entry.getKey();
       if (propTypeString.equals(simplePropType)) {
@@ -552,10 +551,11 @@ class PropTypesExtractor {
     // CompPropsValidator = function(props) { return props; };
     // Props that are required but have default values can be missing at
     // creation time, so for those cases we need to create an alternate type
-    // that allows them to be skipped.
+    // that allows them to be skipped. Similarly, "children" shows up in
+    // propTypes but is passed in separately at creation time.
     validatorPropsTypeName = propsTypeName;
-    boolean needsCustomValidatorType = props.stream().anyMatch(
-         prop -> prop.hasDefaultValue);
+    boolean needsCustomValidatorType = childrenPropTypeNode != null ||
+        props.stream().anyMatch(prop -> prop.hasDefaultValue);
     if (needsCustomValidatorType) {
       validatorPropsTypeName = typeName + ".CreateProps";
       Node validatorPropsTypedefNode = getPropsTypedefNode(
@@ -666,6 +666,10 @@ class PropTypesExtractor {
       Node member = prop.propTypeKeyNode.cloneNode();
       colon.addChildToBack(member);
       Node typeNode;
+      if (requiredMode == RequiredMode.VALIDATOR &&
+          this.childrenPropTypeNode == propType.typeNode) {
+        continue;
+      }
       if (requiredMode == RequiredMode.VALIDATOR && propType.isRequired &&
           prop.hasDefaultValue) {
         typeNode = propType.optionalTypeNode;
