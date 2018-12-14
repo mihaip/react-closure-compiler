@@ -698,6 +698,37 @@ public class ReactCompilerPassTest {
       "JSC_INEXISTENT_PROPERTY");
   }
 
+  @Test public void testFields() {
+    // Fields defined in getInitialState are checked
+    testError(
+      "var Comp = React.createClass({" +
+        "getInitialState() {" +
+          "/** @private {boolean} */" +
+          "this.field_ = true;\n" +
+          "return null;" +
+        "},\n" +
+        "render() {" +
+          "this.field_.toFixed(2);" +
+          "return null" +
+        "}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+      // Even if they don't have a value assigned.
+      testError(
+      "var Comp = React.createClass({" +
+        "getInitialState() {" +
+          "/** @private {boolean|undefined} */" +
+          "this.field_;\n" +
+          "return null;" +
+        "},\n" +
+        "render() {" +
+          "this.field_.toFixed(2);" +
+          "return null" +
+        "}" +
+      "});",
+      "JSC_INEXISTENT_PROPERTY");
+  }
+
   @Test public void testPropTypes() {
     // Basic prop types
     test(

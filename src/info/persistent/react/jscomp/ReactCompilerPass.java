@@ -764,6 +764,35 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         extractor.insert(elementTypedefInsertionPoint);
         extractor.addToComponentMethods(componentMethodKeys);
       }
+      // Gather fields defined in getInitialState.
+      NodeTraversal.traverse(
+          compiler,
+          getInitialStateNode,
+          new NodeTraversal.AbstractPostOrderCallback() {
+            @Override public void visit(NodeTraversal t, Node n, Node parent) {
+              if (!n.isThis() || !parent.isGetProp()) {
+                return;
+              }
+              Node prop = n.getNext();
+              if (prop == null || !prop.isString()) {
+                return;
+              }
+              JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(parent);
+              if (jsDocInfo == null) {
+                return;
+              }
+              String fieldName = prop.getString();
+              Node prototypeFieldNode = NodeUtil.newQNameDeclaration(
+                  compiler,
+                  interfaceTypeName + ".prototype." + fieldName,
+                  null, // no value
+                  jsDocInfo);
+              prototypeFieldNode.useSourceInfoFromForTree(prop);
+              interfaceTypeInsertionPoint.getParent().addChildAfter(
+                  prototypeFieldNode,
+                  interfaceTypeNode);
+            }
+          });
     }
 
     if (!exportedNames.isEmpty()) {

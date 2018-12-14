@@ -100,6 +100,22 @@ Note that `waiting` is not initially present in state, and thus it needs to have
 
 If you need to refer to the type of the state of a component, you can use `<ComponentName>.State` (this is the record type that is used as the return type of `getInitialState`. There is also a `<ComponentName>.PartialState` type that is generated, where every field is unioned with `|undefined` (this is used to type `setState` calls, where only a subset of state may be present).
 
+### Fields
+
+You can also use `getInitialState` to define instance fields that your component may have. That is, given:
+
+```javascript
+var Comp = React.createClass({
+  getInitialState() {
+    /** @private {number} */
+    this.field_ = 12;
+    return null;
+  }
+  ...
+});
+```
+
+If you reference `this.field_` in a component method the compiler will know that its type is `number`.
 
 ### Benefits
 
