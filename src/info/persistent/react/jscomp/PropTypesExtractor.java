@@ -239,7 +239,8 @@ class PropTypesExtractor {
             DEFAULT_PROP_TYPE.cloneTree(), DEFAULT_PROP_TYPE.cloneTree(),
             false);
       }
-      if (propName.equals("children")) {
+      boolean isChildrenProp = propName.equals("children");
+      if (isChildrenProp) {
         // The "children" propType is a bit special, since it's not passed in
         // directly via the "props" argument to React.createElement. It doesn't
         // usually show up in propTypes, except for the pattern of requiring
@@ -247,7 +248,7 @@ class PropTypesExtractor {
         childrenPropTypeNode = propType.typeNode;
       }
       boolean hasDefaultValue = propsWithDefaultValues.contains(propName);
-      if (propType.isRequired && !hasDefaultValue) {
+      if (!isChildrenProp && propType.isRequired && !hasDefaultValue) {
         canBeCreatedWithNoProps = false;
       }
       props.add(new Prop(propTypeKeyNode, propType, hasDefaultValue));
