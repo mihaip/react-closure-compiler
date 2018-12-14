@@ -57,6 +57,50 @@ compInstance.someOtherMethodThatDoesntExist();
 
 The compiler will know that `compInstance` has a `someMethod()` method, but that it doesn't have a `someOtherMethodThatDoesntExist()`.
 
+### Props and State
+
+If you use `propTypes`, you can opt into having props accesses be type checked too. You'll need to enable the [`propTypesTypeChecking` option](https://github.com/mihaip/react-closure-compiler/blob/94f5cbd539d127cb438b59aacd0f97973ac56ea1/src/info/persistent/react/jscomp/ReactCompilerPass.java#L110-L111) and then most types will be converted automatically. That is, given:
+
+```javascript
+var Comp = React.createClass({
+  propTypes: {
+    prop1: React.PropTypes.number.isRequired,
+    prop2: React.PropTypes.arrayOf(React.PropTypes.string).isRequired,
+  },
+  ...
+});
+```
+
+The compiler will know that `this.props.prop1` has type `number` and `this.props.prop2` has type `!Array<string>`.
+
+If there is a prop whose type you cannot express with `React.PropTypes` (e.g. a typedef, interface, enum or other Closure Compiler-only type), you can annotate the prop type with a `@type` JSDoc, along these lines:
+
+```javascript
+propTypes: {
+  /** @type {!MyInterface} */
+  someObject: React.PropTypes.object.isRequired,
+},
+```
+
+If you need to refer to the type of the props of a component, you can use `<ComponentName>.Props` (this is a generated record type based on the `propTypes`).
+
+The fields of `this.state` (and the parameter of `this.setState()`) can also be type checked if type information is provided for a component's state. To do this, you'll need to provide a return type for `getInitialState()`:
+
+```javascript
+var Comp = React.createClass({
+  /** @return {{enabled: boolean, waiting: (boolean|undefined)}} */
+  getInitialState() {
+    return {enabled: false};
+  }
+  ...
+});
+```
+
+Note that `waiting` is not initially present in state, and thus it needs to have an `|undefined` union type.
+
+If you need to refer to the type of the state of a component, you can use `<ComponentName>.State` (this is the record type that is used as the return type of `getInitialState`. There is also a `<ComponentName>.PartialState` type that is generated, where every field is unioned with `|undefined` (this is used to type `setState` calls, where only a subset of state may be present).
+
+
 ### Benefits
 
 In addition to type checking of component instances, this compiler pass has the following benefits:
