@@ -1051,6 +1051,16 @@ public class ReactCompilerPassTest {
           "render: function() {return null;}" +
         "});\n" +
         "React.createElement(Comp, {}, React.createElement(Comp));");
+    // Multiple children
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.arrayOf(React.PropTypes.element).isRequired" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {}, React.createElement(Comp), React.createElement(Comp));");
+    // Children required but not passed in
     testError(
         "var Comp = React.createClass({" +
           "propTypes: {" +
@@ -1060,6 +1070,16 @@ public class ReactCompilerPassTest {
         "});\n" +
         "React.createElement(Comp, {});",
         "REACT_NO_CHILDREN_ARGUMENT");
+    // Children not required and not passed in
+    testNoError(
+        "var Comp = React.createClass({" +
+          "propTypes: {" +
+            "children: React.PropTypes.element" +
+          "}," +
+          "render: function() {return null;}" +
+        "});\n" +
+        "React.createElement(Comp, {});");
+    // Children required and wrong type passed in
     testError(
         "var Comp = React.createClass({" +
           "propTypes: {" +

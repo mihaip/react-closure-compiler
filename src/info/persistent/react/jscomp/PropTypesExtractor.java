@@ -107,6 +107,7 @@ class PropTypesExtractor {
   private boolean canBeCreatedWithNoProps;
   private final String childrenValidatorFuncName;
   private Node childrenPropTypeNode;
+  private boolean childrenIsRequired;
   private String spreadValidatorFuncName;
   private String spreadValidatorPropsTypeName;
 
@@ -130,6 +131,7 @@ class PropTypesExtractor {
     this.childrenValidatorFuncName =
         sanitizedTypeName + CHILDREN_VALIDATOR_SUFFIX;
     this.childrenPropTypeNode = null;
+    this.childrenIsRequired = false;
   }
 
   static String getTypeNameForFunctionName(String functionName) {
@@ -246,6 +248,7 @@ class PropTypesExtractor {
         // usually show up in propTypes, except for the pattern of requiring
         // a single child (https://goo.gl/961UCF).
         childrenPropTypeNode = propType.typeNode;
+        childrenIsRequired = propType.isRequired;
       }
       boolean hasDefaultValue = propsWithDefaultValues.contains(propName);
       if (!isChildrenProp && propType.isRequired && !hasDefaultValue) {
@@ -772,7 +775,7 @@ class PropTypesExtractor {
         childValidatorCallNode.useSourceInfoIfMissingFrom(childParamNode);
         callNode.addChildAfter(
           childValidatorCallNode, callNode.getChildAtIndex(2));
-      } else {
+      } else if (callParamCount == 2 && childrenIsRequired) {
         compiler.report(JSError.make(callNode, NO_CHILDREN_ARGUMENT, typeName));
       }
     }
