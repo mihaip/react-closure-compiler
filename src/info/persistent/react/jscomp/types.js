@@ -1,9 +1,7 @@
 /**
  * @fileoverview Type annotations for the React library.
  *
- * Will be automatically included as a source (not externs) file by
- * ReactCompilerPass. The contents of this file should be inert (i.e. interfaces
- * and typedefs only) such that it compiles down to nothing.
+ * Will be automatically included as an externs file by ReactCompilerPass.
  *
  * Based on https://github.com/facebook/flow/blob/master/lib/react.js and
  * https://github.com/borisyankov/DefinitelyTyped/blob/master/react/react.d.ts.
@@ -325,6 +323,12 @@ ReactDOMModule.prototype.unstable_batchedUpdates = function(callback) {};
 ReactDOMModule.prototype.unstable_renderSubtreeIntoContainer = function(parentComponent, nextElement, container, callback) {};
 
 /**
+ * @type {!ReactDOMModule}
+ * @const
+ */
+var ReactDOM;
+
+/**
  * @interface
  */
 function ReactDOMServerModule() {};
@@ -340,6 +344,12 @@ ReactDOMServerModule.prototype.renderToStaticMarkup = function(element) {};
  * @return {string}
  */
 ReactDOMServerModule.prototype.renderToString = function(element) {};
+
+/**
+ * @type {!ReactDOMServerModule}
+ * @const
+ */
+var ReactDOMServer;
 
 /**
  * Parameters are: props, propName, componentName, location.
@@ -402,13 +412,6 @@ ReactPropTypes.prototype.oneOfType = function(arrayOfTypeCheckers) {};
  * @return {ReactPropsChainableTypeChecker}
  */
 ReactPropTypes.prototype.shape = function(shapeTypes) {};
-
-/**
- * Populated programatically with all of the DOM tag name factory methods.
- *
- * @interface
- */
-function ReactDOMFactories() {}
 
 /**
  * Populated programatically with all of the event handler names.
@@ -559,12 +562,6 @@ ReactModule.prototype.Component;
 ReactModule.prototype.PureComponent;
 
 /**
- * @type {ReactDOMFactories}
- * @const
- */
-ReactModule.prototype.DOM;
-
-/**
  * @type {ReactPropTypes}
  * @const
  */
@@ -644,6 +641,12 @@ ReactModule.prototype.addons;
  * @deprecated
  */
 ReactModule.prototype.__spread = function(target, sources) {};
+
+/**
+ * @type {!ReactModule}
+ * @const
+ */
+var React;
 
 /**
  * Technically there is a parallel class hierarchy for mouse events, etc.

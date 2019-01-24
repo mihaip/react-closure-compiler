@@ -40,9 +40,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       HotSwapCompilerPass {
 
   // Errors
-  static final DiagnosticType REACT_SOURCE_NOT_FOUND = DiagnosticType.error(
-      "REACT_SOURCE_NOT_FOUND",
-      "Could not find the React library source.");
+  static final DiagnosticType COULD_NOT_FIND_ALIAS_INSERTION_POINT = DiagnosticType.error(
+      "REACT_COULD_NOT_FIND_ALIAS_INSERTION_POINT",
+      "Could not find insertion point for React API aliases.");
   static final DiagnosticType CREATE_TYPE_TARGET_INVALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_TARGET_INVALID",
       "Unsupported {0}(...) expression.");
@@ -78,14 +78,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
-  private static final String EXTERNS_SOURCE_NAME = "<ReactCompilerPass-externs.js>";
   private static final String CREATE_ELEMENT_ALIAS_NAME = "React$createElement";
   private static final String CREATE_CLASS_ALIAS_NAME = "React$createClass";
+  static final String PROP_TYPES_ALIAS_NAME = "React$PropTypes";
 
   private final Compiler compiler;
   private final Options options;
-  private boolean stripPropTypes = false;
-  private boolean addReactApiAliases = false;
   private Node externsRoot;
   private final Map<String, Node> reactClassesByName = Maps.newHashMap();
   private final Map<String, Node> reactClassInterfacePrototypePropsByName =
@@ -109,9 +107,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   public static class Options {
     // TODO: flip default once all known issues are resolved
     public boolean propTypesTypeChecking = false;
-    // By default React API method names are renamed, since it is assumed that
-    // React is not publicly exposed.
-    public boolean renameReactApi = true;
+    // If running with a minified build of React additional size optimizations
+    // are applied to the generated code too.
+    public boolean optimizeForSize = false;
   }
 
   public ReactCompilerPass(AbstractCompiler compiler) {
@@ -133,7 +131,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     mixinAbstractMethodJsDocsByName.clear();
     propTypesExtractorsByName.clear();
     addExterns();
-    addTypes(root);
+    if (options.optimizeForSize) {
+      addReactApiAliases(root);
+    }
     hotSwapScript(root, null);
     if (saveLastOutputForTests) {
       lastOutputForTests = new CodePrinter.Builder(root)
@@ -147,121 +147,85 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   /**
-   * Adds the definition equivalent to a file with:
-   *
-   * /**
-   *  * @type {<moduleType>}
-   *  * @const
-   *  * /
-   * var <moduleName>;
-   */
-  private void addExternModule(String moduleName, String moduleType,
-        Node root) {
-    Node reactVarNode = IR.var(IR.name(moduleName));
-    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordType(new JSTypeExpression(
-        IR.string(moduleType), EXTERNS_SOURCE_NAME));
-    jsDocBuilder.recordConstancy();
-    reactVarNode.setJSDocInfo(jsDocBuilder.build());
-    root.addChildToBack(reactVarNode);
-  }
-
-  /**
    * The compiler isn't aware of the React* symbols that are exported from
    * React, inform it via an extern.
-   *
-   * TODO(mihai): figure out a way to do this without externs, so that the
-   * symbols can get renamed.
    */
   private void addExterns() {
     CompilerInput externsInput =
         CompilerAccessor.getSynthesizedExternsInputAtEnd(compiler);
     externsRoot = externsInput.getAstRoot(compiler);
-    for (Map.Entry<String, String> entry : React.REACT_MODULES.entrySet()) {
-      String moduleName = entry.getKey();
-      String moduleType = entry.getValue();
-      addExternModule(moduleName, moduleType, externsRoot);
-    }
-    if (!options.renameReactApi) {
-      Node typesNode = createTypesNode();
-      typesNode.useSourceInfoFromForTree(externsRoot);
-      Node typesChildren = typesNode.getFirstChild();
-      typesNode.removeChildren();
-      externsRoot.addChildrenToBack(typesChildren);
-    }
+    Node typesNode = createTypesNode();
+    typesNode.useSourceInfoFromForTree(externsRoot);
+    Node typesChildren = typesNode.getFirstChild();
+    typesNode.removeChildren();
+    externsRoot.addChildrenToBack(typesChildren);
     compiler.reportChangeToEnclosingScope(externsRoot);
   }
 
-  /**
-   * Inject React type definitions (if we want these to get renamed, they're
-   * not part of the externs). {@link Compiler#getNodeForCodeInsertion(JSModule)}
-   * is  package-private, so we instead add the types to the React source file.
-   */
-  private void addTypes(Node root) {
-    Node typesNode = null;
-    if (options.renameReactApi) {
-      typesNode = createTypesNode();
-    }
-
-    boolean foundReactSource = false;
+  private void addReactApiAliases(Node root) {
+    Node insertionPoint = null;
     for (Node inputNode : root.children()) {
       if (inputNode.getToken() == Token.SCRIPT &&
-          inputNode.getSourceFileName() != null &&
-          React.isReactSourceName(inputNode.getSourceFileName())) {
-        if (typesNode != null) {
-          Node typesChildren = typesNode.getFirstChild();
-          typesNode.removeChildren();
-          inputNode.addChildrenToFront(typesChildren);
+          inputNode.getSourceFileName() != null) {
+          insertionPoint = inputNode;
+          break;
         }
-        foundReactSource = true;
-        stripPropTypes = addReactApiAliases = React.isReactMinSourceName(
-            inputNode.getSourceFileName());
-        if (addReactApiAliases) {
-          // Add an alias of the form:
-          // /** @type {Function} */
-          // var React$createElement = React.createElement;
-          // Normally React.createElement calls are not renamed at all, due to
-          // React being an extern and createElement showing up in the built-in
-          // browser DOM externs. By adding an alias and then rewriting calls
-          // (see visitReactCreateElement) we allow the compiler to rename the
-          // function used at all the calls. This is most beneficial before
-          // gzip, but when after gzip there is still some benefit.
-          // The Function type is necessary to convince the compiler that we
-          // don't need the "this" type to be defined when calling the alias
-          // (it thinks that React is an instance of the ReactModule type, but
-          // it's actually a static namespace, so we can use unbound functions
-          // from it)
-          Node createElementAliasNode = IR.var(
-              IR.name(CREATE_ELEMENT_ALIAS_NAME),
-              IR.getprop(
-                  IR.name("React"),
-                  IR.string("createElement")));
-          JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-          jsDocBuilder.recordType(new JSTypeExpression(
-              IR.string("Function"), inputNode.getSourceFileName()));
-          createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
-          inputNode.addChildToBack(createElementAliasNode);
-          // Same thing for React.createClass, which partially gets renamed but
-          // still shows up often enough that shortening it is worthwhile.
-          Node createClassAliasNode = IR.var(
-              IR.name(CREATE_CLASS_ALIAS_NAME),
-              IR.getprop(
-                  IR.name("React"),
-                  IR.string("createClass")));
-          jsDocBuilder = new JSDocInfoBuilder(true);
-          jsDocBuilder.recordType(new JSTypeExpression(
-              IR.string("Function"), inputNode.getSourceFileName()));
-          createClassAliasNode.setJSDocInfo(jsDocBuilder.build());
-          inputNode.addChildToBack(createClassAliasNode);
-        }
-        compiler.reportChangeToEnclosingScope(inputNode);
-        break;
-      }
     }
-    if (!foundReactSource) {
-      compiler.report(JSError.make(root, REACT_SOURCE_NOT_FOUND));
+    if (insertionPoint == null) {
+      compiler.report(JSError.make(root, COULD_NOT_FIND_ALIAS_INSERTION_POINT));
       return;
     }
+    // Add an alias of the form:
+    // /** @type {Function} */
+    // var React$createElement = React.createElement;
+    // Normally React.createElement calls are not renamed at all, due to
+    // React being an extern and createElement showing up in the built-in
+    // browser DOM externs. By adding an alias and then rewriting calls
+    // (see visitReactCreateElement) we allow the compiler to rename the
+    // function used at all the calls. This is most beneficial before
+    // gzip, but when after gzip there is still some benefit.
+    // The Function type is necessary to convince the compiler that we
+    // don't need the "this" type to be defined when calling the alias
+    // (it thinks that React is an instance of the ReactModule type, but
+    // it's actually a static namespace, so we can use unbound functions
+    // from it)
+    Node createElementAliasNode = IR.var(
+        IR.name(CREATE_ELEMENT_ALIAS_NAME),
+        IR.getprop(
+            IR.name("React"),
+            IR.string("createElement")));
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.string("Function"), insertionPoint.getSourceFileName()));
+    createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
+    insertionPoint.addChildToBack(createElementAliasNode);
+    // Same thing for React.createClass, which is not as frequent, but shows up
+    // often enough that shortening it is worthwhile.
+    Node createClassAliasNode = IR.var(
+        IR.name(CREATE_CLASS_ALIAS_NAME),
+        IR.getprop(
+            IR.name("React"),
+            IR.string("createClass")));
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.string("Function"), insertionPoint.getSourceFileName()));
+    createClassAliasNode.setJSDocInfo(jsDocBuilder.build());
+    insertionPoint.addChildToBack(createClassAliasNode);
+    // Also add an alias for React.PropTypes, which may still be preset if we're
+    // preserving propTypes via @struct.
+    Node propTypesAliasNode = IR.var(
+        IR.name(PROP_TYPES_ALIAS_NAME),
+        IR.getprop(
+            IR.name("React"),
+            IR.string("PropTypes")));
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.string("ReactPropTypes"), insertionPoint.getSourceFileName()));
+    jsDocBuilder.recordNoInline();
+    propTypesAliasNode.setJSDocInfo(jsDocBuilder.build());
+    insertionPoint.addChildToBack(propTypesAliasNode);
+
+    compiler.reportChangeToEnclosingScope(insertionPoint);
   }
 
   /**
@@ -333,7 +297,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         compiler.reportChangeToEnclosingScope(mixinSpecNode.getParent());
       }
     }
-    if (addReactApiAliases) {
+    if (options.optimizeForSize) {
       for (Node classSpecNode : reactClassesByName.values()) {
         Node functionNameNode = classSpecNode.getPrevious();
         if (functionNameNode.getToken() == Token.GETPROP) {
@@ -346,13 +310,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   @Override
   public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n,
       Node parent) {
-    // Don't want React itself to get annotated (the version with addons creates
-    // defines some classes).
-    if (n.getToken() == Token.SCRIPT &&
-        n.getSourceFileName() != null &&
-        React.isReactSourceName(n.getSourceFileName())) {
-      return false;
-    }
     return true;
   }
 
@@ -367,6 +324,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // more efficiently done in one function intead of two.
     } else if (isReactCreateElement(n)) {
       visitReactCreateElement(t, n);
+    } else if (isReactPropTypes(n)) {
+      visitReactPropTypes(n);
     }
   }
 
@@ -608,7 +567,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // the comment), so we couldn't get to it. @struct is sort of appropriate,
     // since the propTypes are going to be used as structs (for reflection
     // presumably).
-    if (propTypesNode != null && stripPropTypes &&
+    if (propTypesNode != null && options.optimizeForSize &&
         (propTypesNode.getJSDocInfo() == null ||
             !propTypesNode.getJSDocInfo().makesStructs())) {
       propTypesNode.detachFromParent();
@@ -1085,9 +1044,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    if (addReactApiAliases) {
-      // If we're adding aliases that means we're doing an optimized build, so
-      // there's no need for extra type checks.
+    if (options.optimizeForSize) {
+      // There's no need for extra type checks for optimized builds.
       Node functionNameNode = callNode.getFirstChild();
       if (functionNameNode.getToken() == Token.GETPROP) {
         functionNameNode.replaceWith(IR.name(CREATE_ELEMENT_ALIAS_NAME));
@@ -1148,6 +1106,19 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private static boolean isReactCreateElement(Node value) {
     if (value != null && value.isCall()) {
       return value.getFirstChild().matchesQualifiedName("React.createElement");
+    }
+    return false;
+  }
+
+  private void visitReactPropTypes(Node propTypesNode) {
+    if (options.optimizeForSize) {
+      propTypesNode.getFirstChild().replaceWith(IR.name(PROP_TYPES_ALIAS_NAME));
+    }
+  }
+
+  private static boolean isReactPropTypes(Node value) {
+    if (value != null && value.isGetProp()) {
+      return value.getFirstChild().matchesQualifiedName("React.PropTypes");
     }
     return false;
   }

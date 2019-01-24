@@ -53,15 +53,15 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "render: function() {" +
           "return React.createElement(" +
-            "\"div\", null, React.DOM.span(null, \"child\"));" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
           "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // createClass and other React methods should get renamed.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){" +
-          "return React.$createElement$(" +
-            "\"div\",null,React.$DOM$.$span$(null,\"child\"))" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){" +
+          "return React.createElement(" +
+            "\"div\",null,React.createElement(\"span\",null,\"child\"))" +
         "}" +
       "})),document.body);");
   }
@@ -75,8 +75,8 @@ public class ReactCompilerPassTest {
       "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.method();",
       // Method invocations should not result in warnings if they're known.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}," +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}," +
         "$method$:function(){window.$foo$=123}" +
       "})),document.body).$method$();");
     test(
@@ -89,8 +89,8 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Private methods should be invokable.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}," +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}," +
         "$privateMethod1_$:function($a$jscomp$1$$){window.$foo$=123+$a$jscomp$1$$}," +
         "$privateMethod2_$:function(){this.$privateMethod1_$(1)}" +
       "})),document.body);");
@@ -136,17 +136,17 @@ public class ReactCompilerPassTest {
       "inst.chainedMixinMethod();",
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
-      "var $inst$$=ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$mixins$:[{" +
-          "$mixins$:[{" +
+      "var $inst$$=ReactDOM.render(React.createElement(React.createClass({" +
+        "mixins:[{" +
+          "mixins:[{" +
             "$chainedMixinMethod$:function(){window.$foo$=456}" +
           "}]," +
           "$mixinMethod$:function(){window.$foo$=123}" +
         "}]," +
-        "$render$:function(){" +
+        "render:function(){" +
           "this.$mixinMethod$();" +
           "this.$chainedMixinMethod$();" +
-          "return React.$createElement$(\"div\")" +
+          "return React.createElement(\"div\")" +
         "}" +
       "})),document.body);" +
       "$inst$$.$mixinMethod$();" +
@@ -167,13 +167,13 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$mixins$:[{" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "mixins:[{" +
           "$mixinMethod$:function(){window.$foo$=123}" +
         "}]," +
-        "$render$:function(){" +
+        "render:function(){" +
           "this.$mixinMethod$();" +
-          "return React.$createElement$(\"div\")" +
+          "return React.createElement(\"div\")" +
         "}," +
         "$mixinAbstractMethod$:function(){return 123}" +
       "})),document.body);");
@@ -311,9 +311,8 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(ns.Comp), document.body);",
-      // createClass and other React methods should get renamed.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}" +
       "})),document.body);");
   }
 
@@ -334,9 +333,9 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Use of "this" should not cause any warnings.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}," +
-        "$method$:function(){this.$setState$({$foo$:123})}" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}," +
+        "$method$:function(){this.setState({$foo$:123})}" +
       "})),document.body);");
   }
 
@@ -406,7 +405,7 @@ public class ReactCompilerPassTest {
     // Tests that element.type is a string
     test(
         "window.type = React.createElement(\"div\").type.charAt(0)",
-        "window.$type$=React.$createElement$(\"div\").$type$.charAt(0);");
+        "window.type=React.createElement(\"div\").type.charAt(0);");
     // Tests that element.type is not a string...
     testError(
       "var Comp = React.createClass({" +
@@ -420,9 +419,9 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "window.type = React.createElement(Comp).type;",
-      "window.$type$=React.$createElement$(React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
-      "})).$type$;");
+      "window.type=React.createElement(React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}" +
+      "})).type;");
     // ...unlike other properties.
     testError(
       "var Comp = React.createClass({" +
@@ -449,8 +448,8 @@ public class ReactCompilerPassTest {
       "});" +
       "window.foo = Comp.displayName.charAt(0);",
       // displayName is a valid string property of classes
-      "window.$foo$=React.$createClass$({" +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+      "window.$foo$=React.createClass({" +
+        "render:function(){return React.createElement(\"div\")}" +
       "}).displayName.charAt(0);");
     testError(
       "var Comp = React.createClass({" +
@@ -579,12 +578,12 @@ public class ReactCompilerPassTest {
         "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
         "$interfaceMethod$:function(){" +
             "return 1" +
         "}," +
-        "$render$:function(){" +
-          "return React.$createElement$(\"div\")" +
+        "render:function(){" +
+          "return React.createElement(\"div\")" +
         "}" +
       "})),document.body);");
     // We can't test that missing methods cause compiler warnings since we're
@@ -739,16 +738,16 @@ public class ReactCompilerPassTest {
         "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
-        "$render$:function(){" +
-          "return React.$createElement$(\"div\",null,this.$props$.$aProp$)" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "propTypes:{$aProp$:React.PropTypes.string}," +
+        "render:function(){" +
+          "return React.createElement(\"div\",null,this.props.$aProp$)" +
         "}" +
       "})),document.body);");
     // isRequired variant
     test(
       "window.foo=React.PropTypes.string.isRequired;",
-      "window.$foo$=React.$PropTypes$.$string$.$isRequired$;");
+      "window.$foo$=React.PropTypes.string.isRequired;");
     // Other variants are rejected
     testError(
       "window.foo=React.PropTypes.string.isSortOfRequired;",
@@ -756,10 +755,10 @@ public class ReactCompilerPassTest {
     // arrayOf
     test(
       "window.foo=React.PropTypes.arrayOf(React.PropTypes.string);",
-      "window.$foo$=React.$PropTypes$.$arrayOf$(React.$PropTypes$.$string$);");
+      "window.$foo$=React.PropTypes.arrayOf(React.PropTypes.string);");
     test(
       "window.foo=React.PropTypes.arrayOf(React.PropTypes.string).isRequired;",
-      "window.$foo$=React.$PropTypes$.$arrayOf$(React.$PropTypes$.$string$).$isRequired$;");
+      "window.$foo$=React.PropTypes.arrayOf(React.PropTypes.string).isRequired;");
     testError(
       "window.foo=React.PropTypes.arrayOf(123);",
       "JSC_TYPE_MISMATCH");
@@ -769,52 +768,55 @@ public class ReactCompilerPassTest {
     // instanceOf
     test(
       "window.foo=React.PropTypes.instanceOf(Element);",
-      "window.$foo$=React.$PropTypes$.$instanceOf$(Element);");
+      "window.$foo$=React.PropTypes.instanceOf(Element);");
     testError(
       "window.foo=React.PropTypes.instanceOf(123);",
       "JSC_TYPE_MISMATCH");
     // oneOf
     test(
       "window.foo=React.PropTypes.oneOf([1,2,3]);",
-      "window.$foo$=React.$PropTypes$.$oneOf$([1,2,3]);");
+      "window.$foo$=React.PropTypes.oneOf([1,2,3]);");
     testError(
       "window.foo=React.PropTypes.oneOf(123);",
       "JSC_TYPE_MISMATCH");
     // oneOfType
     test(
       "window.foo=React.PropTypes.oneOfType([React.PropTypes.string]);",
-      "window.$foo$=React.$PropTypes$.$oneOfType$([React.$PropTypes$.$string$]);");
+      "window.$foo$=React.PropTypes.oneOfType([React.PropTypes.string]);");
     testError(
       "window.foo=React.PropTypes.oneOfType(123);",
       "JSC_TYPE_MISMATCH");
     // shape
     test(
       "window.foo=React.PropTypes.shape({str: React.PropTypes.string});",
-      "window.$foo$=React.$PropTypes$.$shape$({$str$:React.$PropTypes$.$string$});");
+      "window.$foo$=React.PropTypes.shape({$str$:React.PropTypes.string});");
     testError(
       "window.foo=React.PropTypes.shape(123);",
       "JSC_TYPE_MISMATCH");
   }
 
-  @Test public void testMinifiedReact() {
-    // propTypes should get stripped if we're using the minimized React build
-    // (since they're not checked).
-    // Additionally, React.createClass and React.createElement calls should be
-    // replaced with React$createClass and React$createElement aliases (which
-    // can get fully renamed).
+  @Test public void testOptimizeForSize() {
+    ReactCompilerPass.Options passOptions =
+        new ReactCompilerPass.Options();
+    passOptions.optimizeForSize = true;
+    passOptions.propTypesTypeChecking = true;
+    // propTypes should get stripped and React.createClass and
+    // React.createElement calls should be replaced with React$createClass and
+    // React$createElement aliases (which can get fully renamed).
     test(
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
-        "$render$:function(){return $React$createElement$$(\"div\")}" +
+      "ReactDOM.render($React$createElement$$($React$createClass$$({" +
+        "render:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
-      "/src/react.min.js",
-      null,
+      passOptions,
       null);
-    // But propTypes tagged with @struct should be preserved.
+    // But propTypes tagged with @struct should be preserved (React.PropTypes
+    // is replaced with an alias so that it can also be represented more
+    // compactly).
     test(
       "var Comp = React.createClass({" +
         "/** @struct */" +
@@ -822,36 +824,18 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
-        "$propTypes$:{$aProp$:React.$PropTypes$.$string$}," +
-        "$render$:function(){return $React$createElement$$(\"div\")}" +
+      "ReactDOM.render($React$createElement$$($React$createClass$$({" +
+        "propTypes:{$aProp$:$React$PropTypes$$.string}," +
+        "render:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
-      "/src/react.min.js",
-      null,
+      passOptions,
       null);
   }
 
   @Test public void testNoRenameReactApi() {
+    // Even when optimizing for size there is no renaming.
     ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
-    passOptions.renameReactApi = false;
-    test(
-      "var Comp = React.createClass({" +
-        "propTypes: {aProp: React.PropTypes.string}," +
-        "render: function() {\n" +
-          "return React.createElement(\"div\", {onClick: null});\n" +
-        "}" +
-      "});" +
-      "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.render(React.createElement(React.createClass({" +
-        "propTypes:{$aProp$:React.PropTypes.string}," +
-        "render:function(){" +
-          "return React.createElement(\"div\",{onClick:null})" +
-        "}" +
-      "})),document.body);",
-      null,
-      passOptions,
-      null);
-    // Even with a minified build there is no renaming.
+    passOptions.optimizeForSize = true;
     test(
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
@@ -865,10 +849,9 @@ public class ReactCompilerPassTest {
           "return $React$createElement$$(\"div\",{onClick:null})" +
         "}" +
       "})),document.body);",
-      "/src/react.min.js",
       passOptions,
       null);
-    // Test that other API symbols are not renamed either.
+    // Other API symbols are not renamed either.
     List<String> reactApiSymbols = ImmutableList.of("React", "React.Component",
       "React.PureComponent", "React.cloneElement", "ReactDOM.findDOMNode",
       "ReactDOM.unmountComponentAtNode");
@@ -876,7 +859,6 @@ public class ReactCompilerPassTest {
       test(
         "window['test'] = " + reactApiSymbol + ";",
         "window.test=" + reactApiSymbol + ";",
-        null,
         passOptions,
         null);
     }
@@ -901,19 +883,22 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(" +
           "Comp, {aProp: \"foo\"}), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$propTypes$:{aProp:React.$PropTypes$.$string$}," +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "propTypes:{aProp:React.PropTypes.string}," +
         "publicFunction:function(){" +
             "return\"dont_rename_me_bro\"" +
         "}," +
         "$privateFunction_$:function(){" +
             "return 1" +
         "}," +
-        "$render$:function(){" +
-          "return React.$createElement$(\"div\",null,this.$props$.aProp)" +
+        "render:function(){" +
+          "return React.createElement(\"div\",null,this.props.aProp)" +
         "}" +
       "}),{aProp:\"foo\"}),document.body);");
     // Even with a minified build there is no renaming.
+    ReactCompilerPass.Options minifiedReactPassOptions =
+        new ReactCompilerPass.Options();
+    minifiedReactPassOptions.optimizeForSize = true;
     test(
       "/** @export */" +
       "var Comp = React.createClass({" +
@@ -930,19 +915,18 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(" +
           "Comp, {aProp: \"foo\"}), document.body);",
-      "ReactDOM.$render$($React$createElement$$($React$createClass$$({" +
+      "ReactDOM.render($React$createElement$$($React$createClass$$({" +
         "publicFunction:function(){" +
             "return\"dont_rename_me_bro\"" +
         "}," +
         "$privateFunction_$:function(){" +
             "return 1" +
         "}," +
-        "$render$:function(){" +
-          "return $React$createElement$$(\"div\",null,this.$props$.aProp)" +
+        "render:function(){" +
+          "return $React$createElement$$(\"div\",null,this.props.aProp)" +
         "}" +
       "}),{aProp:\"foo\"}),document.body);",
-      "/src/react.min.js",
-      null,
+      minifiedReactPassOptions,
       null);
   }
 
@@ -1375,45 +1359,40 @@ public class ReactCompilerPassTest {
           "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){" +
-          "return React.$createElement$(" +
-              "\"div\",null,React.$Children$.$only$(this.$props$.$children$))" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){" +
+          "return React.createElement(" +
+              "\"div\",null,React.Children.only(this.props.children))" +
         "}" +
       "})),document.body);");
   }
 
   @Test public void testReactDOM() {
-    testNoError("React.DOM.span()");
-    testNoError("React.DOM.span(null)");
-    testNoError("React.DOM.span(null, \"1\")");
-    testNoError("React.DOM.span(null, \"1\", React.DOM.i())");
     test("var Comp = React.createClass({});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(" +
-      "React.$createClass$({})" +
+      "ReactDOM.render(React.createElement(" +
+      "React.createClass({})" +
       "),document.body);");
     test("ReactDOM.findDOMNode(document.body);",
-      "ReactDOM.$findDOMNode$(document.body);");
+      "ReactDOM.findDOMNode(document.body);");
     testError("ReactDOM.findDOMNode([document.body]);", "JSC_TYPE_MISMATCH");
     test("ReactDOM.unmountComponentAtNode(document.body);",
-      "ReactDOM.$unmountComponentAtNode$(document.body);");
+      "ReactDOM.unmountComponentAtNode(document.body);");
     testError("ReactDOM.unmountComponentAtNode(\"notanode\");",
       "JSC_TYPE_MISMATCH");
-    testError("React.DOM.span(1)", "JSC_TYPE_MISMATCH");
   }
 
   @Test public void testReactDOMServer() {
     test("var Comp = React.createClass({});" +
       "ReactDOMServer.renderToString(React.createElement(Comp));",
-      "ReactDOMServer.$renderToString$(" +
-      "React.$createElement$(React.$createClass$({})));");
+      "ReactDOMServer.renderToString(" +
+      "React.createElement(React.createClass({})));");
     testError("ReactDOMServer.renderToString(\"notanelement\");",
       "JSC_TYPE_MISMATCH");
     test("var Comp = React.createClass({});" +
       "ReactDOMServer.renderToStaticMarkup(React.createElement(Comp));",
-      "ReactDOMServer.$renderToStaticMarkup$(" +
-      "React.$createElement$(React.$createClass$({})));");
+      "ReactDOMServer.renderToStaticMarkup(" +
+      "React.createElement(React.createClass({})));");
     testError("ReactDOMServer.renderToStaticMarkup(\"notanelement\");",
       "JSC_TYPE_MISMATCH");
   }
@@ -1435,13 +1414,13 @@ public class ReactCompilerPassTest {
       "window.aString = Comp.aString;" +
       "window.aFunctionResult = Comp.aFunction();",
       // Statics without JSDoc are OK
-      "var $Comp$$=React.$createClass$({" +
-        "$statics$:{" +
+      "var $Comp$$=React.createClass({" +
+        "statics:{" +
         "$aNumber$:123," +
         "$aString$:\"456\"," +
         "$aFunction$:function(){return 123}" +
         "}," +
-        "$render$:function(){return React.$createElement$(\"div\")}" +
+        "render:function(){return React.createElement(\"div\")}" +
       "});" +
       "window.$aNumber$=$Comp$$.$aNumber$;" +
       "window.$aString$=$Comp$$.$aString$;" +
@@ -1487,10 +1466,10 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Should be fine to use React.addons.PureRenderMixin.
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$mixins$:[React.$addons$.$PureRenderMixin$]," +
-        "$render$:function(){" +
-          "return React.$createElement$(\"div\")" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "mixins:[React.addons.PureRenderMixin]," +
+        "render:function(){" +
+          "return React.createElement(\"div\")" +
         "}" +
       "})),document.body);");
     testError(
@@ -1539,38 +1518,34 @@ public class ReactCompilerPassTest {
         "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.$render$(React.$createElement$(React.$createClass$({" +
-        "$render$:function(){" +
-          "return React.$createElement$(\"div\",{$a$:\"1\"})" +
+      "ReactDOM.render(React.createElement(React.createClass({" +
+        "render:function(){" +
+          "return React.createElement(\"div\",{$a$:\"1\"})" +
         "}" +
       "})),document.body);");
   }
 
   private static void test(String inputJs, String expectedJs) {
-    test(inputJs, expectedJs, null, null, null);
+    test(inputJs, expectedJs, null, null);
   }
 
   private static void testError(String inputJs, String expectedErrorName) {
-    test(inputJs, "", null, null, DiagnosticType.error(expectedErrorName, ""));
+    test(inputJs, "", null, DiagnosticType.error(expectedErrorName, ""));
   }
 
   private static void testError(String inputJs, DiagnosticType expectedError) {
-    test(inputJs, "", null, null, expectedError);
+    test(inputJs, "",  null, expectedError);
   }
 
   private static void testNoError(String inputJs) {
-    test(inputJs, null, null, null, null);
+    test(inputJs, null, null, null);
   }
 
   private static void test(
         String inputJs,
         String expectedJs,
-        String reactSourceName,
         ReactCompilerPass.Options passOptions,
         DiagnosticType expectedError) {
-    if (reactSourceName == null) {
-      reactSourceName = "/src/react.js";
-    }
     Compiler compiler = new Compiler(
         new PrintStream(ByteStreams.nullOutputStream())); // Silence logging
     compiler.disableThreads(); // Makes errors easier to track down.
@@ -1595,7 +1570,7 @@ public class ReactCompilerPassTest {
         CustomPassExecutionTime.BEFORE_CHECKS,
         new ReactCompilerPass(compiler, passOptions));
     List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromCode(reactSourceName, REACT_SOURCE),
+        SourceFile.fromCode("/src/react.js", REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
     );
     List<SourceFile> builtInExterns;

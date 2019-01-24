@@ -33,13 +33,6 @@ public class ReactWarningsGuard extends WarningsGuard {
       return null;
     }
 
-    // Ignore all warnings and errors in the React library itself -- it
-    // generally compiles as intended, but it uses non-standard JSDoc which
-    // throws off the compiler.
-    if (React.isReactSourceName(error.sourceName)) {
-      return CheckLevel.OFF;
-    }
-
     // Rewrite propTypes warnings to be more legible.
     if (compiler != null && compilerPass != null &&
         error.getType().key.equals("JSC_TYPE_MISMATCH") &&

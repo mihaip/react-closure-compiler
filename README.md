@@ -121,7 +121,7 @@ If you reference `this.field_` in a component method the compiler will know that
 
 In addition to type checking of component instances, this compiler pass has the following benefits:
 
-* React API calls also get minified (since React itself is an input to the compiler, there is no need to list it as an extern, therefore)
+* Minification options for React (e.g. `React.createElement` calls are replaced with an alias that gets renamed, which has significant size benefits, even with gzip)
 * React-aware size optimizations. For example `propTypes` in a component will get stripped out when using the minified React build, since they are not checked in that case (if you want `propTypes` to be preserved, you can tag them with `@struct`).
 * React-aware checks and warnings (e.g. if you use `PureRenderMixin` but also override `shouldComponentUpdate`, thus obviating the need for the mixin).
 
@@ -176,11 +176,10 @@ var Comp = React.createClass({
 
 ## Caveats and limitations
 
-* The React source itself must be an input file to the Closure Compiler (with or without add-ons, minified or not). See [`React.isReactSourceName()`](https://github.com/mihaip/react-closure-compiler/blob/master/src/info/persistent/react/jscomp/React.java) for how the React source input is identified.
+* React is assumed to be an external input to the compiler. [`types.js`](https://github.com/mihaip/react-closure-compiler/blob/master/src/info/persistent/react/jscomp/types.js) serves as a definition to the React API (and also informs the compiler that those symbols are not to be renamed). We used to assume that React was also part of the compiler input (which enabled additional size wins, since the React API itself could be renamed), but as of 15.4 React is no longer safe to use with Closure Compiler's advanced optimizations (due to the [removal of `keyOf`](https://github.com/facebook/react/commit/f7076b7759c57b95da21ffca892ddbdcf3ffed02) and [`keyMirror`](https://github.com/facebook/react/pull/7596)).
 * Use of ES6 class syntax has not been tested
 * Only simple mixins that are referenced by name in the `mixins` array are supported (e.g. dynamic mixins that are generated via function calls are not).
 * Automatic type annotation of `React.createElement` calls only works for direct references to component names. That is `var foo = Comp;var elem = React.createElement(foo)` will not result in elem getting the type `ReactElement.<Comp>` as expected. You will need to add a cast in that case.
-* If you use the minified version of React as an input, you will need to make some small modifications to it to quote object literal keys, otherwise the compiler will rename them. See [#10](https://github.com/mihaip/react-closure-compiler/issues/10) for more details.
 
 ## Demo
 

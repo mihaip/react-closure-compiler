@@ -457,7 +457,13 @@ class PropTypesExtractor {
     switch (node.getToken()) {
       case NAME:
         String name = node.getString();
-        return name.isEmpty() ? null : name;
+        if (name.isEmpty()) {
+          return null;
+        }
+        if (name.equals(ReactCompilerPass.PROP_TYPES_ALIAS_NAME)) {
+          return "React.PropTypes";
+        }
+        return name;
       case GETPROP:
         String left = stringifyPropTypeNode(first);
         if (left == null) {

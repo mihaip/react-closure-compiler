@@ -20,34 +20,6 @@ import java.util.Map;
 public class React {
   static final String TYPES_JS_RESOURCE_PATH =
         "info/persistent/react/jscomp/types.js";
-  static final Map<String, String> REACT_MODULES =
-      ImmutableMap.<String, String>builder()
-          .put("React", "ReactModule")
-          .put("ReactDOM", "ReactDOMModule")
-          .put("ReactDOMServer", "ReactDOMServerModule")
-          .build();
-
-  private static final String[] REACT_DOM_TAG_NAMES = {
-    // HTML
-    "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base",
-    "bdi", "bdo", "big", "blockquote", "body", "br", "button", "canvas",
-    "caption", "cite", "code", "col", "colgroup", "data", "datalist", "dd",
-    "del", "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed",
-    "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3",
-    "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "i", "iframe",
-    "img", "input", "ins", "kbd", "keygen", "label", "legend", "li", "link",
-    "main", "map", "mark", "menu", "menuitem", "meta", "meter", "nav",
-    "noscript", "object", "ol", "optgroup", "option", "output", "p", "param",
-    "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp",
-    "script", "section", "select", "small", "source", "span", "strong",
-    "style", "sub", "summary", "sup", "table", "tbody", "td", "textarea",
-    "tfoot", "th", "thead", "time", "title", "tr", "track", "u", "ul", "var",
-    "video", "wbr",
-    // SVG
-    "circle", "clipPath", "defs", "ellipse", "g", "image", "line",
-    "linearGradient", "mask", "path", "pattern", "polygon", "polyline",
-    "radialGradient", "rect", "stop", "svg", "text", "tspan"
-  };
 
   // From https://github.com/facebook/react/blob/c7129ce1f0bba7d04e9d5fce806a/
   // src/renderers/dom/shared/eventPlugins/..
@@ -78,24 +50,6 @@ public class React {
 
   private static String typesJs = null;
 
-  public static boolean isReactSourceName(String sourceName) {
-    return sourceName.endsWith("/react.js") ||
-        sourceName.endsWith("/react.min.js") ||
-        sourceName.endsWith("/react-dom.js") ||
-        sourceName.endsWith("/react-dom.min.js") ||
-        sourceName.endsWith("/react-dom-server.js") ||
-        sourceName.endsWith("/react-dom-server.min.js") ||
-        sourceName.endsWith("/react-with-addons.js") ||
-        sourceName.endsWith("/react-with-addons.min.js");
-  }
-
-  public static boolean isReactMinSourceName(String sourceName) {
-    return sourceName.endsWith("/react.min.js") ||
-        sourceName.endsWith("/react-dom.min.js") ||
-        sourceName.endsWith("/react-dom-server.min.js") ||
-        sourceName.endsWith("/react-with-addons.min.js");
-  }
-
   public static synchronized String getTypesJs() {
     if (typesJs != null) {
       return typesJs;
@@ -108,18 +62,6 @@ public class React {
         Resources.toString(typesUrl, Charsets.UTF_8));
     } catch (IOException e) {
       throw new RuntimeException(e); // Should never happen
-    }
-
-    // Inject ReactDOMFactories methods for each tag
-    for (String tagName : REACT_DOM_TAG_NAMES) {
-      typesJsBuilder.append(
-        "/**\n" +
-        " * @param {Object=} props\n" +
-        " * @param {...ReactChildrenArgument} children\n" +
-        " * @return {ReactDOMElement}\n" +
-        " */\n" +
-        "ReactDOMFactories.prototype." + tagName +
-            " = function(props, children) {};\n");
     }
 
     // Inject ReactDOMProps properties for each event name, for both the
@@ -141,20 +83,6 @@ public class React {
 
     typesJs = typesJsBuilder.toString();
     return typesJs;
-  }
-
-  public static SourceFile createExternsSourceFile() {
-      String externsJs = "";
-      for (Map.Entry<String, String> entry : REACT_MODULES.entrySet()) {
-        String moduleName = entry.getKey();
-        String moduleType = entry.getValue();
-        externsJs += "/** @type {"  + moduleType + "} */ " +
-          "var " + moduleName + ";\n";
-      }
-      externsJs += getTypesJs();
-
-      return SourceFile.builder()
-            .buildFromCode("react.js", externsJs);
   }
 
   public static void replaceComponentMethodParameterTypes(
