@@ -4,6 +4,7 @@ import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.WarningsGuard;
+import com.google.javascript.rhino.Node;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,7 +53,19 @@ public class ReactWarningsGuard extends WarningsGuard {
       String typeName = PropTypesExtractor.getTypeNameForFunctionName(
           functionName);
       if (typeName == null) {
-        return false;
+        // We may be running with ES6 module transpilation or other rewriting,
+        // try to find the function name from the AST instead.
+        if (error.node.getParent().isCall()) {
+          Node callName = error.node.getParent().getFirstChild();
+          if (callName.isName() && callName.getOriginalName() != null) {
+            String originalFunctionName = callName.getOriginalName();
+            typeName = PropTypesExtractor.getTypeNameForFunctionName(
+              originalFunctionName);
+          }
+        }
+        if (typeName == null) {
+          return false;
+        }
       }
       PropTypesExtractor propTypesExtractor =
           compilerPass.getPropTypesExtractor(typeName);

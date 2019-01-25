@@ -44,6 +44,14 @@ ReactClass.prototype.defaultProps;
 ReactClass.prototype.getDefaultProps = function() {};
 
 /**
+ * Closure Compiler's TypeCheck complains about .Props not being defined on
+ * React.Class when extracting prop types without this.
+ *
+ * @type {!Object}
+ */
+ReactClass.prototype.Props;
+
+/**
  * @typedef {!Object|{children: (Object|undefined)}}
  */
 var ReactProps;
