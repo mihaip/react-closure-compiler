@@ -22,6 +22,10 @@ public class AstDump {
     );
 
     CompilerOptions options = new CompilerOptions();
+    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
+    options.setLanguageOut(CompilerOptions.LanguageMode.NO_TRANSPILE);
+    options.skipAllCompilerPasses();
+    options.setEs6ModuleTranspilation(CompilerOptions.Es6ModuleTranspilation.NONE);
     Result result = compiler.compile(
         Collections.<SourceFile>emptyList(), inputs, options);
     dump(compiler.getRoot(), 0, System.out);
