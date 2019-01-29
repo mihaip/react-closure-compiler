@@ -13,6 +13,7 @@ import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerAccessor;
 import com.google.javascript.jscomp.CompilerInput;
+import com.google.javascript.jscomp.DiagnosticGroup;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
@@ -75,6 +76,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           "REACT_PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE",
           "{0} uses React.addons.PureRenderMixin, it should not define shouldComponentUpdate.");
 
+  public static final DiagnosticGroup MALFORMED_MIXINS = new DiagnosticGroup(
+        MIXINS_UNEXPECTED_TYPE, MIXIN_EXPECTED_NAME, MIXIN_UNKNOWN);
 
   private static final String REACT_PURE_RENDER_MIXIN_NAME =
       "React.addons.PureRenderMixin";
