@@ -35,17 +35,8 @@ import java.util.List;
  * Test {@link ReactCompilerPass}.
  */
 public class ReactCompilerPassTest {
-  private static String REACT_SOURCE;
-  static {
-    try {
-      REACT_SOURCE = Resources.toString(
-          Resources.getResource("info/persistent/react/jscomp/react.stub.js"),
-          Charsets.UTF_8);
-    } catch (IOException err) {
-      throw new RuntimeException(err);
-    }
-  }
-  // Used to find the test output (and separate it from the React source)¡
+  // Used to find the test output (and separate it from the injected API
+  // aliases source)
   private static final String ACTUAL_JS_INPUT_MARKER = "// Input 1\n";
 
   @Test public void testMinimalComponent() {
@@ -1561,7 +1552,6 @@ public class ReactCompilerPassTest {
     options.addWarningsGuard(new ReactWarningsGuard());
     // Report warnings as errors to make tests simpler
     options.addWarningsGuard(new StrictWarningsGuard());
-    options.setPrintInputDelimiter(true);
     if (passOptions == null) {
       passOptions = new ReactCompilerPass.Options();
       passOptions.propTypesTypeChecking = true;
@@ -1570,13 +1560,12 @@ public class ReactCompilerPassTest {
         CustomPassExecutionTime.BEFORE_CHECKS,
         new ReactCompilerPass(compiler, passOptions));
     List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromCode("/src/react.js", REACT_SOURCE),
         SourceFile.fromCode("/src/test.js", inputJs)
     );
     List<SourceFile> builtInExterns;
     try {
-      // We need the built-in externs so that Object and other built-in types
-      // are defined when using NTI.
+      // We need the built-in externs so that Error and other built-in types
+      // are defined.
       builtInExterns = AbstractCommandLineRunner.getBuiltinExterns(
           CompilerOptions.Environment.CUSTOM);
     } catch (IOException err) {
@@ -1591,6 +1580,10 @@ public class ReactCompilerPassTest {
             "document.body;" +
             "var window;"))
         .build();
+
+    if (passOptions.optimizeForSize) {
+      options.setPrintInputDelimiter(true);
+    }
 
     ReactCompilerPass.saveLastOutputForTests = true;
 
@@ -1617,10 +1610,12 @@ public class ReactCompilerPassTest {
       assertTrue(result.success);
       if (expectedJs != null) {
         String actualJs = compiler.toSource();
-        int inputIndex = actualJs.indexOf(ACTUAL_JS_INPUT_MARKER);
-        assertNotEquals(-1, inputIndex);
-        actualJs = actualJs.substring(
-            inputIndex + ACTUAL_JS_INPUT_MARKER.length());
+        if (passOptions.optimizeForSize) {
+          int inputIndex = actualJs.indexOf(ACTUAL_JS_INPUT_MARKER);
+          assertNotEquals(-1, inputIndex);
+          actualJs = actualJs.substring(
+              inputIndex + ACTUAL_JS_INPUT_MARKER.length());
+        }
         assertEquals(expectedJs, actualJs);
       }
     } else {

@@ -18,6 +18,7 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.JSModule;
+import com.google.javascript.jscomp.JsAst;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Result;
@@ -41,9 +42,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       HotSwapCompilerPass {
 
   // Errors
-  static final DiagnosticType COULD_NOT_FIND_ALIAS_INSERTION_POINT = DiagnosticType.error(
-      "REACT_COULD_NOT_FIND_ALIAS_INSERTION_POINT",
-      "Could not find insertion point for React API aliases.");
   static final DiagnosticType CREATE_TYPE_TARGET_INVALID = DiagnosticType.error(
       "REACT_CREATE_CLASS_TARGET_INVALID",
       "Unsupported {0}(...) expression.");
@@ -166,18 +164,19 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private void addReactApiAliases(Node root) {
-    Node insertionPoint = null;
-    for (Node inputNode : root.children()) {
-      if (inputNode.getToken() == Token.SCRIPT &&
-          inputNode.getSourceFileName() != null) {
-          insertionPoint = inputNode;
-          break;
-        }
-    }
-    if (insertionPoint == null) {
-      compiler.report(JSError.make(root, COULD_NOT_FIND_ALIAS_INSERTION_POINT));
-      return;
-    }
+    // Insert our own script, so that we can make sure we're not using module
+    // scoping rules (and the aliases end up in the global scope).
+    JsAst aliasesAst = new JsAst(SourceFile.fromCode("react-api-aliases.js", ""));
+    // We can't use compiler.addNewScript because that will cause all compiler
+    // passes to be run on the new input, but we're not at the point where the
+    // ES6 module map (or other metadata) has been built.
+    CompilerAccessor.addNewSourceAst(compiler, aliasesAst);
+    Node insertionPoint = aliasesAst.getAstRoot(compiler);
+    Node insertionParent = insertionPoint.getParent();
+    // Move the script to the front (addNewSourceAst adds it to the back) so
+    // that the symbols are guaranteed to be defined in all other files.
+    insertionPoint.detach();
+    insertionParent.addChildToFront(insertionPoint);
     // Add an alias of the form:
     // /** @type {Function} */
     // var React$createElement = React.createElement;
