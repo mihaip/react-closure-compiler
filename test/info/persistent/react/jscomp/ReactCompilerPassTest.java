@@ -1,5 +1,7 @@
 package info.persistent.react.jscomp;
 
+import info.persistent.jscomp.Debug;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -7,7 +9,9 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCommandLineRunner;
@@ -38,6 +42,9 @@ public class ReactCompilerPassTest {
   // Used to find the test output (and separate it from the injected API
   // aliases source)
   private static final String ACTUAL_JS_INPUT_MARKER = "// Input 1\n";
+  // Used to allow test cases to have multiple input files (so that ES6
+  // modules can be tested).
+  private static String FILE_SEPARATOR = "\n\n/* --file-separator-- */\n\n";
 
   @Test public void testMinimalComponent() {
     test(
@@ -805,6 +812,19 @@ public class ReactCompilerPassTest {
       "})),document.body);",
       passOptions,
       null);
+    // This should also work when using ES6 modules
+    test(
+      "export const anExport = 9;\n" +
+      "var Comp = React.createClass({" +
+        "propTypes: {aProp: React.PropTypes.string}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "ReactDOM.render($React$createElement$$($React$createClass$$({" +
+        "render:function(){return $React$createElement$$(\"div\")}" +
+      "})),document.body);",
+      passOptions,
+      null);
     // But propTypes tagged with @struct should be preserved (React.PropTypes
     // is replaced with an alias so that it can also be represented more
     // compactly).
@@ -1559,9 +1579,11 @@ public class ReactCompilerPassTest {
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
         new ReactCompilerPass(compiler, passOptions));
-    List<SourceFile> inputs = ImmutableList.of(
-        SourceFile.fromCode("/src/test.js", inputJs)
-    );
+    List<SourceFile> inputs = Lists.newArrayList();
+    for (String fileJs : Splitter.on(FILE_SEPARATOR).split(inputJs)) {
+      inputs.add(
+          SourceFile.fromCode("/src/file" + (inputs.size() + 1) + ".js", fileJs));
+    }
     List<SourceFile> builtInExterns;
     try {
       // We need the built-in externs so that Error and other built-in types
@@ -1591,11 +1613,10 @@ public class ReactCompilerPassTest {
     String lastOutput = "\n\nInput:\n" + inputJs + "\nCompiler pass output:\n" +
         ReactCompilerPass.lastOutputForTests + "\n";
     if (compiler.getRoot() != null) {
-      lastOutput += "Final compiler output:\n" + new CodePrinter.Builder(compiler.getRoot())
-          .setPrettyPrint(true)
-          .setOutputTypes(true)
-          .setTypeRegistry(compiler.getTypeRegistry())
-          .build() +
+      // Use getSecondChild to skip over the externs root
+      lastOutput += "Final compiler output:\n" +
+          Debug.toTypeAnnotatedSource(
+              compiler, compiler.getRoot().getSecondChild()) +
           "\n";
     }
     if (expectedError == null) {

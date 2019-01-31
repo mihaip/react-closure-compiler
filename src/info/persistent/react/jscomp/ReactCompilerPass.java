@@ -1,5 +1,7 @@
 package info.persistent.react.jscomp;
 
+import info.persistent.jscomp.Debug;
+
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
@@ -9,7 +11,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
-import com.google.javascript.jscomp.CodePrinter;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerAccessor;
 import com.google.javascript.jscomp.CompilerInput;
@@ -137,11 +138,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     hotSwapScript(root, null);
     if (saveLastOutputForTests) {
-      lastOutputForTests = new CodePrinter.Builder(root)
-          .setPrettyPrint(true)
-          .setOutputTypes(true)
-          .setTypeRegistry(compiler.getTypeRegistry())
-          .build();
+      lastOutputForTests = Debug.toTypeAnnotatedSource(compiler, root);
     } else {
       lastOutputForTests = null;
     }
