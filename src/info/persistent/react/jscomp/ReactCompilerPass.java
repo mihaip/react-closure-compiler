@@ -587,13 +587,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       elementTypedefNode = IR.exprResult(elementTypedefNode);
     }
     elementTypedefNode.useSourceInfoFromForTree(callParentNode);
-    Node elementTypedefInsertionPoint = callParentNode.getParent();
-    elementTypedefInsertionPoint.getParent().addChildAfter(
-        elementTypedefNode, elementTypedefInsertionPoint);
+    Node typesInsertionPoint = callParentNode.getParent();
+    typesInsertionPoint.getParent().addChildAfter(
+        elementTypedefNode, typesInsertionPoint);
 
     // Generate statics property JSDocs, so that the compiler knows about them.
     if (createFuncName.equals("React.createClass")) {
-      Node staticsInsertionPoint = callParentNode.getParent();
+      Node staticsInsertionPoint = typesInsertionPoint;
       for (Map.Entry<String, JSDocInfo> entry : staticsJsDocs.entrySet()) {
         String staticName = entry.getKey();
         JSDocInfo staticJsDoc = entry.getValue();
@@ -643,10 +643,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         jsDocBuilder.recordExtendedInterface(implementedInterface);
     }
     interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build());
-    Node interfaceTypeInsertionPoint = callParentNode.getParent();
-    interfaceTypeInsertionPoint.getParent().addChildBefore(
-        interfaceTypeNode, interfaceTypeInsertionPoint);
-    interfaceTypeInsertionPoint.getParent().addChildAfter(
+    typesInsertionPoint.getParent().addChildBefore(
+        interfaceTypeNode, typesInsertionPoint);
+    typesInsertionPoint.getParent().addChildAfter(
         NodeUtil.newQNameDeclaration(
             compiler,
             interfaceTypeName + ".prototype",
@@ -704,7 +703,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             propTypesNode, getDefaultPropsNode, typeName, interfaceTypeName,
             compiler);
         extractor.extract();
-        extractor.insert(elementTypedefInsertionPoint);
+        extractor.insert(typesInsertionPoint);
         if (createFuncName.equals("React.createClass")) {
           extractor.addToComponentMethods(componentMethodKeys);
         }
@@ -719,7 +718,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       StateTypeExtractor extractor = new StateTypeExtractor(
           getInitialStateNode, typeName, interfaceTypeName, compiler);
       if (extractor.hasStateType()) {
-        extractor.insert(elementTypedefInsertionPoint);
+        extractor.insert(typesInsertionPoint);
         extractor.addToComponentMethods(componentMethodKeys);
       }
       // Gather fields defined in getInitialState.
@@ -746,9 +745,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
                   null, // no value
                   jsDocInfo);
               prototypeFieldNode.useSourceInfoFromForTree(prop);
-              interfaceTypeInsertionPoint.getParent().addChildAfter(
+              typesInsertionPoint.getParent().addChildAfter(
                   prototypeFieldNode,
-                  interfaceTypeNode);
+                  typesInsertionPoint);
             }
           });
     }
