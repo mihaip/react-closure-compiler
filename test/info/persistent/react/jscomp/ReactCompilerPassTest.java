@@ -55,13 +55,36 @@ public class ReactCompilerPassTest {
           "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      // createClass and other React methods should get renamed.
+      // createClass and other React methods should not get renamed.
       "ReactDOM.render(React.createElement(React.createClass({" +
         "render:function(){" +
           "return React.createElement(" +
             "\"div\",null,React.createElement(\"span\",null,\"child\"))" +
         "}" +
       "})),document.body);");
+  }
+
+  @Test public void testEs6Modules() {
+    test(
+      "export const Comp = React.createClass({" +
+        "render: function() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+          "}" +
+      "});" +
+      FILE_SEPARATOR +
+      // Test that we can use the component and associated types from another
+      // module (i.e. that exports are generated for them).
+      "import * as file1 from './file1.js';\n" +
+      "const /** file1.CompElement */ compElement = React.createElement(file1.Comp);\n" +
+      "const /** file1.CompInterface */ compInstance = ReactDOM.render(compElement, document.body);",
+      "var $compElement$$module$src$file2$$=React.createElement(React.createClass({" +
+        "render:function(){" +
+          "return React.createElement(" +
+            "\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+        "}" +
+      "}));" +
+      "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
   }
 
   @Test public void testInstanceMethods() {

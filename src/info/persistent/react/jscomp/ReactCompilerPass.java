@@ -74,6 +74,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       DiagnosticType.error(
           "REACT_PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE",
           "{0} uses React.addons.PureRenderMixin, it should not define shouldComponentUpdate.");
+  static final DiagnosticType UNEXPECTED_EXPORT_SYNTAX = DiagnosticType.error(
+      "REACT_UNEXPECTED_EXPORT_SYNTAX",
+      "Unexpected export syntax.");
 
   public static final DiagnosticGroup MALFORMED_MIXINS = new DiagnosticGroup(
         MIXINS_UNEXPECTED_TYPE, MIXIN_EXPECTED_NAME, MIXIN_UNKNOWN);
@@ -436,6 +439,36 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     String interfaceTypeName = generateInterfaceTypeName(typeName);
 
+    // Check to see if the type is has an ES6 module export. We assume this is
+    // of the form `export const Comp = React.createClass(...)`. If it is, then
+    // we transform it into `const Comp = React.createClass(...); export {Comp};`.
+    // That way it's more similar to non-module uses (as far as where we can
+    // add additional nodes to the AST) and the @typedef that we use for the
+    // declaration does not prevent it from getting exported (Es6RewriteModules
+    // does not export the values of typedefs).
+    // Additionally, if the component is exported, then we also need to export
+    // types that we generate from it (CompInterface, CompElement).
+    boolean addModuleExports = false;
+    for (Node ancestor : callNode.getAncestors()) {
+      if (!ancestor.isExport()) {
+        continue;
+      }
+      addModuleExports = true;
+      Node exportNode = ancestor;
+      if (!callParentNode.isName() ||
+          !NodeUtil.isNameDeclaration(callParentNode.getParent())) {
+        compiler.report(
+          JSError.make(callParentNode, UNEXPECTED_EXPORT_SYNTAX));
+        return;
+      }
+      Node nameNode = callParentNode;
+      Node declarationNode = nameNode.getParent();
+      declarationNode.detachFromParent();
+      exportNode.replaceWith(declarationNode);
+      addModuleExport(typeName, declarationNode);
+      break;
+    }
+
     // For compomnents tagged with @export don't rename their props or public
     // methods.
     JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
@@ -577,8 +610,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordTypedef(new JSTypeExpression(
         createReactElementTypeExpressionNode(typeName),
         callNode.getSourceFileName()));
-    Node elementTypedefNode = NodeUtil.newQName(
-        compiler, typeName + "Element");
+    String elementTypeName = typeName + "Element";
+    Node elementTypedefNode = NodeUtil.newQName(compiler, elementTypeName);
     if (elementTypedefNode.isName()) {
       elementTypedefNode = IR.var(elementTypedefNode);
     }
@@ -590,6 +623,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node typesInsertionPoint = callParentNode.getParent();
     typesInsertionPoint.getParent().addChildAfter(
         elementTypedefNode, typesInsertionPoint);
+    if (addModuleExports) {
+      addModuleExport(elementTypeName, elementTypedefNode);
+    }
 
     // Generate statics property JSDocs, so that the compiler knows about them.
     if (createFuncName.equals("React.createClass")) {
@@ -645,6 +681,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     interfaceTypeFunctionNode.setJSDocInfo(jsDocBuilder.build());
     typesInsertionPoint.getParent().addChildBefore(
         interfaceTypeNode, typesInsertionPoint);
+    if (addModuleExports) {
+      addModuleExport(interfaceTypeName, interfaceTypeNode);
+    }
     typesInsertionPoint.getParent().addChildAfter(
         NodeUtil.newQNameDeclaration(
             compiler,
@@ -1174,5 +1213,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
 
     return typeNamePrefix + "Interface";
+  }
+
+  private static void addModuleExport(String name, Node insertionPoint) {
+      Node exportSpecNode = new Node(Token.EXPORT_SPEC).srcref(insertionPoint);
+      Node nameNode = IR.name(name).srcref(insertionPoint);
+      exportSpecNode.addChildToBack(nameNode);
+      exportSpecNode.addChildToBack(nameNode.cloneNode());
+      Node exportSpecsNode = new Node(Token.EXPORT_SPECS, exportSpecNode).srcref(insertionPoint);
+      Node exportNode = IR.export(exportSpecsNode).srcref(insertionPoint);
+      insertionPoint.getParent().addChildAfter(exportNode, insertionPoint);
   }
 }
