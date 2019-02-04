@@ -439,7 +439,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     String interfaceTypeName = generateInterfaceTypeName(typeName);
 
-    // Check to see if the type is has an ES6 module export. We assume this is
+    // Check to see if the type has an ES6 module export. We assume this is
     // of the form `export const Comp = React.createClass(...)`. If it is, then
     // we transform it into `const Comp = React.createClass(...); export {Comp};`.
     // That way it's more similar to non-module uses (as far as where we can
