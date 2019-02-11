@@ -1,5 +1,7 @@
 package info.persistent.react.jscomp;
 
+import info.persistent.jscomp.Ast;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -536,7 +538,7 @@ class PropTypesExtractor {
             .build());
   }
 
-  public void insert(Node insertionPoint) {
+  public void insert(Node insertionPoint, boolean addModuleExports) {
     // /** @typedef {{
     //   propA: number,
     //   propB: string,
@@ -593,6 +595,9 @@ class PropTypesExtractor {
     insertionPoint.getParent().addChildAfter(
         validatorFuncNode, insertionPoint);
     insertionPoint = validatorFuncNode;
+    if (addModuleExports) {
+      Ast.addModuleExport(validatorFuncName, validatorFuncNode);
+    }
 
     // A similar validator function is also necessary to validate the children
     // parameter of React.createElement.
@@ -612,6 +617,10 @@ class PropTypesExtractor {
       insertionPoint.getParent().addChildAfter(
           childrenValidatorFuncNode, insertionPoint);
       insertionPoint = childrenValidatorFuncNode;
+      if (addModuleExports) {
+        Ast.addModuleExport(
+            childrenValidatorFuncName, childrenValidatorFuncNode);
+      }
     }
 
     // And yet another validation function is needed to validate props used in
@@ -646,6 +655,10 @@ class PropTypesExtractor {
       insertionPoint.getParent().addChildAfter(
           spreadValidatorFuncNode, insertionPoint);
       insertionPoint = spreadValidatorFuncNode;
+      if (addModuleExports) {
+        Ast.addModuleExport(
+            spreadValidatorFuncName, spreadValidatorFuncNode);
+      }
     }
 
     // /** @type {Comp.Props} */
@@ -713,7 +726,7 @@ class PropTypesExtractor {
   }
 
 
-  private void visitObjectAssign(Node callNode) {
+  private void visitObjectAssign(Node callTypeNode, Node callNode) {
     for (Node spreadParamNode = callNode.getChildAtIndex(1);
         spreadParamNode != null;
         spreadParamNode = spreadParamNode.getNext()) {
@@ -721,7 +734,8 @@ class PropTypesExtractor {
         Node prevNode = spreadParamNode.getPrevious();
         spreadParamNode.detach();
         Node validatorCallNode = IR.call(
-            IR.name(spreadValidatorFuncName), spreadParamNode);
+            generateValidatorFuncCallName(callTypeNode, spreadValidatorFuncName),
+            spreadParamNode);
         // Object.assign expects non-nullable values, so ensure that the
         // validator function does that.
         if (canBeCreatedWithNoProps) {
@@ -738,13 +752,14 @@ class PropTypesExtractor {
     }
   }
 
-  public void visitReactProp(Node propsNode) {
+  public void visitReactProp(Node callTypeNode, Node propsNode) {
     if (propsNode.isObjectLit() || propsNode.isNull()) {
       Node prevNode = propsNode.getPrevious();
       Node parentNode = propsNode.getParent();
       propsNode.detach();
       Node validatorCallNode = IR.call(
-          IR.name(validatorFuncName), propsNode);
+          generateValidatorFuncCallName(callTypeNode, validatorFuncName),
+          propsNode);
       validatorCallNode.useSourceInfoIfMissingFrom(propsNode);
       parentNode.addChildAfter(validatorCallNode, prevNode);
     } else if (propsNode.isCall()) {
@@ -752,7 +767,7 @@ class PropTypesExtractor {
       // then add the validator to object literal parameters instead.
       String functionName = propsNode.getFirstChild().getQualifiedName();
       if (functionName != null && functionName.equals("Object.assign")) {
-        visitObjectAssign(propsNode);
+        visitObjectAssign(callTypeNode, propsNode);
       }
     }
   }
@@ -767,8 +782,9 @@ class PropTypesExtractor {
       return;
     }
 
+    Node callTypeNode = callNode.getChildAtIndex(1);
     Node propsParamNode = callNode.getChildAtIndex(2);
-    visitReactProp(propsParamNode);
+    visitReactProp(callTypeNode, propsParamNode);
 
     // It's more difficult to validate multiple children, but that use case is
     // uncommon.
@@ -777,7 +793,8 @@ class PropTypesExtractor {
         Node childParamNode = callNode.getChildAtIndex(3);
         childParamNode.detach();
         Node childValidatorCallNode = IR.call(
-            IR.name(childrenValidatorFuncName), childParamNode);
+            generateValidatorFuncCallName(callTypeNode, childrenValidatorFuncName),
+            childParamNode);
         childValidatorCallNode.useSourceInfoIfMissingFrom(childParamNode);
         callNode.addChildAfter(
           childValidatorCallNode, callNode.getChildAtIndex(2));
@@ -851,6 +868,20 @@ class PropTypesExtractor {
 
     return JSError.make(paramNode, PROP_TYPES_VALIDATION_MISMATCH, typeName,
         "  " + Joiner.on("\n  ").join(errors));
+  }
+
+  private Node generateValidatorFuncCallName(
+      Node callTypeNode, String validatorFuncName) {
+    // If we're accessing the component as module.Comp, the validator function
+    // is also assumed to come from the same module.
+    String callTypeName = callTypeNode.getQualifiedName();
+    if (!callTypeName.equals(typeName) && callTypeName.endsWith(typeName)) {
+      String callTypeNamePrefix = callTypeName.substring(
+          0, callTypeName.length() - typeName.length());
+      return NodeUtil.newQName(
+          compiler, callTypeNamePrefix + validatorFuncName);
+    }
+    return IR.name(validatorFuncName);
   }
 
   private static Node bang(Node child) {

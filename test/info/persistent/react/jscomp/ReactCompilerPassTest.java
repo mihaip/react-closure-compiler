@@ -85,6 +85,43 @@ public class ReactCompilerPassTest {
         "}" +
       "}));" +
       "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+    // Mixin references across modules work
+    testNoError(
+      "export const Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "export const Comp = React.createClass({" +
+        "mixins: [file1.Mixin]," +
+        "render: function() {" +
+          // "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+          "}" +
+      "});");
+    // Cross-module type checking works for props...
+    testError(
+      "export const Comp = React.createClass({" +
+        "propTypes: {aNumber: React.PropTypes.number.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "React.createElement(file1.Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
+    // ...and methods.
+    testError(
+      "export const Comp = React.createClass({" +
+        "render: function() {return null;},\n" +
+        "/** @param {number} a */" +
+        "method: function(a) {window.foo = a;}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "const inst = ReactDOM.render(" +
+          "React.createElement(file1.Comp), document.body);\n" +
+      "inst.method('notanumber');",
+      "JSC_TYPE_MISMATCH");
   }
 
   @Test public void testInstanceMethods() {
