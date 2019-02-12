@@ -94,7 +94,8 @@ class SymbolTable<V> {
       if (key.endsWith(".jsx.js")) {
           key = key.substring(0, key.length() - 3);
       }
-      return modulePath + "|" + name;
+      key += "|" + name;
+      return key;
   }
 
   public void debugDump(String label) {
