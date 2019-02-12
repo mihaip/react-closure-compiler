@@ -9,6 +9,7 @@ import com.google.javascript.rhino.Node;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Function;
 
 class SymbolTable<V> {
   private final Map<String, V> map = Maps.newHashMap();
@@ -43,6 +44,12 @@ class SymbolTable<V> {
 
   public boolean containsNamePrefix(String prefixCandidate, CompilerInput exportInput) {
     return map.containsKey(prefixCandidate) || map.containsKey(writeKey(prefixCandidate, exportInput));
+  }
+
+  public <V2> void mapValuesInto(Function<V, V2> mapper, SymbolTable<V2> destTable) {
+    for (Map.Entry<String, V> entry : map.entrySet()) {
+      destTable.map.put(entry.getKey(), mapper.apply(entry.getValue()));
+    }
   }
 
   private static String writeKey(Node nameNode, CompilerInput exportInput) {

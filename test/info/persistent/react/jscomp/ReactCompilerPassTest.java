@@ -85,20 +85,6 @@ public class ReactCompilerPassTest {
         "}" +
       "}));" +
       "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
-    // Mixin references across modules work
-    testNoError(
-      "export const Mixin = React.createMixin({" +
-        "mixinMethod: function() {window.foo = 123}" +
-      "});\n" +
-      FILE_SEPARATOR +
-      "import * as file1 from './file1.js';\n" +
-      "export const Comp = React.createClass({" +
-        "mixins: [file1.Mixin]," +
-        "render: function() {" +
-          "this.mixinMethod();" +
-          "return React.createElement(\"div\");" +
-          "}" +
-      "});");
     // Cross-module type checking works for props...
     testError(
       "export const Comp = React.createClass({" +
@@ -122,6 +108,44 @@ public class ReactCompilerPassTest {
           "React.createElement(file1.Comp), document.body);\n" +
       "inst.method('notanumber');",
       "JSC_TYPE_MISMATCH");
+  }
+
+  @Test public void testEs6ModulesMixins() {
+    // Mixin references across modules work
+    testNoError(
+      "export const Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "export const Comp = React.createClass({" +
+        "mixins: [file1.Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});");
+    // Mixin references can be chained too.
+    testNoError(
+      "export const Mixin1 = React.createMixin({" +
+        "mixinMethod1: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "export const Mixin2 = React.createMixin({" +
+        "mixins: [file1.Mixin1]," +
+        "mixinMethod2: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file2 from './file2.js';\n" +
+      "export const Comp = React.createClass({" +
+        "mixins: [file2.Mixin2]," +
+        "render: function() {" +
+          "this.mixinMethod1();" +
+          "this.mixinMethod2();" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});");
   }
 
   @Test public void testInstanceMethods() {

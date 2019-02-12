@@ -24,6 +24,7 @@ import com.google.javascript.jscomp.JsAst;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.Result;
+import com.google.javascript.jscomp.Scope;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
@@ -94,7 +95,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final SymbolTable<Node> reactClassesByName = new SymbolTable<>();
   private final SymbolTable<Node> reactClassInterfacePrototypePropsByName =
       new SymbolTable<>();
-  private final SymbolTable<Node> reactMixinsByName = new SymbolTable<>();
+  private final SymbolTable<MixinRef> reactMixinsByName = new SymbolTable<>();
   private final SymbolTable<List<Node>> reactMixinsPropTypesByName =
       new SymbolTable<>();
   private final SymbolTable<Node> reactMixinInterfacePrototypePropsByName =
@@ -287,7 +288,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     NodeTraversal.traverse(compiler, scriptRoot, this);
     // Inline React.createMixin calls, since they're just decorators.
-    for (Node mixinSpecNode : reactMixinsByName.values()) {
+    for (MixinRef mixinRef : reactMixinsByName.values()) {
+      Node mixinSpecNode = mixinRef.node;
       Node mixinSpecParentNode = mixinSpecNode.getParent();
       if (mixinSpecParentNode.isCall() &&
           mixinSpecParentNode.hasMoreThanOneChild() &&
@@ -356,12 +358,16 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private void visitReactCreateMixin(NodeTraversal t, Node callNode) {
+    SymbolTable<Node> tempTable = new SymbolTable<>();
     visitReactCreateType(
         t,
         callNode,
         "React.createMixin",
-        reactMixinsByName,
+        tempTable,
         reactMixinInterfacePrototypePropsByName);
+    tempTable.mapValuesInto(
+        mixinNode -> new MixinRef(mixinNode, t.getScope()),
+        reactMixinsByName);
   }
 
   private void visitReactCreateType(
@@ -513,7 +519,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       String keyName = key.getString();
       if (keyName.equals("mixins")) {
         List<Node> mixinNameNodes = addMixinsToType(
-            t,
+            t.getScope(),
             typeName,
             key,
             interfacePrototypeProps,
@@ -851,10 +857,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return false;
     }
     Node mixinNameNode = getPropNode.getFirstChild();
-    Node mixinSpecNode = reactMixinsByName.get(t.getScope(), mixinNameNode);
-    if (mixinSpecNode == null) {
+    MixinRef mixinRef = reactMixinsByName.get(t.getScope(), mixinNameNode);
+    if (mixinRef == null) {
       return false;
     }
+    Node mixinSpecNode = mixinRef.node;
     String methodName = getPropNode.getLastChild().getString();
     JSDocInfo abstractFuncJsDoc = getPropNode.getJSDocInfo();
 
@@ -894,7 +901,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private List<Node> addMixinsToType(
-      NodeTraversal t,
+      Scope scope,
       String typeName,
       Node mixinsNode,
       Node interfacePrototypeProps,
@@ -923,13 +930,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         // Built-in mixin, there's nothing more that we need to do.
         continue;
       }
-      Node mixinSpecNode = reactMixinsByName.get(t.getScope(), mixinNameNode);
-      if (mixinSpecNode == null) {
+      MixinRef mixinRef = reactMixinsByName.get(scope, mixinNameNode);
+      if (mixinRef == null) {
         compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinName));
         continue;
       }
+      Node mixinSpecNode = mixinRef.node;
       List<Node> mixinPropTypes = reactMixinsPropTypesByName.get(
-        t.getScope(), mixinNameNode);
+        mixinRef.scope, mixinNameNode);
       if (mixinPropTypes != null) {
         propTypeKeyNodes.addAll(mixinPropTypes);
       }
@@ -937,7 +945,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         String keyName = mixinSpecKey.getString();
         if (keyName.equals("mixins")) {
           mixinNameNodes.addAll(addMixinsToType(
-              t,
+              mixinRef.scope,
               typeName,
               mixinSpecKey,
               interfacePrototypeProps,
@@ -1246,5 +1254,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
 
     return typeNamePrefix + "Interface";
+  }
+
+  private static class MixinRef {
+    public final Node node;
+    public final Scope scope;
+
+    public MixinRef(Node node, Scope scope) {
+      this.node = node;
+      this.scope = scope;
+    }
   }
 }
