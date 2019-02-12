@@ -95,7 +95,7 @@ public class ReactCompilerPassTest {
       "export const Comp = React.createClass({" +
         "mixins: [file1.Mixin]," +
         "render: function() {" +
-          // "this.mixinMethod();" +
+          "this.mixinMethod();" +
           "return React.createElement(\"div\");" +
           "}" +
       "});");
