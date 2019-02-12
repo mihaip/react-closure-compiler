@@ -110,6 +110,31 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testEs6ModulesScoping() {
+    // Comp being defined as a local variable in the second file should not
+    // be confused with the Comp from the first file.
+    testNoError(
+      "export const Comp = React.createClass({" +
+        "propTypes: {children: React.PropTypes.element.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "const AnotherComp1 = React.createClass({render() {return null}});\n" +
+      "const AnotherComp2 = React.createClass({render() {return null}});\n" +
+      "const Comp = Math.random() < 0.5 ? AnotherComp1 : AnotherComp2;" +
+      "React.createElement(Comp, {});");
+    // But Comp  can be used as a local variable (and is checked correctly) even
+    // when it's exported.
+    testError(
+      "export const Comp = React.createClass({" +
+        "propTypes: {aNumber: React.PropTypes.number.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      "React.createElement(Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
+  }
+
   @Test public void testEs6ModulesMixins() {
     // Mixin references across modules work
     testNoError(

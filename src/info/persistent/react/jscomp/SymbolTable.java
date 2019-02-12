@@ -1,12 +1,15 @@
 package info.persistent.react.jscomp;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 import com.google.javascript.jscomp.CompilerInput;
 import com.google.javascript.jscomp.ModulePathAccessor;
 import com.google.javascript.jscomp.Scope;
 import com.google.javascript.jscomp.Var;
+import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.rhino.Node;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
@@ -20,10 +23,6 @@ class SymbolTable<V> {
 
   public void put(Node nameNode, V value, CompilerInput exportInput) {
     map.put(writeKey(nameNode, exportInput), value);
-    if (exportInput != null) {
-        // Also allow the value to be accessed from within the same module
-        map.put(writeKey(nameNode, null), value);
-    }
   }
 
   public V get(Scope scope, Node nameNode) {
@@ -65,30 +64,37 @@ class SymbolTable<V> {
   }
 
   private static String readKey(Scope scope, Node nameNode) {
+    String name = nameNode.getQualifiedName();
     if (!scope.isModuleScope()) {
-      return nameNode.getQualifiedName();
+      return name;
     }
-    String[] namePieces = nameNode.getQualifiedName().split("\\.");
-    if (namePieces.length == 1) {
-      return nameNode.getQualifiedName();
-    }
+    String[] namePieces = name.split("\\.");
     Var nameVar = scope.getVar(namePieces[0]);
-    if (nameVar != null && nameVar.getNode().isImportStar()) {
-        Node moduleIdentifier = nameVar.getNode().getNext();
-        String importPath = ModulePathAccessor.getVarInputModulePath(nameVar).resolveModuleAsPath(moduleIdentifier.getString()).toString();
-        if (importPath.endsWith(".jsx.js")) {
-            importPath = importPath.substring(0, importPath.length() - 3);
-        }
-        String key = importPath + "|";
-        for (int i = 1; i < namePieces.length; i++) {
-            if (i > 1) {
-                key += ".";
-            }
-            key += namePieces[i];
-        }
-        return key;
+    if (nameVar == null) {
+      return name;
     }
-    return nameNode.getQualifiedName();
+    ModulePath modulePath = ModulePathAccessor.getVarInputModulePath(nameVar);
+    if (namePieces.length == 1) {
+      return readKey(modulePath, name);
+    }
+
+    if (nameVar.getNode().isImportStar()) {
+        Node moduleIdentifier = nameVar.getNode().getNext();
+        ModulePath importPath = modulePath.resolveModuleAsPath(moduleIdentifier.getString());
+        String nameRemainder = Joiner.on(".").join(Arrays.copyOfRange(namePieces, 1, namePieces.length));
+        return readKey(importPath, nameRemainder);
+    }
+    return name;
+  }
+
+  private static String readKey(ModulePath modulePath, String name) {
+      String key = modulePath.toString();
+      // Undo ModuleResolver.resolveModuleAsPath adding .js extensions to .jsx
+      // files.
+      if (key.endsWith(".jsx.js")) {
+          key = key.substring(0, key.length() - 3);
+      }
+      return modulePath + "|" + name;
   }
 
   public void debugDump(String label) {
