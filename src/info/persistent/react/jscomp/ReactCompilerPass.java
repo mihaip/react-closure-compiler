@@ -79,6 +79,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   static final DiagnosticType UNEXPECTED_EXPORT_SYNTAX = DiagnosticType.error(
       "REACT_UNEXPECTED_EXPORT_SYNTAX",
       "Unexpected export syntax.");
+  static final DiagnosticType JSDOC_REQUIRED_FOR_STATICS = DiagnosticType.error(
+      "REACT_JSDOC_REQUIRED_FOR_STATICS",
+      "JSDoc is required for static property {0}.");
 
   public static final DiagnosticGroup MALFORMED_MIXINS = new DiagnosticGroup(
         MIXINS_UNEXPECTED_TYPE, MIXIN_EXPECTED_NAME, MIXIN_UNKNOWN);
@@ -496,6 +499,25 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     jsDocBuilder.recordTypedef(new JSTypeExpression(
         IR.string(interfaceTypeName), callNode.getSourceFileName()));
     typeAttachNode.setJSDocInfo(jsDocBuilder.build());
+
+    // Also add a cast of the form /** @type {typeof CompInterface} */ around
+    // the component spec. This is necessary to get the compiler to understand
+    // static properties when using strict missing property checks.
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        IR.string(interfaceTypeName), callNode.getSourceFileName()));
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.typeof(IR.string(interfaceTypeName)), callNode.getSourceFileName()));
+    Node callNodePrevious = callNode.getPrevious();
+    Node callNodeParent = callNode.getParent();
+    callNode.detach();
+    Node castNode = IR.cast(callNode, jsDocBuilder.build());
+    castNode.useSourceInfoFrom(callNode);
+    if (callNodePrevious != null) {
+      callNodeParent.addChildAfter(castNode, callNodePrevious);
+    } else {
+      callNodeParent.addChildToFront(castNode);
+    }
 
     // Record the type so that we can later look it up in React.createElement
     // calls.
@@ -1038,10 +1060,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfo staticJsDoc = staticKeyNode.getJSDocInfo();
       if (staticJsDoc == null) {
         // We need to have some kind of JSDoc so that the CheckSideEffects pass
-        // doesn't flag this as useless code.
-        // TODO: synthesize type based on value if it's a simple constant
-        // like a function or number.
-        staticJsDoc = new JSDocInfoBuilder(true).build(true);
+        // doesn't flag this as useless code or a missing property.
+        compiler.report(
+            JSError.make(staticKeyNode, JSDOC_REQUIRED_FOR_STATICS, staticName));
+        continue;
       } else {
         staticJsDoc = staticJsDoc.clone();
       }

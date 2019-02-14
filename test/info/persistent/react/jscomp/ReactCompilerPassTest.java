@@ -539,7 +539,7 @@ public class ReactCompilerPassTest {
   }
 
   /**
-   * Tests validation done by the types declarted in the types.js file. Not
+   * Tests validation done by the types declared in the types.js file. Not
    * exhaustive, just tests that the type declarations are included.
    */
   @Test public void testTypeValidation() {
@@ -563,13 +563,13 @@ public class ReactCompilerPassTest {
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "window.foo = Comp.displayName.notAStringMethod();",
-      "JSC_INEXISTENT_PROPERTY");
+      "JSC_POSSIBLE_INEXISTENT_PROPERTY");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
       "window.foo = Comp.nonExistentProperty;",
-      "JSC_INEXISTENT_PROPERTY");
+      "JSC_POSSIBLE_INEXISTENT_PROPERTY");
     testError(
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
@@ -747,17 +747,6 @@ public class ReactCompilerPassTest {
           "this.setState({f1: true});" +
           "return null;" +
         "},\n" +
-      "});");
-    // without a return type for getInitialState we don't do checks
-    testNoError(
-      "var Comp = React.createClass({" +
-        "getInitialState() {" +
-          "return {enabled: false};" +
-        "},\n" +
-        "render() {" +
-          "this.state.enabled.toFixed(2);" +
-          "return null;" +
-        "}" +
       "});");
     // return type for getInitialState must be a record
     testError(
@@ -985,9 +974,14 @@ public class ReactCompilerPassTest {
   }
 
   @Test public void testExport() {
+    String CLOSURE_EXPORT_FUNCTIONS =
+      "const goog = {};" +
+      "goog.exportSymbol = function(publicPath, object) {};\n" +
+      "goog.exportProperty = function(object, publicName, symbol) {};\n";
     // Props where the class is tagged with @export should not get renamed,
     // nor should methods explicitly tagged with @public.
     test(
+      CLOSURE_EXPORT_FUNCTIONS +
       "/** @export */" +
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string},\n" +
@@ -1020,6 +1014,7 @@ public class ReactCompilerPassTest {
         new ReactCompilerPass.Options();
     minifiedReactPassOptions.optimizeForSize = true;
     test(
+      CLOSURE_EXPORT_FUNCTIONS +
       "/** @export */" +
       "var Comp = React.createClass({" +
         "propTypes: {aProp: React.PropTypes.string}," +
@@ -1473,6 +1468,9 @@ public class ReactCompilerPassTest {
     // Non-comprehensive test that the React.Children namespace functions exist.
     test(
       "var Comp = React.createClass({" +
+        "propTypes: {" +
+          "children: React.PropTypes.element.isRequired" +
+        "}," +
         "render: function() {" +
           "return React.createElement(" +
               "\"div\", null, React.Children.only(this.props.children));" +
@@ -1480,6 +1478,9 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "ReactDOM.render(React.createElement(React.createClass({" +
+        "propTypes:{" +
+          "children:React.PropTypes.element.isRequired" +
+        "}," +
         "render:function(){" +
           "return React.createElement(" +
               "\"div\",null,React.Children.only(this.props.children))" +
@@ -1524,16 +1525,18 @@ public class ReactCompilerPassTest {
     test(
       "var Comp = React.createClass({" +
         "statics: {" +
-          "aNumber: 123," +
-          "aString: \"456\"," +
+          "/** @const {number} */" +
+          "aNumber: 123,\n" +
+          "/** @const {string} */" +
+          "aString: \"456\",\n" +
+          "/** @return {number} */" +
           "aFunction: function() {return 123}" +
-        "}," +
+        "},\n" +
         "render: function() {return React.createElement(\"div\");}" +
-      "});" +
-      "window.aNumber = Comp.aNumber;" +
-      "window.aString = Comp.aString;" +
-      "window.aFunctionResult = Comp.aFunction();",
-      // Statics without JSDoc are OK
+      "});\n" +
+      "window.aNumber = Comp.aNumber;\n" +
+      "window.aString = Comp.aString;\n" +
+      "window.aFunctionResult = Comp.aFunction();\n",
       "var $Comp$$=React.createClass({" +
         "statics:{" +
         "$aNumber$:123," +
@@ -1545,35 +1548,26 @@ public class ReactCompilerPassTest {
       "window.$aNumber$=$Comp$$.$aNumber$;" +
       "window.$aString$=$Comp$$.$aString$;" +
       "window.$aFunctionResult$=123;");
+    // JSDoc is required
     testError(
       "var Comp = React.createClass({" +
         "statics: {" +
-          "/** @type {number} */" +
-          "aNumber: 123" +
+          "aFunction: function(aNumber) {window.foo = aNumber}" +
+        "}," +
+        "render: function() {return React.createElement(\"div\");}" +
+      "});",
+      "REACT_JSDOC_REQUIRED_FOR_STATICS");
+    // JSDoc is used to validate.
+    testError(
+      "var Comp = React.createClass({" +
+        "statics: {" +
+          "/** @param {number} aNumber */" +
+          "aFunction: function(aNumber) {window.foo = aNumber}" +
         "}," +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
-      "window.foo = Comp.aNumber.charAt(0);",
-      // But if JSDoc is provided, then it is used.
-      "JSC_INEXISTENT_PROPERTY");
-  }
-
-  @Test public void testGetDefaultPropsThis() {
-    test(
-      "var Comp = React.createClass({" +
-        "statics: {" +
-          "CONST: 123" +
-        "}," +
-        "getDefaultProps: function() {" +
-          "return {aProp: this.CONST}" +
-        "}," +
-        "render: function() {" +
-          "return React.createElement(\"div\");" +
-        "}" +
-      "});",
-      // "this" inside of getDefaultProps allows access to statics (i.e. we are
-      // not in a component instance).
-      "");
+      "window.foo = Comp.aFunction('notANumber');",
+      "JSC_TYPE_MISMATCH");
   }
 
   @Test public void testPureRenderMixin() {
@@ -1666,6 +1660,10 @@ public class ReactCompilerPassTest {
         String expectedJs,
         ReactCompilerPass.Options passOptions,
         DiagnosticType expectedError) {
+    if (passOptions == null) {
+      passOptions = new ReactCompilerPass.Options();
+      passOptions.propTypesTypeChecking = true;
+    }
     Compiler compiler = new Compiler(
         new PrintStream(ByteStreams.nullOutputStream())); // Silence logging
     compiler.disableThreads(); // Makes errors easier to track down.
@@ -1675,16 +1673,20 @@ public class ReactCompilerPassTest {
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
     options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
     options.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5);
-    options.setWarningLevel(
-        DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
+    if (!passOptions.optimizeForSize) {
+      // We assume that when optimizing for size we don't care about property
+      // checks (they rely on propTypes being extracted, which we don't do).
+      options.setWarningLevel(
+          DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.ERROR);
+      options.setWarningLevel(
+          DiagnosticGroups.STRICT_MISSING_PROPERTIES, CheckLevel.ERROR);
+    }
+    options.setGenerateExports(true);
+    options.setExportLocalPropertyDefinitions(true);
     options.setGeneratePseudoNames(true);
     options.addWarningsGuard(new ReactWarningsGuard());
     // Report warnings as errors to make tests simpler
     options.addWarningsGuard(new StrictWarningsGuard());
-    if (passOptions == null) {
-      passOptions = new ReactCompilerPass.Options();
-      passOptions.propTypesTypeChecking = true;
-    }
     options.addCustomPass(
         CustomPassExecutionTime.BEFORE_CHECKS,
         new ReactCompilerPass(compiler, passOptions));
