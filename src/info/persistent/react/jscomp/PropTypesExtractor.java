@@ -400,7 +400,7 @@ class PropTypesExtractor {
       String oneOfTypeString = propTypeString.substring(
           ONE_OF_TYPE_PREFIX.length(),
           propTypeString.length() - ONE_OF_TYPE_SUFFIX.length());
-      String[] oneOfTypeStrings = oneOfTypeString.split(",");
+      List<String> oneOfTypeStrings = commaSplit(oneOfTypeString);
       Node propType = new Node(Token.PIPE);
       for (String typeString : oneOfTypeStrings) {
         PropType typeResult = convertPropType(typeString);
@@ -424,7 +424,7 @@ class PropTypesExtractor {
       String shapeString = propTypeString.substring(
           SHAPE_PREFIX.length(),
           propTypeString.length() - SHAPE_SUFFIX.length());
-      String[] shapeStrings = shapeString.split(",");
+      List<String> shapeStrings = commaSplit(shapeString);
       Node lb = new Node(Token.LB);
       for (String typeString : shapeStrings) {
         String[] typeStringPieces = typeString.split(":", 2);
@@ -894,5 +894,35 @@ class PropTypesExtractor {
       node.addChildToBack(child);
     }
     return node;
+  }
+
+  /**
+   * Very simple comma splitter that ignores commas in nested structures.
+   */
+  private static List<String> commaSplit(String input) {
+    List<String> result = Lists.newArrayList();
+    int braceCount = 0;
+    int lastSplit = 0;
+    for (int i = 0; i < input.length(); i++) {
+      char c = input.charAt(i);
+      switch (c) {
+        case '(':
+        case '[':
+          braceCount++;
+          break;
+        case ')':
+        case ']':
+          braceCount--;
+          break;
+        case ',':
+          if (braceCount == 0) {
+            result.add(input.substring(lastSplit, i));
+            lastSplit = i + 1;
+          }
+          break;
+      }
+    }
+    result.add(input.substring(lastSplit));
+    return result;
   }
 }

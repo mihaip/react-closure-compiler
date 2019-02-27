@@ -69,6 +69,16 @@ public class PropTypesExtractorTest {
         "React.PropTypes.number," +
         "React.PropTypes.instanceOf(Message)" +
     "])", "(string|number|!Message|undefined|null)");
+    testPropType("React.PropTypes.oneOfType([" +
+        "React.PropTypes.string," +
+        "React.PropTypes.number," +
+        "React.PropTypes.arrayOf(" +
+            "React.PropTypes.oneOfType([" +
+                "React.PropTypes.string," +
+                "React.PropTypes.number" +
+            "]).isRequired" +
+        ")" +
+    "]).isRequired", "(string|number|!Array<(string|number)>)");
 
     testPropType(
         "React.PropTypes.arrayOf(React.PropTypes.number.isRequired).isRequired",
@@ -122,8 +132,12 @@ public class PropTypesExtractorTest {
         .getFirstChild().getFirstChild();
     assertArrayEquals(new JSError[]{}, compiler.getErrors());
 
-    Node typeNode = PropTypesExtractor.convertPropType(reactPropTypeNode)
-        .typeNode;
+    PropTypesExtractor.PropType propType =
+        PropTypesExtractor.convertPropType(reactPropTypeNode);
+    if (propType == null) {
+        assertTrue("Could not convert prop type: " + reactPropType, false);
+    }
+    Node typeNode = propType.typeNode;
 
     // Easiest way to stringify the type node is to print it out as JSDoc.
     JSDocInfoBuilder jsDocInfoBuilder = new JSDocInfoBuilder(true);
