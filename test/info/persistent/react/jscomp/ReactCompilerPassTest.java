@@ -171,6 +171,19 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}" +
       "});");
+    // propTypes from imported mixins are handled correctly
+    testNoError(
+        "export const Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "mixinFuncProp: React.PropTypes.func.isRequired" +
+          "}" +
+        "});\n" +
+        FILE_SEPARATOR +
+        "import * as file1 from './file1.js';\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [file1.Mixin],\n" +
+          "render: function() {return this.props.mixinFuncProp();}" +
+        "});\n");
   }
 
   @Test public void testInstanceMethods() {

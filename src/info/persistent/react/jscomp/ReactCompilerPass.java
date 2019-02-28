@@ -959,7 +959,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
       Node mixinSpecNode = mixinRef.node;
       List<Node> mixinPropTypes = reactMixinsPropTypesByName.get(
-        mixinRef.scope, mixinNameNode);
+          scope, mixinNameNode);
       if (mixinPropTypes != null) {
         propTypeKeyNodes.addAll(mixinPropTypes);
       }
