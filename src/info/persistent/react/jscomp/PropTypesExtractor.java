@@ -100,6 +100,7 @@ class PropTypesExtractor {
   private final String typeName;
   private final String propsTypeName;
   private final String interfaceTypeName;
+  private final Map<Node, PropTypesExtractor> mixedInPropTypes;
   private final Compiler compiler;
 
   private String validatorPropsTypeName;
@@ -118,6 +119,7 @@ class PropTypesExtractor {
       Node getDefaultPropsNode,
       String typeName,
       String interfaceTypeName,
+      Map<Node, PropTypesExtractor> mixedInPropTypes,
       Compiler compiler) {
     this.propTypesNode = propTypesNode;
     this.sourceFileName = propTypesNode.getSourceFileName();
@@ -125,6 +127,7 @@ class PropTypesExtractor {
     this.typeName = typeName;
     this.propsTypeName = typeName + ".Props";
     this.interfaceTypeName = interfaceTypeName;
+    this.mixedInPropTypes = mixedInPropTypes;
     this.compiler = compiler;
     // Generate a unique global function name (so that the compiler can more
     // easily see that it's a passthrough and inline and remove it).
@@ -193,7 +196,8 @@ class PropTypesExtractor {
     Node propTypesObjectLitNode = propTypesNode.getFirstChild();
     props = Lists.newArrayListWithCapacity(
         propTypesObjectLitNode.getChildCount());
-    canBeCreatedWithNoProps = true;
+    canBeCreatedWithNoProps = mixedInPropTypes.values().stream().allMatch(
+       propType -> propType.canBeCreatedWithNoProps);
 
     for (Node propTypeKeyNode : propTypesObjectLitNode.children()) {
       String propName = propTypeKeyNode.getString();
@@ -562,7 +566,11 @@ class PropTypesExtractor {
     // propTypes but is passed in separately at creation time.
     validatorPropsTypeName = propsTypeName;
     boolean needsCustomValidatorType = childrenPropTypeNode != null ||
-        props.stream().anyMatch(prop -> prop.hasDefaultValue);
+        props.stream().anyMatch(prop -> prop.hasDefaultValue) ||
+        // Even if we don't have any props with default values, we might have a
+        // mixin that does.
+        mixedInPropTypes.values().stream().anyMatch(
+            propType -> !propType.validatorPropsTypeName.equals(propType.propsTypeName));
     if (needsCustomValidatorType) {
       validatorPropsTypeName = typeName + ".CreateProps";
       Node validatorPropsRecordTypeNode = getPropsRecordTypeNode(
@@ -691,6 +699,23 @@ class PropTypesExtractor {
     // var Comp$Props = function() {};
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordImplicitMatch();
+    // For mixins we use @extend (instead of inlining the mixin props) so that
+    // we don't have issues with type references when moving code across
+    // modules.
+    for (Map.Entry<Node, PropTypesExtractor> entry : mixedInPropTypes.entrySet()) {
+      Node mixinNameNode = entry.getKey();
+      PropTypesExtractor mixedInPropType = entry.getValue();
+      String mixedInName = mixedInPropType.propsTypeName;
+      if (name.equals(validatorPropsTypeName)) {
+        mixedInName = mixedInPropType.validatorPropsTypeName;
+      } else if (name.equals(spreadValidatorPropsTypeName)) {
+        mixedInName = mixedInPropType.spreadValidatorPropsTypeName;
+      }
+      mixedInName = mixinNameNode.getQualifiedName() +
+        mixedInName.substring(mixedInPropType.typeName.length());
+      jsDocBuilder.recordExtendedInterface(new JSTypeExpression(
+        IR.string(mixedInName), sourceFileName));
+    }
     Node propsRecordTypeNode = NodeUtil.newQNameDeclaration(
         compiler,
         typeName,
@@ -738,11 +763,14 @@ class PropTypesExtractor {
     }
     Node propsPrototypeRecordTypeNode = new Node(Token.LC, lb);
     jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordType(new JSTypeExpression(
-        propsPrototypeRecordTypeNode, sourceFileName));
+    // We may not have our own props, and instead are just @extend-ing mixins.
+    if (!props.isEmpty()) {
+      jsDocBuilder.recordType(new JSTypeExpression(
+          propsPrototypeRecordTypeNode, sourceFileName));
+    }
     Node propsRecordTypePrototypeNode = NodeUtil.newQName(
         compiler, typeName + ".prototype");
-    propsRecordTypePrototypeNode.setJSDocInfo(jsDocBuilder.build());
+    propsRecordTypePrototypeNode.setJSDocInfo(jsDocBuilder.build(true));
     propsRecordTypePrototypeNode = IR.exprResult(propsRecordTypePrototypeNode);
 
     // /** @typedef {!Comp$Props} */

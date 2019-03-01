@@ -184,6 +184,20 @@ public class ReactCompilerPassTest {
           "mixins: [file1.Mixin],\n" +
           "render: function() {return this.props.mixinFuncProp();}" +
         "});\n");
+    // Including those that reference types from the mixin's file
+    testNoError(
+        "export const Obj = class {};\n" +
+        "export const Mixin = React.createMixin({" +
+          "propTypes: {" +
+            "mixinProp: React.PropTypes.instanceOf(Obj).isRequired" +
+          "}" +
+        "});\n" +
+        FILE_SEPARATOR +
+        "import * as file1 from './file1.js';\n" +
+        "var Comp = React.createClass({" +
+          "mixins: [file1.Mixin],\n" +
+          "render: function() {return null;}" +
+        "});\n");
   }
 
   @Test public void testInstanceMethods() {
