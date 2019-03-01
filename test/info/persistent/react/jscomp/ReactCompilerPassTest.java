@@ -257,12 +257,12 @@ public class ReactCompilerPassTest {
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
       "var $inst$$=ReactDOM.render(React.createElement(React.createClass({" +
-        "mixins:[{" +
-          "mixins:[{" +
+        "mixins:[React.createMixin({" +
+          "mixins:[React.createMixin({" +
             "$chainedMixinMethod$:function(){window.$foo$=456}" +
-          "}]," +
+          "})]," +
           "$mixinMethod$:function(){window.$foo$=123}" +
-        "}]," +
+        "})]," +
         "render:function(){" +
           "this.$mixinMethod$();" +
           "this.$chainedMixinMethod$();" +
@@ -288,9 +288,9 @@ public class ReactCompilerPassTest {
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
       "ReactDOM.render(React.createElement(React.createClass({" +
-        "mixins:[{" +
+        "mixins:[React.createMixin({" +
           "$mixinMethod$:function(){window.$foo$=123}" +
-        "}]," +
+        "})]," +
         "render:function(){" +
           "this.$mixinMethod$();" +
           "return React.createElement(\"div\")" +
@@ -909,17 +909,24 @@ public class ReactCompilerPassTest {
         new ReactCompilerPass.Options();
     passOptions.optimizeForSize = true;
     passOptions.propTypesTypeChecking = true;
-    // propTypes should get stripped and React.createClass and
-    // React.createElement calls should be replaced with React$createClass and
-    // React$createElement aliases (which can get fully renamed).
+    // - propTypes should get stripped
+    // - React.createMixin() calls should be inlined with just the spec
+    // - React.createClass and React.createElement calls should be replaced with
+    //   React$createClass and React$createElement aliases (which can get fully
+    //   renamed).
     test(
+      "var Mixin = React.createMixin({" +
+          "mixinMethod: function() {return 'foo'}" +
+      "});\n" +
       "var Comp = React.createClass({" +
+        "mixins: [Mixin]," +
         "propTypes: {aProp: React.PropTypes.string}," +
-        "render: function() {return React.createElement(\"div\");}" +
+        "render: function() {return React.createElement(\"div\", null, this.mixinMethod());}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "ReactDOM.render($React$createElement$$($React$createClass$$({" +
-        "render:function(){return $React$createElement$$(\"div\")}" +
+        "mixins:[{$mixinMethod$:function(){return\"foo\"}}]," +
+        "render:function(){return $React$createElement$$(\"div\",null,\"foo\")}" +
       "})),document.body);",
       passOptions,
       null);

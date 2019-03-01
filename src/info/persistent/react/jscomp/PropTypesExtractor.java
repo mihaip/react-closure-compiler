@@ -526,9 +526,9 @@ class PropTypesExtractor {
     // Changes the ReactProps parameter type from built-in component methods to
     // the more specific prop type.
     JSTypeExpression replacementType = new JSTypeExpression(
-        IR.string(propsTypeName), sourceFileName);
+        bang(IR.string(propsTypeName)), sourceFileName);
     JSTypeExpression replacementTypeQMark = new JSTypeExpression(
-        new Node(Token.QMARK, IR.string(propsTypeName)), sourceFileName);
+        qmark(IR.string(propsTypeName)), sourceFileName);
     React.replaceComponentMethodParameterTypes(
         componentMethodKeys,
         ImmutableMap.<JSTypeExpression, JSTypeExpression>builder()
@@ -539,17 +539,12 @@ class PropTypesExtractor {
   }
 
   public void insert(Node insertionPoint, boolean addModuleExports) {
-    // /** @typedef {{
-    //   propA: number,
-    //   propB: string,
-    //   ...
-    // }} */
-    // Comp.Props;
-    Node propsTypedefNode = getPropsTypedefNode(
+    Node propsRecordTypeNode = getPropsRecordTypeNode(
         propsTypeName, RequiredMode.COMPONENT);
-    propsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
-    insertionPoint.getParent().addChildAfter(propsTypedefNode, insertionPoint);
-    insertionPoint = propsTypedefNode;
+    propsRecordTypeNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+    insertionPoint.getParent().addChildAfter(
+        propsRecordTypeNode, insertionPoint);
+    insertionPoint = propsRecordTypeNode;
 
     // To type check React.createElement calls we wrap the "props" parameter
     // with a call to this function. This forces the compiler to check the
@@ -570,11 +565,13 @@ class PropTypesExtractor {
         props.stream().anyMatch(prop -> prop.hasDefaultValue);
     if (needsCustomValidatorType) {
       validatorPropsTypeName = typeName + ".CreateProps";
-      Node validatorPropsTypedefNode = getPropsTypedefNode(
+      Node validatorPropsRecordTypeNode = getPropsRecordTypeNode(
           validatorPropsTypeName, RequiredMode.VALIDATOR);
-      validatorPropsTypedefNode.useSourceInfoIfMissingFromForTree(insertionPoint);
-      insertionPoint.getParent().addChildAfter(validatorPropsTypedefNode, insertionPoint);
-      insertionPoint = validatorPropsTypedefNode;
+      validatorPropsRecordTypeNode.useSourceInfoIfMissingFromForTree(
+          insertionPoint);
+      insertionPoint.getParent().addChildAfter(
+          validatorPropsRecordTypeNode, insertionPoint);
+      insertionPoint = validatorPropsRecordTypeNode;
     }
     validatorFuncNode = IR.function(
         IR.name(validatorFuncName),
@@ -583,7 +580,9 @@ class PropTypesExtractor {
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     Node propsTypeNode = IR.string(validatorPropsTypeName);
     if (canBeCreatedWithNoProps) {
-      propsTypeNode = new Node(Token.QMARK, propsTypeNode);
+      propsTypeNode = qmark(propsTypeNode);
+    } else {
+      propsTypeNode = bang(propsTypeNode);
     }
     jsDocBuilder.recordParameter(
         "props",
@@ -631,20 +630,20 @@ class PropTypesExtractor {
     if (!canBeCreatedWithNoProps) {
       spreadValidatorFuncName = validatorFuncName + "Spread";
       spreadValidatorPropsTypeName = typeName + ".SpreadProps";
-      Node spreadValidatorPropsTypedefNode = getPropsTypedefNode(
+      Node spreadValidatorPropsRecordTypeNode = getPropsRecordTypeNode(
           spreadValidatorPropsTypeName, RequiredMode.SPREAD_VALIDATOR);
-      spreadValidatorPropsTypedefNode.useSourceInfoIfMissingFromForTree(
+      spreadValidatorPropsRecordTypeNode.useSourceInfoIfMissingFromForTree(
           insertionPoint);
       insertionPoint.getParent().addChildAfter(
-          spreadValidatorPropsTypedefNode, insertionPoint);
-      insertionPoint = spreadValidatorPropsTypedefNode;
+          spreadValidatorPropsRecordTypeNode, insertionPoint);
+      insertionPoint = spreadValidatorPropsRecordTypeNode;
 
       Node spreadValidatorFuncNode = IR.function(
           IR.name(spreadValidatorFuncName),
           IR.paramList(IR.name("props")),
           IR.block(IR.returnNode(IR.name("props"))));
       jsDocBuilder = new JSDocInfoBuilder(true);
-      Node spreadPropsTypeNode = IR.string(spreadValidatorPropsTypeName);
+      Node spreadPropsTypeNode = bang(IR.string(spreadValidatorPropsTypeName));
       jsDocBuilder.recordParameter(
           "props",
           new JSTypeExpression(spreadPropsTypeNode, sourceFileName));
@@ -661,11 +660,11 @@ class PropTypesExtractor {
       }
     }
 
-    // /** @type {Comp.Props} */
+    // /** @type {!Comp.Props} */
     // CompInterface.prototype.props;
     jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(
-        new JSTypeExpression(IR.string(propsTypeName), sourceFileName));
+        new JSTypeExpression(bang(IR.string(propsTypeName)), sourceFileName));
     Node propsNode = NodeUtil.newQName(
         compiler, interfaceTypeName + ".prototype.props");
     propsNode.setJSDocInfo(jsDocBuilder.build());
@@ -681,7 +680,23 @@ class PropTypesExtractor {
     SPREAD_VALIDATOR
   }
 
-  private Node getPropsTypedefNode(String name, RequiredMode requiredMode) {
+  private Node getPropsRecordTypeNode(String name, RequiredMode requiredMode) {
+    // /** @record */
+    // Comp.Props = function() {};
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordImplicitMatch();
+    Node propsRecordTypeNode = NodeUtil.newQNameDeclaration(
+        compiler,
+        name,
+        IR.function(IR.name(""), IR.paramList(), IR.block()),
+        jsDocBuilder.build());
+
+    // /** @type {{
+    //   propA: number,
+    //   propB: string,
+    //   ...
+    // }} */
+    // Comp.Props.prototype;
     Node lb = new Node(Token.LB);
     for (Prop prop : props) {
       PropType propType = prop.propType;
@@ -715,16 +730,19 @@ class PropTypesExtractor {
       colon.useSourceInfoFromForTree(prop.propTypeKeyNode);
       lb.addChildToBack(colon);
     }
-    Node propsRecordTypeNode = new Node(Token.LC, lb);
-    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordTypedef(new JSTypeExpression(
-        propsRecordTypeNode, sourceFileName));
-    Node propsTypedefNode = NodeUtil.newQName(compiler, name);
-    propsTypedefNode.setJSDocInfo(jsDocBuilder.build());
-    propsTypedefNode = IR.exprResult(propsTypedefNode);
-    return propsTypedefNode;
-  }
+    Node propsPrototypeRecordTypeNode = new Node(Token.LC, lb);
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        propsPrototypeRecordTypeNode, sourceFileName));
+    Node propsRecordTypePrototypeNode = NodeUtil.newQName(
+        compiler, name + ".prototype");
+    propsRecordTypePrototypeNode.setJSDocInfo(jsDocBuilder.build());
+    propsRecordTypePrototypeNode = IR.exprResult(propsRecordTypePrototypeNode);
 
+    // Wrap the two statements in a block so that we can be more easily
+    // inserted.
+    return IR.block(propsRecordTypeNode, propsRecordTypePrototypeNode);
+  }
 
   private void visitObjectAssign(Node callTypeNode, Node callNode) {
     for (Node spreadParamNode = callNode.getChildAtIndex(1);
@@ -741,7 +759,7 @@ class PropTypesExtractor {
         if (canBeCreatedWithNoProps) {
           JSDocInfoBuilder castJsDocBuilder = new JSDocInfoBuilder(true);
           castJsDocBuilder.recordType(new JSTypeExpression(
-              IR.string(spreadValidatorPropsTypeName),
+              bang(IR.string(spreadValidatorPropsTypeName)),
               callNode.getSourceFileName()));
           JSDocInfo castJsDoc = castJsDocBuilder.build();
           validatorCallNode = IR.cast(validatorCallNode, castJsDoc);
@@ -886,6 +904,10 @@ class PropTypesExtractor {
 
   private static Node bang(Node child) {
     return new Node(Token.BANG, child);
+  }
+
+  private static Node qmark(Node child) {
+    return new Node(Token.QMARK, child);
   }
 
   private static Node pipe(Node... children) {
