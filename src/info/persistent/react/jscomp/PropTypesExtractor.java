@@ -681,13 +681,19 @@ class PropTypesExtractor {
   }
 
   private Node getPropsRecordTypeNode(String name, RequiredMode requiredMode) {
+    // Define the type in a separate variable, instead of directly assigning
+    // it to the .Props property of the parent. That has issues with mixins,
+    // because they're just object literals, and it makes the compiler think
+    // that they are namespaces (and then it complains abut incomplete aliases
+    // when the mixins are reference).
+    String typeName = name.replaceAll("\\.", "\\$");
     // /** @record */
-    // Comp.Props = function() {};
+    // var Comp$Props = function() {};
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordImplicitMatch();
     Node propsRecordTypeNode = NodeUtil.newQNameDeclaration(
         compiler,
-        name,
+        typeName,
         IR.function(IR.name(""), IR.paramList(), IR.block()),
         jsDocBuilder.build());
 
@@ -696,7 +702,7 @@ class PropTypesExtractor {
     //   propB: string,
     //   ...
     // }} */
-    // Comp.Props.prototype;
+    // Comp$Props.prototype;
     Node lb = new Node(Token.LB);
     for (Prop prop : props) {
       PropType propType = prop.propType;
@@ -735,13 +741,28 @@ class PropTypesExtractor {
     jsDocBuilder.recordType(new JSTypeExpression(
         propsPrototypeRecordTypeNode, sourceFileName));
     Node propsRecordTypePrototypeNode = NodeUtil.newQName(
-        compiler, name + ".prototype");
+        compiler, typeName + ".prototype");
     propsRecordTypePrototypeNode.setJSDocInfo(jsDocBuilder.build());
     propsRecordTypePrototypeNode = IR.exprResult(propsRecordTypePrototypeNode);
 
-    // Wrap the two statements in a block so that we can be more easily
+    // /** @typedef {!Comp$Props} */
+    // Comp.Props;
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        bang(IR.string(typeName)), sourceFileName));
+    Node propsRecordTypedefNode = NodeUtil.newQNameDeclaration(
+        compiler,
+        name,
+        null,
+        jsDocBuilder.build());
+
+
+    // Wrap the three statements in a block so that we can be more easily
     // inserted.
-    return IR.block(propsRecordTypeNode, propsRecordTypePrototypeNode);
+    return IR.block(
+        propsRecordTypeNode,
+        propsRecordTypePrototypeNode,
+        propsRecordTypedefNode);
   }
 
   private void visitObjectAssign(Node callTypeNode, Node callNode) {

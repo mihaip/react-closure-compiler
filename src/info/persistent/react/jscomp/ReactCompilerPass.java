@@ -290,22 +290,22 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     NodeTraversal.traverse(compiler, scriptRoot, this);
-    if (options.optimizeForSize) {
-      // Inline React.createMixin calls, since they're just decorators.
-      for (MixinRef mixinRef : reactMixinsByName.values()) {
-        Node mixinSpecNode = mixinRef.node;
-        Node mixinSpecParentNode = mixinSpecNode.getParent();
-        if (mixinSpecParentNode.isCall() &&
-            mixinSpecParentNode.hasMoreThanOneChild() &&
-            mixinSpecParentNode.getFirstChild().getQualifiedName().equals(
-              "React.createMixin")) {
-          mixinSpecNode.detachFromParent();
-          mixinSpecParentNode.getParent().replaceChild(
-            mixinSpecParentNode,
-            mixinSpecNode);
-          compiler.reportChangeToEnclosingScope(mixinSpecNode.getParent());
-        }
+    // Inline React.createMixin calls, since they're just decorators.
+    for (MixinRef mixinRef : reactMixinsByName.values()) {
+      Node mixinSpecNode = mixinRef.node;
+      Node mixinSpecParentNode = mixinSpecNode.getParent();
+      if (mixinSpecParentNode.isCall() &&
+          mixinSpecParentNode.hasMoreThanOneChild() &&
+          mixinSpecParentNode.getFirstChild().getQualifiedName().equals(
+            "React.createMixin")) {
+        mixinSpecNode.detachFromParent();
+        mixinSpecParentNode.getParent().replaceChild(
+          mixinSpecParentNode,
+          mixinSpecNode);
+        compiler.reportChangeToEnclosingScope(mixinSpecNode.getParent());
       }
+    }
+    if (options.optimizeForSize) {
       for (Node classSpecNode : reactClassesByName.values()) {
         Node functionNameNode = classSpecNode.getPrevious();
         if (functionNameNode.getToken() == Token.GETPROP) {
