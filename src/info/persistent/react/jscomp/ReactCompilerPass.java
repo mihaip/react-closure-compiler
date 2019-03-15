@@ -483,10 +483,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       break;
     }
 
-    // For compomnents tagged with @export don't rename their props or public
+    // For components tagged with @export don't rename their props or public
     // methods.
     JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(callNode);
     boolean isExportedType = jsDocInfo != null && jsDocInfo.isExport();
+    // "Clear" the @export bit, otherwise the compiler will complain about its
+    // presence on module-scoped variables.
+    if (isExportedType && t.getScope().isModuleScope()) {
+      JSDocInfoAccessor.setJSDocExport(jsDocInfo, false);
+    }
     List<JSTypeExpression> implementedInterfaces = jsDocInfo != null ?
         jsDocInfo.getImplementedInterfaces() :
         Collections.<JSTypeExpression>emptyList();
