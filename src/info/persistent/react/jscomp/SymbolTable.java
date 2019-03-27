@@ -75,10 +75,34 @@ class SymbolTable<V> {
     }
     ModulePath modulePath = ModulePathAccessor.getVarInputModulePath(nameVar);
     if (namePieces.length == 1) {
+      if (nameVar.getNode().getParent().isImportSpec()) {
+        // Even if we're not doing a property access the name could be something
+        // that's exported. We handle both patterns:
+        // import {Name} from "./file.js";
+        // import {Name as Name2} from "./file.js";
+        // The AST looks like this:
+        // IMPORT
+        //    EMPTY
+        //    IMPORT_SPECS
+        //        IMPORT_SPEC
+        //            NAME # exported name
+        //            NAME # nameVar node
+        //    STRING # module identifier
+        Node moduleIdentifier = nameVar.getNode().getGrandparent().getNext();
+        ModulePath importPath = modulePath.resolveModuleAsPath(moduleIdentifier.getString());
+        return readKey(importPath, nameVar.getNode().getPrevious().getString());
+      }
       return readKey(modulePath, name);
     }
 
     if (nameVar.getNode().isImportStar()) {
+        // Handle importing an entire module too, with this pattern:
+        // import * as file1 from "./file1.js"
+        // The AST looks like this:
+        // IMPORT
+        //    EMPTY
+        //    IMPORT_STAR # nameVar node
+        //    STRING # module identifier
         Node moduleIdentifier = nameVar.getNode().getNext();
         ModulePath importPath = modulePath.resolveModuleAsPath(moduleIdentifier.getString());
         String nameRemainder = Joiner.on(".").join(Arrays.copyOfRange(namePieces, 1, namePieces.length));

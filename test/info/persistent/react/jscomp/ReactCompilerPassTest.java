@@ -150,6 +150,34 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}" +
       "});");
+    // Mixins can be imported directly
+    testNoError(
+      "export const Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import {Mixin} from './file1.js';\n" +
+      "export const Comp = React.createClass({" +
+        "mixins: [Mixin]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});");
+    // Or under a different name
+    testNoError(
+      "export const Mixin = React.createMixin({" +
+        "mixinMethod: function() {window.foo = 123}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import {Mixin as m} from './file1.js';\n" +
+      "export const Comp = React.createClass({" +
+        "mixins: [m]," +
+        "render: function() {" +
+          "this.mixinMethod();" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "});");
     // Mixin references can be chained too.
     testNoError(
       "export const Mixin1 = React.createMixin({" +
