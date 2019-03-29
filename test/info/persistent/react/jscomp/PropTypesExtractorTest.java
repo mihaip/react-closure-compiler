@@ -130,7 +130,7 @@ public class PropTypesExtractorTest {
     Node reactPropTypeNode = compiler.parse(
         SourceFile.fromCode("/src/test.js", reactPropType))
         .getFirstChild().getFirstChild();
-    assertArrayEquals(new JSError[]{}, compiler.getErrors());
+    assertTrue(compiler.getErrors().isEmpty());
 
     PropTypesExtractor.PropType propType =
         PropTypesExtractor.convertPropType(reactPropTypeNode);

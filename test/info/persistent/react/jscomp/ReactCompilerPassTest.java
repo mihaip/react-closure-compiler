@@ -1796,11 +1796,11 @@ public class ReactCompilerPassTest {
       assertEquals(
           "Unexpected errors: " + Joiner.on(",").join(result.errors) +
               lastOutput,
-          0, result.errors.length);
+          0, result.errors.size());
       assertEquals(
           "Unexpected warnings: " + Joiner.on(",").join(result.warnings) +
               lastOutput,
-          0, result.warnings.length);
+          0, result.warnings.size());
       assertTrue(result.success);
       if (expectedJs != null) {
         String actualJs = compiler.toSource();
@@ -1816,7 +1816,7 @@ public class ReactCompilerPassTest {
       assertFalse(
           "Expected failure, instead got output: " + compiler.toSource(),
           result.success);
-      assertTrue(result.errors.length > 0);
+      assertTrue(result.errors.size() > 0);
       boolean foundError = false;
       for (JSError error : result.errors) {
         if (error.getType().equals(expectedError)) {
@@ -1832,7 +1832,7 @@ public class ReactCompilerPassTest {
       assertEquals(
           "Unexpected warnings: " + Joiner.on(",").join(result.warnings) +
               lastOutput,
-          0, result.warnings.length);
+          0, result.warnings.size());
     }
   }
 }

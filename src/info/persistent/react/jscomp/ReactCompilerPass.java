@@ -32,6 +32,7 @@ import com.google.javascript.rhino.JSDocInfoAccessor;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Node.SideEffectFlags;
 import com.google.javascript.rhino.Token;
 
 import java.io.IOException;
@@ -252,13 +253,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         compiler.parse(SourceFile.fromCode(React.TYPES_JS_RESOURCE_PATH, typesJs));
       Result result = compiler.getResult();
       if ((result.success != previousResult.success && previousResult.success) ||
-          result.errors.length > previousResult.errors.length ||
-          result.warnings.length > previousResult.warnings.length) {
+          result.errors.size() > previousResult.errors.size() ||
+          result.warnings.size() > previousResult.warnings.size()) {
         String message = "Could not parse " + React.TYPES_JS_RESOURCE_PATH + ".";
-        if (result.errors.length > 0) {
+        if (result.errors.size() > 0) {
           message += "\nErrors: " + Joiner.on(",").join(result.errors);
         }
-        if (result.warnings.length > 0) {
+        if (result.warnings.size() > 0) {
           message += "\nWarnings: " + Joiner.on(",").join(result.warnings);
         }
         throw new RuntimeException(message);
@@ -396,7 +397,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     // Mark the call as not having side effects, so that unused components and
     // mixins can be removed.
-    callNode.setSideEffectFlags(Node.NO_SIDE_EFFECTS);
+    callNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
 
     // Turn the React.createClass call into a type definition for the Closure
     // compiler. Equivalent to generating the following code around the call:

@@ -63,8 +63,8 @@ public class ReactWarningsGuardTest {
           "/** @constructor */ function Error() {};"));
     Result result = compiler.compile(externs, inputs, options);
     assertFalse(result.success);
-    assertEquals(1, result.errors.length);
-    JSError error = result.errors[0];
+    assertEquals(1, result.errors.size());
+    JSError error = result.errors.get(0);
     assertFalse(
         error.description,
         error.description.contains("Comp$$PropsValidator"));
