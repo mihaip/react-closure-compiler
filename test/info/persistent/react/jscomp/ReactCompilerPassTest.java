@@ -1037,7 +1037,7 @@ public class ReactCompilerPassTest {
 
   @Test public void testExport() {
     String CLOSURE_EXPORT_FUNCTIONS =
-      "const goog = {};" +
+      "/** @const */ const goog = {};" +
       "goog.exportSymbol = function(publicPath, object) {};\n" +
       "goog.exportProperty = function(object, publicName, symbol) {};\n";
     // Props where the class is tagged with @export should not get renamed,
@@ -1689,7 +1689,7 @@ public class ReactCompilerPassTest {
     test(
       "var Comp = React.createClass({" +
         "render: function() {" +
-          "const props = {a: \"1\"};\n" +
+          "var props = {a: \"1\"};\n" +
           "return React.createElement(\"div\", {...props});" +
         "}" +
       "});" +
