@@ -533,6 +533,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node propTypesNode = null;
     Node getDefaultPropsNode = null;
     Node getInitialStateNode = null;
+    Node contextTypesNode = null;
     Map<String, JSDocInfo> staticsJsDocs = Maps.newHashMap();
     List<String> exportedNames = Lists.newArrayList();
     Map<Node, PropTypesExtractor> mixedInPropTypes = Maps.newHashMap();
@@ -574,6 +575,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
       if (keyName.equals("getInitialState")) {
         getInitialStateNode = key;
+      }
+      if (keyName.equals("contextTypes")) {
+        contextTypesNode = key;
+        continue;
       }
       if (keyName.equals("statics")) {
         if (createFuncName.equals("React.createClass")) {
@@ -750,6 +755,20 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         propTypesNode == null) {
       propTypesNode = IR.stringKey("propType", IR.objectlit());
     }
+
+    if (contextTypesNode != null &&
+        PropTypesExtractor.canExtractPropTypes(contextTypesNode)) {
+      if (options.propTypesTypeChecking) {
+        PropTypesExtractor extractor = new PropTypesExtractor(
+            contextTypesNode, null, typeName, interfaceTypeName,
+            mixedInPropTypes, compiler, true);
+        extractor.extract();
+        extractor.insert(typesInsertionPoint, addModuleExports);
+      } else {
+        PropTypesExtractor.cleanUpPropTypesWhenNotChecking(contextTypesNode);
+      }
+    }
+
 
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {

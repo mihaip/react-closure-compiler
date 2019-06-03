@@ -1550,6 +1550,45 @@ public class ReactCompilerPassTest {
       "})),document.body);");
   }
 
+  @Test public void testContextTypesTypeChecking() {
+    // Validate use of context within methods.
+    testError(
+      "var Comp = React.createClass({" +
+        "contextTypes: {numberProp: React.PropTypes.number}," +
+        "render: function() {" +
+          "this.context.numberProp();" +
+          "return null;" +
+        "}" +
+      "});",
+      "JSC_NOT_FUNCTION_TYPE");
+    // Both props and context are checked
+    testNoError(
+      "var Comp = React.createClass({" +
+        "contextTypes: {\n" +
+          "/** @type {function(number)} */\n" +
+          "functionProp: React.PropTypes.func," +
+        "}," +
+        "propTypes: {numberProp: React.PropTypes.number.isRequired}," +
+        "render: function() {" +
+          "this.context.functionProp(this.props.numberProp);" +
+          "return null;" +
+        "}" +
+      "});");
+    testError(
+      "var Comp = React.createClass({" +
+        "contextTypes: {\n" +
+          "/** @type {function(number)} */\n" +
+          "functionProp: React.PropTypes.func," +
+        "}," +
+        "propTypes: {stringProp: React.PropTypes.string.isRequired}," +
+        "render: function() {" +
+          "this.context.functionProp(this.props.stringProp);" +
+          "return null;" +
+        "}" +
+      "});",
+      "JSC_TYPE_MISMATCH");
+  }
+
   @Test public void testReactDOM() {
     test("var Comp = React.createClass({});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",

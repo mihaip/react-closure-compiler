@@ -102,6 +102,7 @@ class PropTypesExtractor {
   private final String interfaceTypeName;
   private final Map<Node, PropTypesExtractor> mixedInPropTypes;
   private final Compiler compiler;
+  private final boolean forContext;
 
   private String validatorPropsTypeName;
   private final String validatorFuncName;
@@ -121,20 +122,46 @@ class PropTypesExtractor {
       String interfaceTypeName,
       Map<Node, PropTypesExtractor> mixedInPropTypes,
       Compiler compiler) {
+    this(
+        propTypesNode,
+        getDefaultPropsNode,
+        typeName,
+        interfaceTypeName,
+        mixedInPropTypes,
+        compiler,
+        false);
+  }
+
+  public PropTypesExtractor(
+      Node propTypesNode,
+      Node getDefaultPropsNode,
+      String typeName,
+      String interfaceTypeName,
+      Map<Node, PropTypesExtractor> mixedInPropTypes,
+      Compiler compiler,
+      boolean forContext) {
     this.propTypesNode = propTypesNode;
     this.sourceFileName = propTypesNode.getSourceFileName();
     this.getDefaultPropsNode = getDefaultPropsNode;
     this.typeName = typeName;
-    this.propsTypeName = typeName + ".Props";
+    this.propsTypeName = typeName + (forContext ? ".Context" : ".Props");
     this.interfaceTypeName = interfaceTypeName;
     this.mixedInPropTypes = mixedInPropTypes;
     this.compiler = compiler;
-    // Generate a unique global function name (so that the compiler can more
-    // easily see that it's a passthrough and inline and remove it).
-    String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
-    this.validatorFuncName = sanitizedTypeName + PROPS_VALIDATOR_SUFFIX;
-    this.childrenValidatorFuncName =
-        sanitizedTypeName + CHILDREN_VALIDATOR_SUFFIX;
+    this.forContext = forContext;
+    if (!forContext) {
+      // Generate a unique global function name (so that the compiler can more
+      // easily see that it's a passthrough and inline and remove it).
+      String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
+      this.validatorFuncName = sanitizedTypeName + PROPS_VALIDATOR_SUFFIX;
+      this.childrenValidatorFuncName =
+          sanitizedTypeName + CHILDREN_VALIDATOR_SUFFIX;
+    } else {
+      // We don't do validation for context (by definition we can't statically
+      // tell when it's provided).
+      this.validatorFuncName = null;
+      this.childrenValidatorFuncName = null;
+    }
     this.childrenPropTypeNode = null;
     this.childrenIsRequired = false;
   }
@@ -549,6 +576,22 @@ class PropTypesExtractor {
     insertionPoint.getParent().addChildAfter(
         propsRecordTypeNode, insertionPoint);
     insertionPoint = propsRecordTypeNode;
+
+    if (forContext) {
+      // /** @type {!Comp.Context} */
+      // CompInterface.prototype.context;
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+      jsDocBuilder.recordType(
+          new JSTypeExpression(bang(IR.string(propsTypeName)), sourceFileName));
+      Node propsNode = NodeUtil.newQName(
+          compiler, interfaceTypeName + ".prototype.context");
+      propsNode.setJSDocInfo(jsDocBuilder.build());
+      propsNode = IR.exprResult(propsNode);
+      propsNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      insertionPoint.getParent().addChildAfter(propsNode, insertionPoint);
+      insertionPoint = propsNode;
+      return;
+    }
 
     // To type check React.createElement calls we wrap the "props" parameter
     // with a call to this function. This forces the compiler to check the
