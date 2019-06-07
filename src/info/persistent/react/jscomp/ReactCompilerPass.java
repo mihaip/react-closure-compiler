@@ -567,7 +567,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         continue;
       }
       if (keyName.equals("propTypes")) {
-        propTypesNode = key;
+        propTypesNode = key.getFirstChild();
         continue;
       }
       if (keyName.equals("getDefaultProps")) {
@@ -577,7 +577,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         getInitialStateNode = key;
       }
       if (keyName.equals("contextTypes")) {
-        contextTypesNode = key;
+        contextTypesNode = key.getFirstChild();
         continue;
       }
       if (keyName.equals("statics")) {
@@ -651,10 +651,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // the comment), so we couldn't get to it. @struct is sort of appropriate,
     // since the propTypes are going to be used as structs (for reflection
     // presumably).
-    if (propTypesNode != null && options.optimizeForSize &&
-        (propTypesNode.getJSDocInfo() == null ||
-            !propTypesNode.getJSDocInfo().makesStructs())) {
-      propTypesNode.detachFromParent();
+    if (propTypesNode != null && options.optimizeForSize) {
+      JSDocInfo jsdoc = NodeUtil.getBestJSDocInfo(propTypesNode);
+      if (jsdoc == null || !jsdoc.makesStructs()) {
+        propTypesNode.getParent().detachFromParent();
+      }
     }
 
     // Add a "<type name>Element" @typedef for the element type of this class.
@@ -753,7 +754,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (options.propTypesTypeChecking &&
         !mixedInPropTypes.isEmpty() &&
         propTypesNode == null) {
-      propTypesNode = IR.stringKey("propType", IR.objectlit());
+      propTypesNode = IR.objectlit();
     }
 
     if (contextTypesNode != null &&
@@ -773,7 +774,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
       if (isExportedType) {
-        for (Node propTypeKeyNode : propTypesNode.getFirstChild().children()) {
+        for (Node propTypeKeyNode : propTypesNode.children()) {
           exportedNames.add(propTypeKeyNode.getString());
         }
       }
