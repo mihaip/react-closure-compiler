@@ -179,8 +179,7 @@ class PropTypesExtractor {
   }
 
   public static boolean canExtractPropTypes(Node propTypesNode) {
-    return propTypesNode.hasOneChild() &&
-        propTypesNode.getFirstChild().isObjectLit();
+    return propTypesNode.isObjectLit();
   }
 
   /**
@@ -189,8 +188,7 @@ class PropTypesExtractor {
    * were added.
    */
   public static void cleanUpPropTypesWhenNotChecking(Node propTypesNode) {
-    Node propTypesObjectLitNode = propTypesNode.getFirstChild();
-    for (Node propTypeKeyNode : propTypesObjectLitNode.children()) {
+    for (Node propTypeKeyNode : propTypesNode.children()) {
       if (propTypeKeyNode.getJSDocInfo() != null) {
         JSDocInfo propTypeJsDoc = propTypeKeyNode.getJSDocInfo();
         if (propTypeJsDoc.hasType()) {
@@ -220,7 +218,7 @@ class PropTypesExtractor {
       propsWithDefaultValues = Collections.emptySet();
     }
 
-    Node propTypesObjectLitNode = propTypesNode.getFirstChild();
+    Node propTypesObjectLitNode = propTypesNode;
     props = Lists.newArrayListWithCapacity(
         propTypesObjectLitNode.getChildCount());
     canBeCreatedWithNoProps = mixedInPropTypes.values().stream().allMatch(
