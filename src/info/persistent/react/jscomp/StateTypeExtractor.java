@@ -13,7 +13,6 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Adds type information for component state. Assumes that getInitialState
@@ -32,9 +31,7 @@ class StateTypeExtractor {
   private static final JSTypeExpression REACT_STATE_TYPE_QMARK = new JSTypeExpression(
       new Node(Token.QMARK, IR.string("ReactState")), null);
 
-  private final Node getInitialStateNode;
   private final String sourceFileName;
-  private final String typeName;
   private final String stateTypeName;
   private final String partialStateTypeName;
   private final String interfaceTypeName;
@@ -46,9 +43,7 @@ class StateTypeExtractor {
       String typeName,
       String interfaceTypeName,
       Compiler compiler) {
-    this.getInitialStateNode = getInitialStateNode;
     this.sourceFileName = getInitialStateNode.getSourceFileName();
-    this.typeName = typeName;
     this.stateTypeName = typeName + ".State";
     this.partialStateTypeName = typeName + ".PartialState";
     this.interfaceTypeName = interfaceTypeName;

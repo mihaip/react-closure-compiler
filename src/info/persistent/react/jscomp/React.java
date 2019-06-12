@@ -1,9 +1,7 @@
 package info.persistent.react.jscomp;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -97,7 +95,6 @@ public class React {
       JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
       for (String parameterName : existing.getParameterNames()) {
         JSTypeExpression parameterType = existing.getParameterType(parameterName);
-        JSTypeExpression replacementType = null;
         // JSTypeExpression does not implement hashCode correctly, therefore we
         // can't get() to find in the map.
         for (Map.Entry<JSTypeExpression, JSTypeExpression> entry: replacements.entrySet()) {

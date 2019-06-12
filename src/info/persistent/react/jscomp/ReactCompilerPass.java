@@ -3,14 +3,12 @@ package info.persistent.react.jscomp;
 import info.persistent.jscomp.Ast;
 import info.persistent.jscomp.Debug;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.io.Resources;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerAccessor;
@@ -19,7 +17,6 @@ import com.google.javascript.jscomp.DiagnosticGroup;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.HotSwapCompilerPass;
 import com.google.javascript.jscomp.JSError;
-import com.google.javascript.jscomp.JSModule;
 import com.google.javascript.jscomp.JsAst;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
@@ -32,10 +29,9 @@ import com.google.javascript.rhino.JSDocInfoAccessor;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Node.SideEffectFlags;
 import com.google.javascript.rhino.Token;
 
-import java.io.IOException;
-import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -215,7 +211,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         IR.string("Function"), insertionPoint.getSourceFileName()));
     createClassAliasNode.setJSDocInfo(jsDocBuilder.build());
     insertionPoint.addChildToBack(createClassAliasNode);
-    // Also add an alias for React.PropTypes, which may still be preset if we're
+    // Also add an alias for React.PropTypes, which may still be present if we're
     // preserving propTypes via @struct.
     Node propTypesAliasNode = IR.var(
         IR.name(PROP_TYPES_ALIAS_NAME),
@@ -252,13 +248,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         compiler.parse(SourceFile.fromCode(React.TYPES_JS_RESOURCE_PATH, typesJs));
       Result result = compiler.getResult();
       if ((result.success != previousResult.success && previousResult.success) ||
-          result.errors.length > previousResult.errors.length ||
-          result.warnings.length > previousResult.warnings.length) {
+          result.errors.size() > previousResult.errors.size() ||
+          result.warnings.size() > previousResult.warnings.size()) {
         String message = "Could not parse " + React.TYPES_JS_RESOURCE_PATH + ".";
-        if (result.errors.length > 0) {
+        if (result.errors.size() > 0) {
           message += "\nErrors: " + Joiner.on(",").join(result.errors);
         }
-        if (result.warnings.length > 0) {
+        if (result.warnings.size() > 0) {
           message += "\nWarnings: " + Joiner.on(",").join(result.warnings);
         }
         throw new RuntimeException(message);
@@ -396,7 +392,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     // Mark the call as not having side effects, so that unused components and
     // mixins can be removed.
-    callNode.setSideEffectFlags(Node.NO_SIDE_EFFECTS);
+    callNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
 
     // Turn the React.createClass call into a type definition for the Closure
     // compiler. Equivalent to generating the following code around the call:
@@ -1106,8 +1102,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         return true;
       case ASSIGN:
         return n == parent.getLastChild() && parent.getParent().isExprResult();
+      default:
+        return false;
     }
-    return false;
   }
 
   private void visitReactCreateElement(NodeTraversal t, Node callNode) {

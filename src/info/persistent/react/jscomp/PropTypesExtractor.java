@@ -3,7 +3,6 @@ package info.persistent.react.jscomp;
 import info.persistent.jscomp.Ast;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -51,7 +50,7 @@ class PropTypesExtractor {
   private static final String SHAPE_PREFIX = "React.PropTypes.shape({";
   private static final String SHAPE_SUFFIX = "})";
 
-  // Maped to the required variant, the "null" and "undefined" union will be
+  // Map to the required variant, the "null" and "undefined" union will be
   // added if the prop turns out not to be required.
   private static final Map<String, Node> SIMPLE_PROP_TYPES =
       ImmutableMap.<String, Node>builder()
