@@ -3,7 +3,6 @@ package info.persistent.jscomp;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
-import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 
 import java.nio.charset.StandardCharsets;
@@ -24,8 +23,7 @@ public class AstDump {
     options.setLanguageOut(CompilerOptions.LanguageMode.NO_TRANSPILE);
     options.skipAllCompilerPasses();
     options.setEs6ModuleTranspilation(CompilerOptions.Es6ModuleTranspilation.NONE);
-    Result result = compiler.compile(
-        Collections.<SourceFile>emptyList(), inputs, options);
+    compiler.compile(Collections.<SourceFile>emptyList(), inputs, options);
     System.out.println(Debug.toStringTreeVerbose(compiler.getRoot()));
     System.out.append("\n");
   }

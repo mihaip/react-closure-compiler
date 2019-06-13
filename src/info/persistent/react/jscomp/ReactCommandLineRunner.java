@@ -5,9 +5,6 @@ import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CustomPassExecutionTime;
 
-import java.io.IOException;
-
-
 public class ReactCommandLineRunner extends CommandLineRunner {
     ReactCommandLineRunner(String[] args) {
         super(args);
