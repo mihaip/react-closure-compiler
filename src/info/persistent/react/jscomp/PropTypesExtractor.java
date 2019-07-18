@@ -94,7 +94,7 @@ class PropTypesExtractor {
       new Node(Token.QMARK, IR.string("ReactProps")), null);
 
   private final Node propTypesNode;
-  private final Node getDefaultPropsNode;
+  private final Node defaultPropsNode;
   private final String sourceFileName;
   private final String typeName;
   private final String propsTypeName;
@@ -116,14 +116,14 @@ class PropTypesExtractor {
 
   public PropTypesExtractor(
       Node propTypesNode,
-      Node getDefaultPropsNode,
+      Node defaultPropsNode,
       String typeName,
       String interfaceTypeName,
       Map<Node, PropTypesExtractor> mixedInPropTypes,
       Compiler compiler) {
     this(
         propTypesNode,
-        getDefaultPropsNode,
+        defaultPropsNode,
         typeName,
         interfaceTypeName,
         mixedInPropTypes,
@@ -133,7 +133,7 @@ class PropTypesExtractor {
 
   public PropTypesExtractor(
       Node propTypesNode,
-      Node getDefaultPropsNode,
+      Node defaultPropsNode,
       String typeName,
       String interfaceTypeName,
       Map<Node, PropTypesExtractor> mixedInPropTypes,
@@ -141,7 +141,7 @@ class PropTypesExtractor {
       boolean forContext) {
     this.propTypesNode = propTypesNode;
     this.sourceFileName = propTypesNode.getSourceFileName();
-    this.getDefaultPropsNode = getDefaultPropsNode;
+    this.defaultPropsNode = defaultPropsNode;
     this.typeName = typeName;
     this.propsTypeName = typeName + (forContext ? ".Context" : ".Props");
     this.interfaceTypeName = interfaceTypeName;
@@ -211,8 +211,8 @@ class PropTypesExtractor {
 
   public void extract() {
     Set<String> propsWithDefaultValues;
-    if (getDefaultPropsNode != null) {
-      propsWithDefaultValues = getPropsWithDefaultValues(getDefaultPropsNode);
+    if (defaultPropsNode != null) {
+      propsWithDefaultValues = getPropsWithDefaultValues(defaultPropsNode);
     } else {
       propsWithDefaultValues = Collections.emptySet();
     }
@@ -288,43 +288,45 @@ class PropTypesExtractor {
     }
   }
 
-  /**
-   * Assumes the pattern:
-   *   getDefaultProps: function() {
-   *     return {propName: ...};
-   *   }
-   */
-  private static Set<String> getPropsWithDefaultValues(Node getDefaultPropsNode) {
-    Node getDefaultPropsValueNode = getDefaultPropsNode.getFirstChild();
-    if (!getDefaultPropsValueNode.isFunction()) {
-      return Collections.emptySet();
-    }
-
-    Node getDefaultPropsBlockNode = getDefaultPropsValueNode.getLastChild();
-    if (!getDefaultPropsBlockNode.isNormalBlock()) {
-      return Collections.emptySet();
-    }
-
-    Node getDefaultPropsReturnNode = getDefaultPropsBlockNode.getLastChild();
-    if (!getDefaultPropsReturnNode.isReturn()) {
-      return Collections.emptySet();
-    }
-
-    Node getDefaultPropsReturnValueNode =
-        getDefaultPropsReturnNode.getFirstChild();
-    if (getDefaultPropsReturnValueNode == null ||
-        !getDefaultPropsReturnValueNode.isObjectLit()) {
-      return Collections.emptySet();
-    }
-
+  private static Set<String> getPropsWithDefaultValues(Node objectLiteralNode) {
     Set<String> result = Sets.newHashSetWithExpectedSize(
-        getDefaultPropsReturnValueNode.getChildCount());
-    for (Node keyNode : getDefaultPropsReturnValueNode.children()) {
+        objectLiteralNode.getChildCount());
+    for (Node keyNode : objectLiteralNode.children()) {
       if (keyNode.isString() || keyNode.isStringKey()) {
         result.add(keyNode.getString());
       }
     }
     return result;
+  }
+
+  /**
+   * Extracts the object literal from a function() { return {propName: ...}} if
+   * the function looks like that.
+   */
+  public static Node extractDefaultPropsObjectLiteralNode(Node node) {
+    // getDefaultProps() { return {propName: ...}; }
+    Node functionNode = node.getFirstChild();
+    if (!functionNode.isFunction()) {
+      return null;
+    }
+
+    Node blockNode = functionNode.getLastChild();
+    if (!blockNode.isNormalBlock()) {
+      return null;
+    }
+
+    Node returnNode = blockNode.getLastChild();
+    if (!returnNode.isReturn()) {
+      return null;
+    }
+
+    Node returnValueNode = returnNode.getFirstChild();
+    if (returnValueNode == null ||
+        !returnValueNode.isObjectLit()) {
+      return null;
+    }
+
+    return returnValueNode;
   }
 
   static class PropType {
