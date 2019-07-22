@@ -32,6 +32,7 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Node.SideEffectFlags;
 import com.google.javascript.rhino.Token;
 
+import java.util.function.BiConsumer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   static final DiagnosticType COULD_NOT_DETERMINE_TYPE_NAME = DiagnosticType.error(
       "REACT_COULD_NOT_DETERMINE_TYPE_NAME",
       "Could not determine the type name from a {0}(...) call.");
+  static final DiagnosticType UNSUPPORTED_REACT_CLASS = DiagnosticType.error(
+      "UNSUPPORTED_REACT_CLASS",
+      "Unsupported React class: {0}.");
   static final DiagnosticType MIXINS_UNEXPECTED_TYPE = DiagnosticType.error(
       "REACT_MIXINS_UNEXPECTED_TYPE",
       "The \"mixins\" value must be an array literal.");
@@ -86,6 +90,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       "React.addons.PureRenderMixin";
   private static final String CREATE_ELEMENT_ALIAS_NAME = "React$createElement";
   private static final String CREATE_CLASS_ALIAS_NAME = "React$createClass";
+  private static final String COMPONENT_ALIAS_NAME = "React$Component";
+  private static final String PURE_COMPONENT_ALIAS_NAME = "React$PureComponent";
   static final String PROP_TYPES_ALIAS_NAME = "React$PropTypes";
 
   private final Compiler compiler;
@@ -102,6 +108,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       mixinAbstractMethodJsDocsByName = new SymbolTable<>();
   private final SymbolTable<PropTypesExtractor> propTypesExtractorsByName =
       new SymbolTable<>();
+  private final SymbolTable<ClassOutOfBoundsData> classOutOfBoundsMap =
+      new SymbolTable<>();
+  private final List<Node> reactCreateElementNodes = Lists.newArrayList();
 
   // Make debugging test failures easier by allowing the processed output to
   // be inspected.
@@ -114,6 +123,41 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // If running with a minified build of React additional size optimizations
     // are applied to the generated code too.
     public boolean optimizeForSize = false;
+  }
+
+  /**
+   * When using ES6 classes for react we have lots of manipulations of the class
+   * that is done outside of the class body. This data is gathered during that
+   * tree traversal and used when we exit the module/script to do the actual
+   * transformations.
+   */
+  private static class ClassOutOfBoundsData {
+    boolean addModuleExports;
+    boolean isExportedType;
+    List<Node> componentMethodKeys;
+    Node propTypesNode;
+    Node contextTypesNode;
+    Node defaultPropsNode;
+    Node insertionPoint;
+    Node nameNode;
+    List<String> exportedNames;
+    String typeName;
+
+    ClassOutOfBoundsData(
+        Node insertionPoint,
+        Node nameNode,
+        boolean addModuleExports,
+        boolean isExportedType, 
+        List<Node> componentMethodKeys,
+        List<String> exportedNames) {
+      this.insertionPoint = insertionPoint;
+      this.nameNode = nameNode;
+      this.addModuleExports = addModuleExports;
+      this.isExportedType = isExportedType;
+      this.componentMethodKeys = componentMethodKeys;
+      this.exportedNames = exportedNames;
+      typeName = nameNode.getQualifiedName();
+    }
   }
 
   public ReactCompilerPass(AbstractCompiler compiler) {
@@ -199,6 +243,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         IR.string("Function"), insertionPoint.getSourceFileName()));
     createElementAliasNode.setJSDocInfo(jsDocBuilder.build());
     insertionPoint.addChildToBack(createElementAliasNode);
+
     // Same thing for React.createClass, which is not as frequent, but shows up
     // often enough that shortening it is worthwhile.
     Node createClassAliasNode = IR.var(
@@ -225,6 +270,32 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     propTypesAliasNode.setJSDocInfo(jsDocBuilder.build());
     insertionPoint.addChildToBack(propTypesAliasNode);
 
+    // And for React.Component
+    Node componentAliasNode = IR.var(
+        IR.name(COMPONENT_ALIAS_NAME),
+        IR.getprop(
+            IR.name("React"),
+            IR.string("Component")));
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.typeof(IR.string("React.Component")), insertionPoint.getSourceFileName()));
+    jsDocBuilder.recordNoInline();
+    componentAliasNode.setJSDocInfo(jsDocBuilder.build());
+    insertionPoint.addChildToBack(componentAliasNode);
+
+    // And for React.PureComponent
+    Node pureComponentAliasNode = IR.var(
+        IR.name(PURE_COMPONENT_ALIAS_NAME),
+        IR.getprop(
+            IR.name("React"),
+            IR.string("PureComponent")));
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordType(new JSTypeExpression(
+        IR.typeof(IR.string("React.PureComponent")), insertionPoint.getSourceFileName()));
+    jsDocBuilder.recordNoInline();
+    pureComponentAliasNode.setJSDocInfo(jsDocBuilder.build());
+    insertionPoint.addChildToBack(pureComponentAliasNode);
+    
     compiler.reportChangeToEnclosingScope(insertionPoint);
   }
 
@@ -316,6 +387,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
+    Scope scope = t.getScope();
     if (isReactCreateClass(n)) {
       visitReactCreateClass(t, n);
     } else if (isReactCreateMixin(n)) {
@@ -324,9 +396,148 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // Nothing more needs to be done, mixin abstract method processing is
       // more efficiently done in one function intead of two.
     } else if (isReactCreateElement(n)) {
-      visitReactCreateElement(t, n);
+      // We have to defer dealing with this until we are done with the script
+      // because the propTypes and defaultProps might be out of line.
+      reactCreateElementNodes.add(n);
     } else if (isReactPropTypes(n)) {
       visitReactPropTypes(n);
+    } else if (isClassExtendsReactComponent(n)) {
+      visitClassExtendsReactComponent(t, n, reactClassInterfacePrototypePropsByName);
+    } else if (isStaticPropTypes(scope, n)) {
+      visitStaticPropTypes(scope, n);
+    } else if (isStaticDefaultProps(scope, n)) {
+      visitStaticDefaultProps(scope, n);
+    } else if (isStaticContextTypes(scope, n)) {
+      visitStaticContextTypes(scope, n);
+    } else if (n.isModuleBody() || n.isScript()) {
+      handleOutOfBoundsData(t, n);
+    }
+    // TODO(arv): Handle alias of React.Component and PureComponent
+  }
+
+  private void handleOutOfBoundsData(NodeTraversal t, Node n) {
+    // When using class syntax things like propTypes, defaultProps, contextType
+    // are added after the class body since ES did not get class properties
+    // until ES2021(?) (still in stage 3 at the time of this writing and not yet
+    // supported by Closure Compiler.)
+    CompilerInput moduleExportInput = t.getScope().isModuleScope() ? t.getInput() : null;
+    for (ClassOutOfBoundsData data : classOutOfBoundsMap.values()) {
+      transformPropTypesForClass(data, moduleExportInput);
+      synthesizeExterns(data.exportedNames, data.typeName);
+    }
+
+    for (Node createElementNode : reactCreateElementNodes) {
+      visitReactCreateElement(t.getScope(), createElementNode);
+    }
+
+    classOutOfBoundsMap.clear();
+    reactCreateElementNodes.clear();
+  }
+
+  private boolean isStaticDefaultProps(Scope scope, Node n) {
+    return isStaticProperty(scope, n, "defaultProps");
+  }
+
+  private boolean isStaticPropTypes(Scope scope, Node n) {
+    return isStaticProperty(scope, n, "propTypes");
+  }
+
+  private boolean isStaticContextTypes(Scope scope, Node n) {
+    return isStaticProperty(scope, n, "contextTypes");
+  }
+
+  private boolean isStaticProperty(Scope scope, Node n, String propName) {
+    if (!n.isExprResult()) {
+      return false;
+    }
+    n = n.getFirstChild();    
+    if (n.isAssign() && n.getFirstChild().isGetProp() && n.getLastChild().isObjectLit()) {
+      Node lhs = n.getFirstChild();
+      if (!lhs.getLastChild().getString().equals(propName)) {
+        return false;
+      }
+      Node classNameNode = lhs.getFirstChild();
+      return reactClassesByName.containsName(scope, classNameNode);
+    }
+    return false;
+  }
+
+  private void visitStaticProperty(Scope scope, Node exprResult,
+      BiConsumer<ClassOutOfBoundsData, Node> updater) {
+    Node assignmentNode = exprResult.getFirstChild();
+    Node lhs = assignmentNode.getFirstChild();
+    Node classNameNode = lhs.getFirstChild();
+    Node classBody = reactClassesByName.get(scope, classNameNode);
+    if (classBody == null) {
+      return;
+    }
+    ClassOutOfBoundsData outOfBoundsData = classOutOfBoundsMap.get(scope, classNameNode);
+    if (outOfBoundsData == null) {
+      return;
+    }
+    Node rhs = assignmentNode.getLastChild();
+    updater.accept(outOfBoundsData, rhs);
+  }
+
+  private void visitStaticPropTypes(Scope scope, Node exprResult) {
+    visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
+      data.propTypesNode = rhs;
+    });
+  }
+
+  private void visitStaticDefaultProps(Scope scope, Node exprResult) {
+    visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
+      data.defaultPropsNode = rhs;
+    });
+  }
+
+  private void visitStaticContextTypes(Scope scope, Node exprResult) {
+    visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
+      data.contextTypesNode = rhs;
+    });
+  }
+
+  private void transformPropTypesForClass(ClassOutOfBoundsData data, 
+      CompilerInput moduleExportInput) {
+    Node classNameNode = data.nameNode;
+    Node insertionNode = data.insertionPoint;
+    Node propTypesNode = data.propTypesNode;
+    Node defaultPropsNode = data.defaultPropsNode;
+    Node contextTypesNode = data.contextTypesNode;
+    String typeName = data.typeName;
+
+    if (data.isExportedType && propTypesNode != null) {
+      for (Node propTypeKeyNode : propTypesNode.children()) {
+        data.exportedNames.add(propTypeKeyNode.getString());
+      }
+    }
+
+    if (options.propTypesTypeChecking) {
+      Map<Node, PropTypesExtractor> mixedInPropTypes = Maps.newHashMap();
+      if (contextTypesNode != null) {
+        PropTypesExtractor extractor = new PropTypesExtractor(
+            contextTypesNode, null, typeName, typeName,
+            mixedInPropTypes, compiler, true);
+        extractor.extract();
+        extractor.insert(insertionNode, data.addModuleExports);
+      }
+
+      if (propTypesNode != null) {
+        PropTypesExtractor extractor = new PropTypesExtractor(
+            propTypesNode, defaultPropsNode, typeName, typeName,
+            mixedInPropTypes, compiler);
+        extractor.extract();
+        extractor.insert(insertionNode, data.addModuleExports);
+        extractor.addToComponentMethods(data.componentMethodKeys);
+        propTypesExtractorsByName.put(classNameNode, extractor, moduleExportInput);
+      }
+    } else {
+      if (propTypesNode != null) {
+        PropTypesExtractor.cleanUpPropTypesWhenNotChecking(propTypesNode);
+      }
+      if (contextTypesNode != null) {
+        PropTypesExtractor.cleanUpPropTypesWhenNotChecking(contextTypesNode);
+      }
     }
   }
 
@@ -408,10 +619,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // /**
     //  * @typedef {ComponentInterface}
     //  */
-    // var Component = React.createClass({
+    // var Component = /** @typedef {ComponentInterface} */ (React.createClass({
     //     render: function() {...},
     //     otherMethod: function() {...}
-    // });
+    // }));
     //
     // /**
     //  * @typedef {ReactElement.<Component>}
@@ -488,6 +699,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (isExportedType && t.getScope().isModuleScope()) {
       JSDocInfoAccessor.setJSDocExport(jsDocInfo, false);
     }
+
     List<JSTypeExpression> implementedInterfaces = jsDocInfo != null ?
         jsDocInfo.getImplementedInterfaces() :
         Collections.<JSTypeExpression>emptyList();
@@ -665,7 +877,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       elementTypedefNode = IR.var(elementTypedefNode);
     }
     elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
-    if (!elementTypedefNode.isVar()) {
+    if (!NodeUtil.isNameDeclaration(elementTypedefNode)) {
       elementTypedefNode = IR.exprResult(elementTypedefNode);
     }
     elementTypedefNode.useSourceInfoFromForTree(callParentNode);
@@ -766,7 +978,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-
     if (propTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(propTypesNode)) {
       if (isExportedType) {
@@ -830,6 +1041,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           });
     }
 
+    synthesizeExterns(exportedNames, typeName);
+  }
+
+  private void synthesizeExterns(List<String> exportedNames, String typeName) {
     if (!exportedNames.isEmpty()) {
       // Synthesize an externs entry of the form
       // ComponentExports = {propA: 0, propB: 0, publicMethod: 0};
@@ -1089,6 +1304,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         jsDoc.getTypeTransformations().entrySet()) {
       jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
     }
+    if (jsDoc.isOverride()) {
+      jsDocBuilder.recordOverride();
+    }
     key.setJSDocInfo(jsDocBuilder.build());
   }
 
@@ -1107,7 +1325,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
   }
 
-  private void visitReactCreateElement(NodeTraversal t, Node callNode) {
+  private void visitReactCreateElement(Scope scope, Node callNode) {
     int paramCount = callNode.getChildCount() - 1;
     if (paramCount == 0) {
       compiler.report(JSError.make(callNode, CREATE_ELEMENT_UNEXPECTED_PARAMS));
@@ -1154,13 +1372,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (typeNode.isString()) {
       elementTypeExpressionNode = IR.string("ReactDOMElement");
     } else {
-      if (!reactClassesByName.containsName(t.getScope(), typeNode)) {
+      if (!reactClassesByName.containsName(scope, typeNode)) {
         return;
       }
       elementTypeExpressionNode =
           createReactElementTypeExpressionNode(typeNode.getQualifiedName());
       PropTypesExtractor propTypesExtractor =
-          propTypesExtractorsByName.get(t.getScope(), typeNode);
+          propTypesExtractorsByName.get(scope, typeNode);
       if (propTypesExtractor != null) {
         propTypesExtractor.visitReactCreateElement(callNode);
       }
@@ -1201,6 +1419,299 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return value.getFirstChild().matchesQualifiedName("React.PropTypes");
     }
     return false;
+  }
+
+  private void visitClassExtendsReactComponent(
+      NodeTraversal t,
+      Node classNode,
+      SymbolTable<Node> interfacePrototypePropsByName) {
+    Scope scope = t.getScope();
+    Node classParentNode = classNode.getParent();
+    Node typeNameNode = classNode.getFirstChild();
+    Node typesInsertionPointTemp = classNode;
+    boolean ok = false;
+
+    if (classParentNode.isAssign() && classNode.getGrandparent().isExprResult()) {
+      if (classNode.getPrevious().isQualifiedName()) {
+        typeNameNode = classNode.getPrevious();
+        typesInsertionPointTemp = classNode.getGrandparent();
+        ok = true;
+      }
+    } else if (classParentNode.isName() && NodeUtil.isNameDeclaration(classNode.getGrandparent())) {
+      typeNameNode = classParentNode;
+      typesInsertionPointTemp = classNode.getGrandparent();
+      ok = true;
+    } else if (classParentNode.isScript() ||
+        classParentNode.isModuleBody() ||
+        classParentNode.isExport() ||
+        classParentNode.isBlock() ||
+        classParentNode.isFunction()) {
+      ok = true;
+      typeNameNode = classNode.getFirstChild();
+      typesInsertionPointTemp = classNode;
+    };
+
+    if (!ok) {
+      compiler.report(JSError.make(
+          classNode, UNSUPPORTED_REACT_CLASS, classNode.getFirstChild().getQualifiedName()));
+      return;
+    }
+    
+    String typeName = typeNameNode.getQualifiedName();
+    String interfaceTypeName = generateInterfaceTypeName(t, typeNameNode);
+
+    // Check to see if the type has an ES6 module export. We assume this is
+    // of the form `export class Comp extends React.Component`. If it is, then
+    // we transform it into `class Comp extends React.Component { ... }; export {Comp};`.
+    // That way it's more similar to non-module uses (as far as where we can
+    // add additional nodes to the AST) and the @typedef that we use for the
+    // declaration does not prevent it from getting exported (Es6RewriteModules
+    // does not export the values of typedefs).
+    // Additionally, if the component is exported, then we also need to export
+    // types that we generate from it (CompInterface, CompElement).
+    boolean addModuleExports = false;
+    CompilerInput moduleExportInput =
+        scope.isModuleScope() ? t.getInput() : null;
+    if (typesInsertionPointTemp.getParent().isExport()) {
+      addModuleExports = true;
+      Node exportNode = typesInsertionPointTemp.getParent();
+      typesInsertionPointTemp.detach();
+      exportNode.replaceWith(typesInsertionPointTemp);
+      Ast.addModuleExport(typeName, typesInsertionPointTemp);
+    }
+
+    final Node typesInsertionPoint = typesInsertionPointTemp;
+
+    // For components tagged with @export don't rename their props or public
+    // methods.
+    JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(classNode);
+    boolean isExportedType = jsDocInfo != null && jsDocInfo.isExport();
+    // "Clear" the @export bit, otherwise the compiler will complain about its
+    // presence on module-scoped variables.
+    if (isExportedType && scope.isModuleScope()) {
+      JSDocInfoAccessor.setJSDocExport(jsDocInfo, false);
+    }
+
+    JSDocInfoBuilder jsDocBuilder;
+
+    // Do not add "<type name>Interface" since we can use the type directly
+  
+    Node classBody = classNode.getLastChild();
+
+    // Record the type so that we can later look it up in React.createElement
+    // calls.
+    reactClassesByName.put(typeNameNode, classBody, moduleExportInput);
+
+    // Gather methods for the interface definition.
+    Node interfacePrototypeProps = IR.objectlit();
+    interfacePrototypePropsByName.put(
+        typeNameNode, interfacePrototypeProps, moduleExportInput);
+    Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
+    Node constructorNode = null;
+    List<String> exportedNames = Lists.newArrayList();
+    boolean usesPureRenderMixin = false;
+    // TODO(arv): Check for PureComponent
+    boolean hasShouldComponentUpdate = false;
+    List<Node> componentMethodKeys = Lists.newArrayList();
+    for (Node key : classBody.children()) {
+      if (key.isStaticMember()) {
+        // No need to do anything for static members
+        continue;
+      }
+
+      String keyName = key.getString();
+      if (keyName.equals("constructor")) {
+        constructorNode = key;
+      }    
+
+      if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
+        continue;
+      }
+      if (keyName.equals("shouldComponentUpdate")) {
+        hasShouldComponentUpdate = true;
+      }
+      Node func = key.getFirstChild();
+
+      // If the function is an implementation of a standard component method
+      // (like shouldComponentUpdate), then copy the parameter and return type
+      // from the ReactComponent interface method, so that it gets type checking
+      // (without an explicit @override annotation, which doesn't appear to work
+      // for interface extending interfaces in any case).
+      JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
+      if (componentMethodJsDoc != null) {
+        componentMethodKeys.add(key);
+        mergeInJsDoc(key, func, componentMethodJsDoc);
+      }
+
+      // Ditto for abstract methods from mixins.
+      JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
+      if (abstractMethodJsDoc != null) {
+        // Treat mixin methods as component ones too, as far as making the type
+        // used for props more specific.
+        componentMethodKeys.add(key);
+        mergeInJsDoc(key, func, abstractMethodJsDoc);
+      }
+
+      // If @export is present add it to externs to prevent renaming.
+      if (isExportedType && componentMethodJsDoc == null &&
+          key.getJSDocInfo() != null &&
+          key.getJSDocInfo().isExport()) {
+        exportedNames.add(keyName);
+      }
+
+      // Gather method signatures so that we can declare them where the compiler
+      // can see them.
+      addFuncToInterface(
+            keyName, func, interfacePrototypeProps, key.getJSDocInfo());
+
+      // If the function is an implementation of a standard component method
+      // (like shouldComponentUpdate), then add @override.
+      if (componentMethodJsDoc != null) {
+        jsDocBuilder = new JSDocInfoBuilder(true);
+        jsDocBuilder.recordOverride();
+        mergeInJsDoc(key, func, jsDocBuilder.build());
+      }
+    }
+
+    if (usesPureRenderMixin && hasShouldComponentUpdate) {
+      compiler.report(JSError.make(
+          classNode, PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE, typeName));
+      return;
+    }
+
+    // Add a "<type name>Element" @typedef for the element type of this class.
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        createReactElementTypeExpressionNode(typeName),
+        classNode.getSourceFileName()));
+    String elementTypeName = typeName + "Element";
+    Node elementTypedefNode = NodeUtil.newQName(compiler, elementTypeName);
+    if (elementTypedefNode.isName()) {
+      elementTypedefNode = IR.var(elementTypedefNode);
+    }
+    elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
+    if (!NodeUtil.isNameDeclaration(elementTypedefNode)) {
+      elementTypedefNode = IR.exprResult(elementTypedefNode);
+    }
+    elementTypedefNode.useSourceInfoFromForTree(classParentNode);
+    typesInsertionPoint.getParent().addChildAfter(
+        elementTypedefNode, typesInsertionPoint);
+    if (addModuleExports) {
+      Ast.addModuleExport(elementTypeName, elementTypedefNode);
+    }
+
+    // Trim duplicated properties that have accumulated (due to mixins defining
+    // a method and then classes overriding it). Keep the last one since it's
+    // from the class and thus most specific.
+    ListMultimap<String, Node> interfaceKeyNodes = ArrayListMultimap.create();
+    for (Node interfaceKeyNode = interfacePrototypeProps.getFirstChild();
+          interfaceKeyNode != null;
+          interfaceKeyNode = interfaceKeyNode.getNext()) {
+      interfaceKeyNodes.put(interfaceKeyNode.getString(), interfaceKeyNode);
+    }
+    for (String key : interfaceKeyNodes.keySet()) {
+      List<Node> keyNodes = interfaceKeyNodes.get(key);
+      if (keyNodes.size() > 1) {
+        for (Node keyNode : keyNodes.subList(0, keyNodes.size() - 1)) {
+          keyNode.detachFromParent();
+        }
+      }
+    }
+
+    Node thisStateNode = findThisStateNode(constructorNode);
+    if (thisStateNode != null) {
+      StateTypeExtractor extractor = new StateTypeExtractor(
+        thisStateNode, typeName, typeName, compiler);
+      if (extractor.hasStateType()) {
+        extractor.insert(typesInsertionPoint);
+        extractor.addToComponentMethods(componentMethodKeys);
+      }
+    }
+
+    ClassOutOfBoundsData outOfBoundsData =
+        new ClassOutOfBoundsData(
+            typesInsertionPoint,
+            typeNameNode,
+            addModuleExports,
+            isExportedType,
+            componentMethodKeys,
+            exportedNames);
+    classOutOfBoundsMap.put(typeNameNode, outOfBoundsData, moduleExportInput);
+
+    // Replace React.Component with React$Component
+    if (options.optimizeForSize) {      
+      Node extendsNode = classNode.getSecondChild();
+      String replaceName = extendsNode.getQualifiedName().equals("React.Component") ?
+          COMPONENT_ALIAS_NAME : PURE_COMPONENT_ALIAS_NAME;
+      extendsNode.replaceWith(IR.name(replaceName));
+    }
+  }
+
+  /**
+   * Finds the declaring the state type inside a constructor
+   * 
+   *   class C extends React.Component {
+   *     constructor(props) {
+   *       super(props);
+   *       ...
+   *       \/** @private {{...}} *\/
+   *       this.state = {...}; <== Find this statement node
+   *       ...
+   *     }
+   *   }
+   */
+  private Node findThisStateNode(Node constructorNode) {
+    if (constructorNode == null || !constructorNode.isMemberFunctionDef() ||
+        constructorNode.isStaticMember()) {
+      return null;
+    }
+
+    Node functionNode = constructorNode.getFirstChild();
+    if (functionNode == null || functionNode.isAsyncFunction() || functionNode.isGeneratorFunction()) {
+      return null;
+    }
+
+    final Node[] stateNode = new Node[1];
+
+    NodeTraversal.traverse(
+      compiler,
+      functionNode.getLastChild(),
+      new NodeTraversal.AbstractShallowCallback() {
+        @Override
+        public void visit(NodeTraversal t, Node n, Node parent) {
+          if (!n.isThis() || !parent.isGetProp() || !parent.getParent().isAssign() ||
+              !parent.getGrandparent().isExprResult()) {
+            return;
+          }
+
+          Node prop = n.getNext();
+          if (prop == null || !prop.isString()) {
+            return;
+          }
+          JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(parent);
+          if (jsDocInfo == null) {
+            return;
+          }
+          String fieldName = prop.getString();
+          if (!fieldName.equals("state")) {
+            return;
+          }
+
+          stateNode[0] = parent.getParent();
+        }
+      });
+
+    return stateNode[0];
+  }
+
+  private boolean isClassExtendsReactComponent(Node value) {
+    if (value == null || !value.isEs6Class()) {
+      return false;
+    }
+    Node extendsExpression = value.getChildAtIndex(1);
+    return extendsExpression.isGetProp() &&
+      (extendsExpression.matchesQualifiedName("React.Component") ||
+      extendsExpression.matchesQualifiedName("React.PureComponent"));
   }
 
   /**

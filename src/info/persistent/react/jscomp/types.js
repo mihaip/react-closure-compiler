@@ -66,7 +66,7 @@ var ReactComponentFunction;
 
 
 /**
- * @typedef {Object}
+ * @typedef {!Object}
  */
 var ReactState;
 
@@ -125,7 +125,7 @@ function ReactComponent() {}
 ReactComponent.prototype.props;
 
 /**
- * @type {ReactState}
+ * @type {?ReactState}
  * @const
  */
 ReactComponent.prototype.state;
@@ -152,7 +152,7 @@ ReactComponent.prototype.getInitialState = function() {};
 ReactComponent.prototype.getChildContext = function() {};
 
 /**
- * @param {ReactState|function(ReactState, ReactProps): ReactState} stateOrFunction
+ * @param {?ReactState|function(?ReactState, ReactProps): ?ReactState} stateOrFunction
  * @param {function(): void=} callback
  * @return {void}
  */
@@ -560,14 +560,143 @@ function ReactModule() {}
 ReactModule.prototype.Children;
 
 /**
- * @typedef {ReactComponent}
+ * @param {ReactProps=} props
+ * @param {Object=} context
+ * @constructor
+ * @implements {ReactComponent}
  */
-ReactModule.prototype.Component;
+ReactModule.prototype.Component = function (props, context) { }
 
 /**
- * @typedef {ReactComponent}
+ * @type {ReactProps}
+ * @const
  */
-ReactModule.prototype.PureComponent;
+ReactModule.prototype.Component.prototype.props;
+
+/**
+ * @type {?ReactState}
+ * @const
+ */
+ReactModule.prototype.Component.prototype.state;
+
+/**
+ * @type {Object}
+ * @const
+ */
+ReactModule.prototype.Component.prototype.context;
+
+/**
+ * @type {ReactRefs}
+ */
+ReactModule.prototype.Component.prototype.refs;
+
+/**
+ * @return {?ReactState}
+ */
+ReactModule.prototype.Component.prototype.getInitialState = function() {};
+
+/**
+ * @return {Object}
+ */
+ReactModule.prototype.Component.prototype.getChildContext = function() {};
+
+/**
+ * @param {?ReactState|function(?ReactState, ReactProps): ?ReactState} stateOrFunction
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.setState = function(stateOrFunction, callback) {};
+
+/**
+ * @param {ReactState} state
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.replaceState = function(state, callback) {};
+
+/**
+ * @return {ReactElement|boolean}
+ */
+ReactModule.prototype.Component.prototype.render = function() {};
+
+/**
+ * @param {function(): void=} callback
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.forceUpdate = function(callback) {};
+
+/**
+ * @return {boolean}
+ */
+ReactModule.prototype.Component.prototype.isMounted = function() {};
+// it's undocumented. Implementations can still add it (and it will not be
+// flagged as an error).
+
+/**
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentWillMount = function() {};
+
+/**
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentDidMount = function() {};
+
+/**
+ * @param {ReactProps} nextProps
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentWillReceiveProps = function(nextProps) {};
+
+/**
+ * @param {ReactProps} nextProps
+ * @param {ReactState} nextState
+ * @return {boolean}
+ */
+ReactModule.prototype.Component.prototype.shouldComponentUpdate = function(nextProps, nextState) {};
+
+/**
+ * @param {ReactProps} nextProps
+ * @param {ReactState} nextState
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentWillUpdate = function(nextProps, nextState) {};
+
+/**
+ * @param {ReactProps} prevProps
+ * @param {ReactState} prevState
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentDidUpdate = function(prevProps, prevState) {};
+
+/**
+ * @return {void}
+ */
+ReactModule.prototype.Component.prototype.componentWillUnmount = function() {};
+
+/**
+ * @type {Object.<ReactPropsChainableTypeChecker>|undefined}
+ */
+ReactModule.prototype.Component.propTypes;
+
+/**
+ * @type {Object|undefined}
+ */
+ReactModule.prototype.Component.defaultProps;
+
+/**
+ * @type {Object|undefined}
+ */
+ReactModule.prototype.Component.contextTypes;
+
+
+/**
+ * @param {ReactProps=} props
+ * @param {Object=} context
+ * @constructor
+ * @extends {React.Component}
+ */
+ReactModule.prototype.PureComponent = function (props, context) { }
 
 /**
  * @type {ReactPropTypes}
@@ -606,7 +735,7 @@ ReactModule.prototype.createClass = function(specification) {};
 ReactModule.prototype.createMixin = function(mixin) {};
 
 /**
- * @param {ReactClass.<T>|ReactComponentFunction|string} type
+ * @param {ReactClass.<T>|ReactComponentFunction|typeof ReactModule.prototype.Component|string} type
  * @param {Object=} props
  * @param {...ReactChildrenArgument} children
  * @return {!ReactElement.<T>}

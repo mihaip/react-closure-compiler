@@ -11,12 +11,24 @@ public class Debug {
   public static String toTypeAnnotatedSource(Compiler compiler, Node root) {
     CompilerOptions compilerOptions = new CompilerOptions();
     compilerOptions.setPreserveTypeAnnotations(true);
-    return new CodePrinter.Builder(root)
-        .setCompilerOptions(compilerOptions)
-        .setPrettyPrint(true)
-        .setOutputTypes(true)
-        .setTypeRegistry(compiler.getTypeRegistry())
-        .build();
+    compilerOptions.setLanguageIn(CompilerOptions.LanguageMode.STABLE_IN);
+    compilerOptions.setLanguageOut(CompilerOptions.LanguageMode.NO_TRANSPILE);
+    try {
+      return new CodePrinter.Builder(root)
+          .setCompilerOptions(compilerOptions)
+          .setPrettyPrint(true)
+          .setOutputTypes(true)
+          .setTypeRegistry(compiler.getTypeRegistry())
+          .build();
+    } catch (NullPointerException e) {
+      // https://github.com/google/closure-compiler/pull/3421
+      return new CodePrinter.Builder(root)
+          .setCompilerOptions(compilerOptions)
+          .setPrettyPrint(true)
+          .setOutputTypes(false)
+          .setTypeRegistry(compiler.getTypeRegistry())
+          .build();
+    }
   }
 
   /**

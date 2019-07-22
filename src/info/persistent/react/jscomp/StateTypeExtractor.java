@@ -39,21 +39,28 @@ class StateTypeExtractor {
   private final JSTypeExpression stateType;
 
   public StateTypeExtractor(
-      Node getInitialStateNode,
+      Node stateNode,
       String typeName,
       String interfaceTypeName,
       Compiler compiler) {
-    this.sourceFileName = getInitialStateNode.getSourceFileName();
+    this.sourceFileName = stateNode.getSourceFileName();
     this.stateTypeName = typeName + ".State";
     this.partialStateTypeName = typeName + ".PartialState";
     this.interfaceTypeName = interfaceTypeName;
     this.compiler = compiler;
 
     JSTypeExpression stateType = null;
-    JSDocInfo getInitialStateJsDoc = getInitialStateNode.getJSDocInfo();
-    if (getInitialStateJsDoc != null) {
-      stateType = getInitialStateJsDoc.getReturnType();
-    }
+    JSDocInfo stateJsDoc = stateNode.getJSDocInfo();
+    if (stateJsDoc != null) {
+      if (stateNode.isMemberFunctionDef()) {
+        // getInitialState() {
+        stateType = stateJsDoc.getReturnType();
+      } else {
+        // this.state = ...
+        stateType = stateJsDoc.getType();
+      }
+    }  
+
     // ?ReactStateType is the default return type that we pick up from types.js,
     // also treat that as a missing return type.
     if (stateType != null && stateType.equals(REACT_STATE_TYPE_QMARK)) {
@@ -62,7 +69,7 @@ class StateTypeExtractor {
     if (stateType != null && (stateType.getRoot().getToken() != Token.LC ||
         stateType.getRoot().getFirstChild().getToken() != Token.LB)) {
       compiler.report(JSError.make(
-          getInitialStateNode, UNEXPECTED_STATE_TYPE, typeName));
+          stateNode, UNEXPECTED_STATE_TYPE, typeName));
       stateType = null;
     }
     this.stateType = stateType;
@@ -105,7 +112,7 @@ class StateTypeExtractor {
     insertionPoint = stateNode;
 
     // /**
-    // * @param {Comp.PartialState|function(Comp.State, ReactProps): Comp.PartialState} stateOrFunction
+    // * @param {?Comp.PartialState|function(Comp.State, ReactProps): ?Comp.PartialState} stateOrFunction
     // * @param {function(): void=} callback
     // * @return {void}
     // */
@@ -115,12 +122,12 @@ class StateTypeExtractor {
         "stateOrFunction",
         new JSTypeExpression(
             new Node(Token.PIPE,
-                IR.string(partialStateTypeName),
+            new Node(Token.QMARK, IR.string(partialStateTypeName)),
                 new Node(Token.FUNCTION,
                     new Node(Token.PARAM_LIST,
                         IR.string(stateTypeName),
                         IR.string("ReactProps")),
-                    IR.string(partialStateTypeName))),
+                        new Node(Token.QMARK, IR.string(partialStateTypeName)))),
             sourceFileName));
     jsDocBuilder.recordParameter(
         "callback",
