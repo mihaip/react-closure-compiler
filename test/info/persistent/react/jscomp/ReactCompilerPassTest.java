@@ -64,6 +64,63 @@ public class ReactCompilerPassTest {
       "})),document.body);");
   }
 
+  @Test public void testMinimalComponentClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      // React.Component and other React methods should not get renamed.
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+
+      // ClassExpression using VariableDeclaration
+      test(
+        "var Comp = class extends React.Component {" +
+          "render() {" +
+            "return React.createElement(" +
+              "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+          "}" +
+        "};" +
+        "ReactDOM.render(React.createElement(Comp), document.body);",
+        // React.Component and other React methods should not get renamed.
+        "ReactDOM.render(" +
+          "React.createElement(" +
+            "class extends React.Component{" +
+              "render(){" +
+                "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+              "}" +
+            "})," +
+            "document.body);");
+
+      // ClassExpression using AssignmnentExpression
+      test(
+        "var Comp;" +
+        "Comp = class extends React.Component {" +
+          "render() {" +
+            "return React.createElement(" +
+              "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+          "}" +
+        "};" +
+        "ReactDOM.render(React.createElement(Comp), document.body);",
+        // React.Component and other React methods should not get renamed.
+        "ReactDOM.render(" +
+          "React.createElement(" +
+            "class extends React.Component{" +
+              "render(){" +
+                "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+              "}" +
+            "})," +
+            "document.body);");
+  }
+
   @Test public void testEs6Modules() {
     test(
       "export const Comp = React.createClass({" +
@@ -78,7 +135,7 @@ public class ReactCompilerPassTest {
       "import * as file1 from './file1.js';\n" +
       "const /** file1.CompElement */ compElement = React.createElement(file1.Comp);\n" +
       "const /** file1.CompInterface */ compInstance = ReactDOM.render(compElement, document.body);",
-      "var $compElement$$module$src$file2$$=React.createElement(React.createClass({" +
+      "const $compElement$$module$src$file2$$=React.createElement(React.createClass({" +
         "render:function(){" +
           "return React.createElement(" +
             "\"div\",null,React.createElement(\"span\",null,\"child\"))" +
@@ -110,6 +167,52 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testEs6ModulesClass() {
+    test(
+      "export class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+        "}" +
+      "}" +
+      FILE_SEPARATOR +
+      // Test that we can use the component and associated types from another
+      // module (i.e. that exports are generated for them).
+      "import * as file1 from './file1.js';\n" +
+      "const /** file1.CompElement */ compElement = React.createElement(file1.Comp);\n" +
+      "const /** file1.Comp */ compInstance = ReactDOM.render(compElement, document.body);",
+      "class $Comp$$module$src$file1$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+        "}" +
+      "};" +
+      "const $compElement$$module$src$file2$$=React.createElement($Comp$$module$src$file1$$);" +
+      "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+    // Cross-module type checking works for props...
+    testError(
+      "export class Comp extends React.Component {\n" +
+        "render() {return null;}\n" +
+      "}\n" +
+      "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "React.createElement(file1.Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
+    // ...and methods.
+    testError(
+      "export class Comp extends React.Component {" +
+        "render() {return null;}\n" +
+        "/** @param {number} a */" +
+        "method(a) {window.foo = a;}" +
+      "}\n" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "const inst = ReactDOM.render(" +
+          "React.createElement(file1.Comp), document.body);\n" +
+      "inst.method('notanumber');",
+      "JSC_TYPE_MISMATCH");
+  }
+
   @Test public void testEs6ModulesScoping() {
     // Comp being defined as a local variable in the second file should not
     // be confused with the Comp from the first file.
@@ -131,6 +234,31 @@ public class ReactCompilerPassTest {
         "propTypes: {aNumber: React.PropTypes.number.isRequired}," +
         "render: function() {return null;}" +
       "});\n" +
+      "React.createElement(Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
+  }
+
+  @Test public void testEs6ModulesScopingClass() {
+    // Comp being defined as a local variable in the second file should not
+    // be confused with the Comp from the first file.
+    testNoError(
+      "export class Comp extends React.Component {" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = {children: React.PropTypes.element.isRequired};" +
+      FILE_SEPARATOR +
+      "import * as file1 from './file1.js';\n" +
+      "const AnotherComp1 = React.createClass({render() {return null}});\n" +
+      "const AnotherComp2 = React.createClass({render() {return null}});\n" +
+      "const Comp = Math.random() < 0.5 ? AnotherComp1 : AnotherComp2;" +
+      "React.createElement(Comp, {});");
+    // But Comp  can be used as a local variable (and is checked correctly) even
+    // when it's exported.
+    testError(
+      "export class Comp extends React.Component {" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
       "React.createElement(Comp, {aNumber: 'notANumber'});",
       "JSC_TYPE_MISMATCH");
   }
@@ -270,6 +398,54 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
+      "inst.unknownMethod()",
+      // And unknown methods should be flagged.
+      "JSC_INEXISTENT_PROPERTY");
+  }
+
+  @Test public void testInstanceMethodsClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "method() {window.foo = 123;}" +
+      "}" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
+      "inst.method();",
+      // Method invocations should not result in warnings if they're known.
+      "class $Comp$$ extends React.Component{" +
+        "render(){return React.createElement(\"div\")}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);" +
+      "window.$foo$=123;");
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "/** @private */" +
+        "privateMethod1_(a) {window.foo = 123 + a;}" +
+        "/** @private */" +
+        "privateMethod2_() {this.privateMethod1_(1);}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      // Private methods should be invokable.
+      "class $Comp$$ extends React.Component{" +
+        "render(){return React.createElement(\"div\")}"+
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "/** @param {number} a */" +
+        "method(a) {window.foo = a;}" +
+      "}" +
+      "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
+      "inst.method('notanumber');",
+      // Their arguments should be validated.
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
       "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.unknownMethod()",
       // And unknown methods should be flagged.
@@ -478,12 +654,36 @@ public class ReactCompilerPassTest {
       "})),document.body);");
   }
 
+  @Test public void testNamespacedComponentClass() {
+    test(
+      "var ns = {};ns.Comp = class extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "};" +
+      "ReactDOM.render(React.createElement(ns.Comp), document.body);",
+      "ReactDOM.render(React.createElement(" +
+        "class extends React.Component{" +
+          "render(){" +
+            "return React.createElement(\"div\")" +
+          "}" +
+        "})," +
+        "document.body);");
+  }
+
   @Test public void testUnusedComponent() {
     test(
       // Unused components should not appear in the output.
       "var Unused = React.createClass({" +
         "render: function() {return React.createElement(\"div\", null);}" +
       "});",
+      "");
+  }
+
+  @Test public void testUnusedComponentClass() {
+    test(
+      // Unused components should not appear in the output.
+      "class Unused extends React.Component {" +
+        "render() {return React.createElement(\"div\", null);}" +
+      "}",
       "");
   }
 
@@ -499,6 +699,20 @@ public class ReactCompilerPassTest {
         "render:function(){return React.createElement(\"div\")}," +
         "$method$:function(){this.setState({$foo$:123})}" +
       "})),document.body);");
+  }
+
+  @Test public void testThisUsageClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "method() {this.setState({foo: 123});}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      // Use of "this" should not cause any warnings.
+      "class $Comp$$ extends React.Component{" +
+        "render(){return React.createElement(\"div\")}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
   /**
@@ -589,6 +803,33 @@ public class ReactCompilerPassTest {
       "var Comp = React.createClass({" +
         "render: function() {return React.createElement(\"div\");}" +
       "});" +
+      "window.foo = React.createElement(Comp).notAnElementProperty;",
+      "JSC_INEXISTENT_PROPERTY");
+  }
+
+  @Test public void testCreateElementCastingClass() {
+    // Tests that element.type is not a string...
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
+      "React.createElement(Comp).type.charAt(0)",
+      "JSC_INEXISTENT_PROPERTY");
+    // ...but is present...
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
+      "window.type = React.createElement(Comp).type;",
+      "class $Comp$$ extends React.Component{" +
+        "render(){return React.createElement(\"div\")}" +
+        "}" +
+        "window.type=React.createElement($Comp$$).type;");
+    // ...unlike other properties.
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
       "window.foo = React.createElement(Comp).notAnElementProperty;",
       "JSC_INEXISTENT_PROPERTY");
   }
@@ -691,6 +932,91 @@ public class ReactCompilerPassTest {
       "JSC_ILLEGAL_PROPERTY_ACCESS");
   }
 
+  @Test public void testTypeValidationClass() {
+    testError(
+      "class Comp extends React.Component {}" +
+      "Comp.prototype.render = \"notafunction\";",
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "this.render = \"notafunction\";" +
+        "}" +
+      "}",
+      "JSC_TYPE_MISMATCH");
+
+    // displayName is not a property on Comp but not sure why this is not caught.
+    // testError(
+    //   "class Comp extends React.Component {" +
+    //     "render() {return null;}" +
+    //   "}" +
+    //   "window.foo = Comp.displayName.charAt(0);",
+    //   "JSC_POSSIBLE_INEXISTENT_PROPERTY");
+
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body, 123);",
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "shouldComponentUpdate(nextProps, nextState) {return 123;}" +
+      "}",
+      // Overrides/implemementations of built-in methods should conform to the
+      // type annotations added in types.js, even if they're not explicitly
+      // present in the spec.
+      "JSC_TYPE_MISMATCH");
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "shouldComponentUpdate() {return false;}" +
+      "}",
+      // But implementations should be OK if they omit parameters...
+      "");
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "shouldComponentUpdate(param1, param2) {return false;}" +
+      "}",
+      // ...or rename them.
+      "");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return 123;}" +
+      "}",
+      "JSC_TYPE_MISMATCH");
+    // testError(
+    //   "var Mixin = React.createMixin({" +
+    //     "shouldComponentUpdate: function(nextProps, nextState) {return 123;}" +
+    //   "});",
+    //   // Same for mixins
+    //   "JSC_TYPE_MISMATCH");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "this.isMounted().indexOf(\"true\");" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}",
+      // Same for invocations of built-in component methods.
+      "JSC_INEXISTENT_PROPERTY");
+    test(
+      "class Comp extends React.Component {" +
+        "refAccess() {return this.refs[\"foo\"];}" +
+      "}",
+      // Refs can be accessed via quoted strings.
+      "");
+    testError(
+      "class Comp extends React.Component {" +
+        "refAccess() {return this.refs.foo;}" +
+      "}",
+      // ...but not as property accesses (since they may get renamed)
+      "JSC_ILLEGAL_PROPERTY_ACCESS");
+  }
+
   /**
    * Tests that JSDoc type annotations on custom methods are checked.
    */
@@ -712,6 +1038,24 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testMethodJsDocClass() {
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "/** @param {number} numberParam */" +
+        "someMethod(numberParam) {numberParam.notAMethod();}" +
+      "}",
+      "JSC_INEXISTENT_PROPERTY");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(" +
+            "\"div\", null, this.someMethod(\"notanumber\"));}" +
+        "/** @param {number} numberParam */" +
+        "someMethod(numberParam) {return numberParam + 1;}" +
+      "}",
+      "JSC_TYPE_MISMATCH");
+  }
+
   /**
    * Tests that component methods can have default parameters.
    */
@@ -722,6 +1066,16 @@ public class ReactCompilerPassTest {
         "/** @param {number=} numberParam @return {number}*/" +
         "someMethod: function(numberParam = 1) {return numberParam * 2;}" +
       "});",
+      "");
+  }
+
+  @Test public void testMethodDefaultParametersClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "/** @param {number=} numberParam @return {number}*/" +
+        "someMethod(numberParam = 1) {return numberParam * 2;}" +
+      "}",
       "");
   }
 
@@ -756,6 +1110,32 @@ public class ReactCompilerPassTest {
     // assumed to be there.
   }
 
+  @Test public void testInterfacesClass() {
+    test(
+      "/** @interface */ function AnInterface() {}\n" +
+      "/** @return {number} */\n" +
+      "AnInterface.prototype.interfaceMethod = function() {};\n" +
+      "/** @implements {AnInterface} */" +
+      "class Comp extends React.Component {" +
+        "/** @override */ interfaceMethod() {\n" +
+            "return 1;\n" +
+        "}\n" +
+        "render() {\n" +
+          "return React.createElement(\"div\");\n" +
+        "}" +
+      "};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\")" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+    // We can't test that missing methods cause compiler warnings since we're
+    // declaring CompInterface as extending AnInterface, thus the methods
+    // assumed to be there.
+  }
+
   @Test public void testState() {
     // this.state accesses are checked
     testError(
@@ -781,19 +1161,18 @@ public class ReactCompilerPassTest {
         "},\n" +
       "});",
       "JSC_TYPE_MISMATCH");
-    // this.setState() calls with an updater function should be checked, but the
-    // compiler does not appear to be doing this.
-    // testError(
-    //   "var Comp = React.createClass({" +
-    //     "/** @return {{enabled: boolean}} */ getInitialState() {" +
-    //       "return {enabled: false};" +
-    //     "},\n" +
-    //     "render() {" +
-    //       "this.setState((state, props) => ({enabled: 123}));" +
-    //       "return null;" +
-    //     "},\n" +
-    //   "});",
-    //   "JSC_TYPE_MISMATCH");
+    // this.setState() calls with an updater function should be checked
+    testError(
+      "var Comp = React.createClass({" +
+        "/** @return {{enabled: boolean}} */ getInitialState() {" +
+          "return {enabled: false};" +
+        "},\n" +
+        "render() {" +
+          "this.setState((state, props) => ({enabled: 123}));" +
+          "return null;" +
+        "},\n" +
+      "});",
+      "JSC_TYPE_MISMATCH");
     // this.setState() accepts a subset of state fields
     testNoError(
       "var Comp = React.createClass({" +
@@ -849,6 +1228,137 @@ public class ReactCompilerPassTest {
         "}" +
       "});",
       "JSC_INEXISTENT_PROPERTY");
+  }
+
+  @Test public void testStateClass() {
+    // this.state accesses are checked
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
+        "}" +
+        "render() {" +
+          "this.state.enabled.toFixed(2);" +
+          "return null" +
+        "}" +
+      "}",
+      "JSC_INEXISTENT_PROPERTY");
+    // this.setState() calls are checked
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState()" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
+        "}" +
+        "render() {" +
+          "this.setState({enabled: 123});" +
+          "return null;" +
+        "}" +
+      "}",
+      "JSC_TYPE_MISMATCH");
+    // this.setState() calls with an updater function should be checked, but the
+    // compiler does not appear to be doing this.
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
+        "}" +
+        "render() {" +
+          "this.setState((state, props) => ({enabled: 123}));" +
+          "return null;" +
+        "}" +
+      "}",
+      "JSC_TYPE_MISMATCH");
+    // this.setState() accepts a subset of state fields
+    testNoError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{f1: boolean, f2: number, f3: (number|boolean)}} */" +
+        "initialState() {" +
+          "return {f1: false, f2: 1, f3: 2};" +
+        "}" +
+        "render() {" +
+          "this.setState({f1: true});" +
+          "return null;" +
+        "}" +
+      "}");
+    // type for this.state must be a record
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {number} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {number} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
+        "}" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}",
+      "REACT_UNEXPECTED_STATE_TYPE");
+    // component methods that take state parameters are checked
+    testError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
+        "}" +
+        "componentWillUpdate(nextProps, nextState) {" +
+          "nextState.enabled.toFixed(2);" +
+        "}" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}",
+      "JSC_INEXISTENT_PROPERTY");
+    // TODO(arv): Add mixin support
+    // // Mixin methods that take state parameters are checked
+    // testError(
+    //   "var Mixin = React.createMixin({});\n" +
+    //   "/** @param {!ReactState} state */" +
+    //   "Mixin.mixinMethod;\n" +
+    //   "class Comp extends React.Component {" +
+    //     "mixins: [Mixin],\n" +
+    //     "/** @return {{enabled: boolean}} */ getInitialState() {" +
+    //       "return {enabled: false};" +
+    //     "},\n" +
+    //     "mixinMethod(state) {" +
+    //       "state.enabled.toFixed(2);" +
+    //     "},\n" +
+    //     "render: function() {" +
+    //       "return null;" +
+    //     "}" +
+    //   "}",
+    //   "JSC_INEXISTENT_PROPERTY");
   }
 
   @Test public void testFields() {
@@ -949,6 +1459,24 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testPropTypesClass() {
+    // Basic prop types
+    test(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\", null, this.props.aProp);" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {aProp: React.PropTypes.string};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",null,this.props.$aProp$)" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+  }
+
   @Test public void testOptimizeForSize() {
     ReactCompilerPass.Options passOptions =
         new ReactCompilerPass.Options();
@@ -1002,6 +1530,54 @@ public class ReactCompilerPassTest {
         "propTypes:{$aProp$:$React$PropTypes$$.string}," +
         "render:function(){return $React$createElement$$(\"div\")}" +
       "})),document.body);",
+      passOptions,
+      null);
+  }
+
+
+  @Test public void testOptimizeForSizeClass() {
+    ReactCompilerPass.Options passOptions =
+        new ReactCompilerPass.Options();
+    passOptions.optimizeForSize = true;
+    passOptions.propTypesTypeChecking = true;
+    // - propTypes should get stripped
+    // - React.createMixin() calls should be inlined with just the spec
+    // - React.createClass and React.createElement calls should be replaced with
+    //   React$createClass and React$createElement aliases (which can get fully
+    //   renamed).
+
+    // TODO(arv): Add mixin support
+    // test(
+    //   "var Mixin = React.createMixin({" +
+    //       "mixinMethod: function() {return 'foo'}" +
+    //   "});\n" +
+    //   "var Comp = React.createClass({" +
+    //     "mixins: [Mixin]," +
+    //     "propTypes: {aProp: React.PropTypes.string}," +
+    //     "render: function() {return React.createElement(\"div\", null, this.mixinMethod());}" +
+    //   "});" +
+    //   "ReactDOM.render(React.createElement(Comp), document.body);",
+    //   "ReactDOM.render($React$createElement$$($React$createClass$$({" +
+    //     "mixins:[{$mixinMethod$:function(){return\"foo\"}}]," +
+    //     "render:function(){return $React$createElement$$(\"div\",null,\"foo\")}" +
+    //   "})),document.body);",
+    //   passOptions,
+    //   null);
+
+    // This should also work when using ES6 modules
+    test(
+      "export const anExport = 9;\n" +
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
+      "Comp.propTypes = {aProp: React.PropTypes.string};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$module$src$file1$$ extends $React$Component$${" +
+        "render(){" +
+          "return $React$createElement$$(\"div\")" +
+        "}" +
+      "}" +
+      "ReactDOM.render($React$createElement$$($Comp$$module$src$file1$$),document.body);",
       passOptions,
       null);
   }
@@ -1106,6 +1682,71 @@ public class ReactCompilerPassTest {
           "return $React$createElement$$(\"div\",null,this.props.aProp)" +
         "}" +
       "}),{aProp:\"foo\"}),document.body);",
+      minifiedReactPassOptions,
+      null);
+  }
+
+  @Test public void testExportClass () {
+    String CLOSURE_EXPORT_FUNCTIONS =
+      "/** @const */ const goog = {};" +
+      "goog.exportSymbol = function(publicPath, object) {};\n" +
+      "goog.exportProperty = function(object, publicName, symbol) {};\n";
+    // Props where the class is tagged with @export should not get renamed,
+    // nor should methods explicitly tagged with @export.
+    test(
+      CLOSURE_EXPORT_FUNCTIONS +
+      "/** @export */" +
+      "class Comp extends React.Component {" +
+        "/** @export */ publicFunction() {\n" +
+            "return \"dont_rename_me_bro\";\n" +
+        "}\n" +
+        "/** @private */ privateFunction_() {\n" +
+            "return 1;\n" +
+        "}\n" +
+        "render() {\n" +
+          "return React.createElement(\"div\", null, this.props.aProp);\n" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {aProp: React.PropTypes.string};\n" +
+      "ReactDOM.render(React.createElement(Comp, {aProp: \"foo\"}), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "publicFunction(){" +
+          "return\"dont_rename_me_bro\"" +
+        "}" +
+        "render(){" +
+          "return React.createElement(\"div\",null,this.props.aProp)" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$,{aProp:\"foo\"}),document.body);");
+    // Even with a minified build there is no renaming.
+    ReactCompilerPass.Options minifiedReactPassOptions =
+        new ReactCompilerPass.Options();
+    minifiedReactPassOptions.optimizeForSize = true;
+    test(
+      CLOSURE_EXPORT_FUNCTIONS +
+      "/** @export */" +
+      "class Comp extends React.Component {" +
+        "/** @export */ publicFunction() {\n" +
+            "return \"dont_rename_me_bro\";\n" +
+        "}\n" +
+        "/** @private */ privateFunction_() {\n" +
+            "return 1;\n" +
+        "}\n" +
+        "render() {\n" +
+          "return React.createElement(\"div\", null, this.props.aProp);\n" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {aProp: React.PropTypes.string};" +
+      "ReactDOM.render(React.createElement(Comp, {aProp: \"foo\"}), document.body);",
+      "class $Comp$$ extends $React$Component$${" +
+        "publicFunction(){" +
+          "return\"dont_rename_me_bro\"" +
+        "}" +
+        "render(){" +
+          "return $React$createElement$$(\"div\",null,this.props.aProp)" +
+        "}" +
+      "}" +
+      "ReactDOM.render($React$createElement$$($Comp$$,{aProp:\"foo\"}),document.body);",
       minifiedReactPassOptions,
       null);
   }
@@ -1406,6 +2047,155 @@ public class ReactCompilerPassTest {
         "React.createElement(Comp, null);");
   }
 
+@Test public void testPropTypesTypeCheckingClass() {
+    // Validate use of props within methods.
+    testError(
+      "export{};class Comp extends React.Component {" +
+        "render() {" +
+          "this.props.numberProp();" +
+          "return null;" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {numberProp: React.PropTypes.number};",
+      "JSC_NOT_FUNCTION_TYPE");
+
+    // Validate children prop
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes= {" +
+          "children: React.PropTypes.element.isRequired" +
+        "};" +
+        "React.createElement(Comp, {}, React.createElement(\"div\"));");
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes = {" +
+          "children: React.PropTypes.element.isRequired" +
+        "};" +
+        "React.createElement(Comp, {}, React.createElement(Comp));");
+    // Multiple children
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes = {" +
+          "children: React.PropTypes.arrayOf(React.PropTypes.element).isRequired" +
+        "};" +
+        "React.createElement(Comp, {}, React.createElement(Comp), React.createElement(Comp));");
+    // Children required but not passed in
+    testError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes = {" +
+          "children: React.PropTypes.element.isRequired" +
+        "};" +
+        "React.createElement(Comp, {});",
+        "REACT_NO_CHILDREN_ARGUMENT");
+    // Children not required and not passed in
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes = {" +
+          "children: React.PropTypes.element" +
+        "};" +
+        "React.createElement(Comp, {});");
+    // Children required and wrong type passed in
+    testError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}" +
+        "Comp.propTypes = {" +
+          "children: React.PropTypes.element.isRequired" +
+        "};" +
+        "React.createElement(Comp, {}, null);",
+        "JSC_TYPE_MISMATCH");
+
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "aProp: React.PropTypes.string.isRequired" +
+        "};" +
+        "Comp.defaultProps ={aProp: \"1\"};" +
+        "React.createElement(Comp, Object.assign({aProp: \"1\"}, {}))");
+    testNoError(
+      "class Comp extends React.Component {" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = {" +
+        "aProp: React.PropTypes.string.isRequired" +
+      "};" +
+      "Comp.defaultProps = {aProp: \"1\"};" +
+      "React.createElement(Comp, {aProp: \"1\",...{}})");
+
+    // Required props with default values can be ommitted.
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "strProp: React.PropTypes.string.isRequired" +
+        "};" +
+        "Comp.defaultProps = {strProp: \"1\"};" +
+        "React.createElement(Comp, {});");
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+            "strProp: React.PropTypes.string.isRequired" +
+        "};" +
+        "Comp.defaultProps = {strProp: \"1\"};" +
+        "React.createElement(Comp, null);");
+    // Applies to custom type expressions too
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "/** @type {boolean} */ boolProp: function() {}" +
+        "};" +
+        "Comp.defaultProps = {boolProp: true};" +
+        "React.createElement(Comp, {});");
+    // But if they are provided their types are still checked.
+    testError(
+        "class Comp extends React.Component {" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "strProp: React.PropTypes.string.isRequired" +
+        "};" +
+        "Comp.defaultProps = {strProp: \"1\"};" +
+        "React.createElement(Comp, {strProp: 1});",
+        "JSC_TYPE_MISMATCH");
+    // Even if not required, if they have a default value their value inside
+    // the component is not null or undefined.
+    testNoError(
+        "class Comp extends React.Component {" +
+          "render() {" +
+            "this.strMethod_(this.props.strProp);" +
+            "return null;" +
+          "}\n" +
+          "/**" +
+          " * @param {string} param" +
+          " * @return {string}" +
+          " * @private" +
+          " */" +
+          "strMethod_(param) {return param;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "strProp: React.PropTypes.string" +
+        "};\n" +
+        "Comp.defaultProps = {strProp: \"1\"};\n" +
+        "React.createElement(Comp, null);");
+  }
+
   @Test public void testPropTypesMixins() {
     testError(
         "var Mixin = React.createMixin({" +
@@ -1508,6 +2298,43 @@ public class ReactCompilerPassTest {
         "JSC_NOT_FUNCTION_TYPE");
   }
 
+  @Test public void testPropTypesComponentMethodsClass() {
+    // React component/lifecycle methods automatically get the specific prop
+    // type injected.
+    testError(
+        "class Comp extends React.Component {" +
+          "componentWillReceiveProps(nextProps) {" +
+             "nextProps.numberProp();" +
+          "}\n" +
+          "render() {return null;}" +
+        "}\n" +
+        "Comp.propTypes = {" +
+          "numberProp: React.PropTypes.number.isRequired" +
+        "};\n" +
+        "React.createElement(Comp, {numberProp: 1});",
+        "JSC_NOT_FUNCTION_TYPE");
+    
+    // TODO(arv): Add mixin support
+    // // As do abstract mixin methods that use ReactProps as the type.
+    // testError(
+    //     "var Mixin = React.createMixin({" +
+    //     "});" +
+    //     "/** @param {ReactProps} props @protected */" +
+    //     "Mixin.mixinAbstractMethod;\n" +
+    //     "class Comp extends React.Component {" +
+    //       "mixins: [Mixin],\n" +
+    //       "propTypes: {" +
+    //         "numberProp: React.PropTypes.number.isRequired" +
+    //       "}," +
+    //       "mixinAbstractMethod: function(props) {" +
+    //          "props.numberProp();" +
+    //       "},\n" +
+    //       "render: function() {return null;}" +
+    //     "}\n" +
+    //     "React.createElement(Comp, {numberProp: 1});",
+    //     "JSC_NOT_FUNCTION_TYPE");
+  }
+
   private void testPropTypesError(String propTypes, String props, String error) {
     testError(
       "/** @constructor */ function Message() {};\n" +
@@ -1517,7 +2344,15 @@ public class ReactCompilerPassTest {
       "});\n" +
       "React.createElement(Comp, " + props + ");",
       error);
-  }
+    testError(
+      "class Message {}\n" +
+      "class Comp extends React.Component {" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = " + propTypes + ";\n" +
+      "React.createElement(Comp, " + props + ");",
+      error);
+    }
 
   private void testPropTypesNoError(String propTypes, String props) {
     testNoError(
@@ -1526,6 +2361,13 @@ public class ReactCompilerPassTest {
         "propTypes: " + propTypes + "," +
         "render: function() {return null;}" +
       "});\n" +
+      "React.createElement(Comp, " + props + ");");
+    testNoError(
+      "class Message {}\n" +
+      "class Comp extends React.Component {" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = " + propTypes + ";\n" +
       "React.createElement(Comp, " + props + ");");
   }
 
@@ -1551,6 +2393,26 @@ public class ReactCompilerPassTest {
               "\"div\",null,React.Children.only(this.props.children))" +
         "}" +
       "})),document.body);");
+  }
+
+  @Test public void testChildrenClass() {
+    // Non-comprehensive test that the React.Children namespace functions exist.
+    test(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(" +
+              "\"div\", null, React.Children.only(this.props.children));" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {" +
+        "children: React.PropTypes.element.isRequired" +
+      "};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",null,React.Children.only(this.props.children))" +
+        "}}" +
+        "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
   @Test public void testContextTypesTypeChecking() {
@@ -1592,6 +2454,45 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testContextTypesTypeCheckingClass() {
+    // Validate use of context within methods.
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "this.context.numberProp();" +
+          "return null;" +
+        "}" +
+      "}" +
+      "Comp.contextTypes = {numberProp: React.PropTypes.number};",
+      "JSC_NOT_FUNCTION_TYPE");
+    // Both props and context are checked
+    testNoError(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "this.context.functionProp(this.props.numberProp);" +
+          "return null;" +
+        "}" +
+      "}" +
+      "Comp.contextTypes = {\n" +
+        "/** @type {function(number)} */\n" +
+        "functionProp: React.PropTypes.func," +
+      "};" +
+      "Comp.propTypes = {numberProp: React.PropTypes.number.isRequired};");
+    testError(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "this.context.functionProp(this.props.stringProp);" +
+          "return null;" +
+        "}" +
+      "}" +
+      "Comp.contextTypes = {\n" +
+        "/** @type {function(number)} */\n" +
+        "functionProp: React.PropTypes.func," +
+      "};\n" +
+      "Comp.propTypes = {stringProp: React.PropTypes.string.isRequired};",
+      "JSC_TYPE_MISMATCH");
+  }
+
   @Test public void testReactDOM() {
     test("var Comp = React.createClass({});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
@@ -1607,6 +2508,13 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
   }
 
+  @Test public void testReactDOMClass() {
+    test("class Comp extends React.Component {}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+  }
+
   @Test public void testReactDOMServer() {
     test("var Comp = React.createClass({});" +
       "ReactDOMServer.renderToString(React.createElement(Comp));",
@@ -1620,6 +2528,17 @@ public class ReactCompilerPassTest {
       "React.createElement(React.createClass({})));");
     testError("ReactDOMServer.renderToStaticMarkup(\"notanelement\");",
       "JSC_TYPE_MISMATCH");
+  }
+
+  @Test public void testReactDOMServerClass() {
+    test("class Comp extends React.Component {}" +
+      "ReactDOMServer.renderToString(React.createElement(Comp));",
+      "class $Comp$$ extends React.Component{}" +
+      "ReactDOMServer.renderToString(React.createElement($Comp$$));");
+    test("class Comp extends React.Component {}" +
+      "ReactDOMServer.renderToStaticMarkup(React.createElement(Comp));",
+      "class $Comp$$ extends React.Component{}" +
+      "ReactDOMServer.renderToStaticMarkup(React.createElement($Comp$$));");
   }
 
   /**
@@ -1673,6 +2592,33 @@ public class ReactCompilerPassTest {
       "window.foo = Comp.aFunction('notANumber');",
       "JSC_TYPE_MISMATCH");
   }
+  @Test public void testStaticsClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {return React.createElement(\"div\");}" +
+        "/** @return {number} */" +
+        "static aFunction() {return 123}" +
+      "}\n" +
+      "/** @const {number} */" +
+      "Comp.aNumber = 123;\n" +
+      "/** @const {string} */" +
+      "Comp.aString = \"456\";\n" +
+      "window.aNumber = Comp.aNumber;\n" +
+      "window.aString = Comp.aString;\n" +
+      "window.aFunctionResult = Comp.aFunction();\n",
+      "window.$aNumber$=123;" +
+      "window.$aString$=\"456\";" +
+      "window.$aFunctionResult$=123;");
+    // JSDoc is used to validate.
+    testError(
+      "class Comp extends React.Component {" +
+        "/** @param {number} aNumber */" +
+        "static aFunction(aNumber) {window.foo = aNumber}" +
+        "render() {return React.createElement(\"div\");}" +
+      "}" +
+      "window.foo = Comp.aFunction('notANumber');",
+      "JSC_TYPE_MISMATCH");
+  }
 
   @Test public void testPureRenderMixin() {
     test(
@@ -1705,6 +2651,35 @@ public class ReactCompilerPassTest {
       ReactCompilerPass.PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE);
   }
 
+  @Test public void testExtendsPureComponent() {
+    test(
+      "class Comp extends React.PureComponent {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      // Should be fine to use React.PureComponent.
+      "class $Comp$$ extends React.PureComponent{" +
+        "render(){" +
+          "return React.createElement(\"div\")" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+    testError(
+      "class Comp extends React.PureComponent {" +
+        "shouldComponentUpdate(nextProps, nextState) {" +
+          "return true;" +
+        "}" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}",
+      // But there should be a warning if using PureComponent and
+      // shouldComponentUpdate is specified.
+      ReactCompilerPass.PURE_COMPONENT_SHOULD_COMPONENT_UPDATE_OVERRIDE);
+  }
+
   @Test public void testElementTypedef() {
     test(
       "var Comp = React.createClass({" +
@@ -1727,6 +2702,28 @@ public class ReactCompilerPassTest {
       "");
   }
 
+  @Test public void testElementTypedefClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}\n" +
+      "/** @return {CompElement} */\n" +
+      "function create() {return React.createElement(Comp);}",
+      "");
+    test(
+      "const ns = {};" +
+      "ns.Comp = class extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}\n" +
+      "/** @return {ns.CompElement} */\n" +
+      "function create() {return React.createElement(ns.Comp);}",
+      "");
+  }
+
   @Test public void testPropsSpreadInlining() {
     test(
       "var Comp = React.createClass({" +
@@ -1741,6 +2738,23 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\",{$a$:\"1\"})" +
         "}" +
       "})),document.body);");
+  }
+  
+  @Test public void testPropsSpreadInliningClass() {
+    test(
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "var props = {a: \"1\"};\n" +
+          "return React.createElement(\"div\", {...props});" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",{$a$:\"1\"})" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
   private static void test(String inputJs, String expectedJs) {
@@ -1775,8 +2789,8 @@ public class ReactCompilerPassTest {
     CompilationLevel.ADVANCED_OPTIMIZATIONS
         .setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
-    options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
-    options.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5);
+    options.setLanguage(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
+    options.setEmitUseStrict(false);  // It is just noise
     if (!passOptions.optimizeForSize) {
       // We assume that when optimizing for size we don't care about property
       // checks (they rely on propTypes being extracted, which we don't do).

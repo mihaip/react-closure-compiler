@@ -75,6 +75,8 @@ class SymbolTable<V> {
     }
     ModulePath modulePath = ModulePathAccessor.getVarInputModulePath(nameVar);
     if (namePieces.length == 1) {
+      nameVar.getNode();
+      nameVar.getNode().getParent().isImportSpec();
       if (nameVar.getNode().getParent().isImportSpec()) {
         // Even if we're not doing a property access the name could be something
         // that's exported. We handle both patterns:

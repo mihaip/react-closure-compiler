@@ -66,7 +66,7 @@ var ReactComponentFunction;
 
 
 /**
- * @typedef {Object}
+ * @typedef {!Object}
  */
 var ReactState;
 
@@ -125,7 +125,7 @@ function ReactComponent() {}
 ReactComponent.prototype.props;
 
 /**
- * @type {ReactState}
+ * @type {?ReactState}
  * @const
  */
 ReactComponent.prototype.state;
@@ -142,9 +142,9 @@ ReactComponent.prototype.context;
 ReactComponent.prototype.refs;
 
 /**
- * @return {?ReactState}
+ * @type {(function(): ?ReactState)|undefined}
  */
-ReactComponent.prototype.getInitialState = function() {};
+ReactComponent.prototype.getInitialState;
 
 /**
  * @return {Object}
@@ -152,7 +152,7 @@ ReactComponent.prototype.getInitialState = function() {};
 ReactComponent.prototype.getChildContext = function() {};
 
 /**
- * @param {ReactState|function(ReactState, ReactProps): ReactState} stateOrFunction
+ * @param {?ReactState|function(?ReactState, ReactProps): ?ReactState} stateOrFunction
  * @param {function(): void=} callback
  * @return {void}
  */
@@ -560,14 +560,95 @@ function ReactModule() {}
 ReactModule.prototype.Children;
 
 /**
- * @typedef {ReactComponent}
+ * @param {ReactProps=} props
+ * @param {Object=} context
+ * @constructor
+ * @implements {ReactComponent}
  */
-ReactModule.prototype.Component;
+ReactModule.prototype.Component = function (props, context) { }
+
+/** @override */
+ReactModule.prototype.Component.prototype.props;
+
+/** @override */
+ReactModule.prototype.Component.prototype.state;
+
+/** @override */
+ReactModule.prototype.Component.prototype.context;
+
+/** @override */
+ReactModule.prototype.Component.prototype.refs;
 
 /**
- * @typedef {ReactComponent}
+ * @deprecated
+ * @override
  */
-ReactModule.prototype.PureComponent;
+ReactModule.prototype.Component.prototype.getInitialState;
+
+/** @override */
+ReactModule.prototype.Component.prototype.getChildContext = function() {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.setState = function(stateOrFunction, callback) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.replaceState = function(state, callback) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.render = function() {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.forceUpdate = function(callback) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.isMounted = function() {};
+// it's undocumented. Implementations can still add it (and it will not be
+// flagged as an error).
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentWillMount = function() {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentDidMount = function() {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentWillReceiveProps = function(nextProps) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.shouldComponentUpdate = function(nextProps, nextState) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentWillUpdate = function(nextProps, nextState) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentDidUpdate = function(prevProps, prevState) {};
+
+/** @override */
+ReactModule.prototype.Component.prototype.componentWillUnmount = function() {};
+
+/**
+ * @type {Object.<ReactPropsChainableTypeChecker>|undefined}
+ */
+ReactModule.prototype.Component.propTypes;
+
+/**
+ * @type {Object|undefined}
+ */
+ReactModule.prototype.Component.defaultProps;
+
+/**
+ * @type {Object|undefined}
+ */
+ReactModule.prototype.Component.contextTypes;
+
+
+/**
+ * @param {ReactProps=} props
+ * @param {Object=} context
+ * @constructor
+ * @extends {React.Component}
+ */
+ReactModule.prototype.PureComponent = function (props, context) { }
 
 /**
  * @type {ReactPropTypes}
@@ -606,7 +687,7 @@ ReactModule.prototype.createClass = function(specification) {};
 ReactModule.prototype.createMixin = function(mixin) {};
 
 /**
- * @param {ReactClass.<T>|ReactComponentFunction|string} type
+ * @param {ReactClass.<T>|ReactComponentFunction|typeof ReactModule.prototype.Component|string} type
  * @param {Object=} props
  * @param {...ReactChildrenArgument} children
  * @return {!ReactElement.<T>}
