@@ -1458,7 +1458,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
     
     String typeName = typeNameNode.getQualifiedName();
-    String interfaceTypeName = generateInterfaceTypeName(t, typeNameNode);
 
     // Check to see if the type has an ES6 module export. We assume this is
     // of the form `export class Comp extends React.Component`. If it is, then
@@ -1507,7 +1506,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     interfacePrototypePropsByName.put(
         typeNameNode, interfacePrototypeProps, moduleExportInput);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
-    Node constructorNode = null;
+    Node initialStateNode = null;
     List<String> exportedNames = Lists.newArrayList();
     boolean usesPureRenderMixin = false;
     // TODO(arv): Check for PureComponent
@@ -1519,17 +1518,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         continue;
       }
 
-      String keyName = key.getString();
-      if (keyName.equals("constructor")) {
-        constructorNode = key;
-      }    
-
       if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
         continue;
       }
+
+      String keyName = key.getString();
+      
       if (keyName.equals("shouldComponentUpdate")) {
         hasShouldComponentUpdate = true;
+      } else if (keyName.equals("initialState")) {
+        initialStateNode = key;
       }
+
       Node func = key.getFirstChild();
 
       // If the function is an implementation of a standard component method
@@ -1618,10 +1618,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    Node thisStateNode = findThisStateNode(constructorNode);
-    if (thisStateNode != null) {
+    if (initialStateNode != null) {
       StateTypeExtractor extractor = new StateTypeExtractor(
-        thisStateNode, typeName, typeName, compiler);
+        initialStateNode, typeName, typeName, compiler);
       if (extractor.hasStateType()) {
         extractor.insert(typesInsertionPoint);
         extractor.addToComponentMethods(componentMethodKeys);
@@ -1645,63 +1644,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           COMPONENT_ALIAS_NAME : PURE_COMPONENT_ALIAS_NAME;
       extendsNode.replaceWith(IR.name(replaceName));
     }
-  }
-
-  /**
-   * Finds the declaring the state type inside a constructor
-   * 
-   *   class C extends React.Component {
-   *     constructor(props) {
-   *       super(props);
-   *       ...
-   *       \/** @private {{...}} *\/
-   *       this.state = {...}; <== Find this statement node
-   *       ...
-   *     }
-   *   }
-   */
-  private Node findThisStateNode(Node constructorNode) {
-    if (constructorNode == null || !constructorNode.isMemberFunctionDef() ||
-        constructorNode.isStaticMember()) {
-      return null;
-    }
-
-    Node functionNode = constructorNode.getFirstChild();
-    if (functionNode == null || functionNode.isAsyncFunction() || functionNode.isGeneratorFunction()) {
-      return null;
-    }
-
-    final Node[] stateNode = new Node[1];
-
-    NodeTraversal.traverse(
-      compiler,
-      functionNode.getLastChild(),
-      new NodeTraversal.AbstractShallowCallback() {
-        @Override
-        public void visit(NodeTraversal t, Node n, Node parent) {
-          if (!n.isThis() || !parent.isGetProp() || !parent.getParent().isAssign() ||
-              !parent.getGrandparent().isExprResult()) {
-            return;
-          }
-
-          Node prop = n.getNext();
-          if (prop == null || !prop.isString()) {
-            return;
-          }
-          JSDocInfo jsDocInfo = NodeUtil.getBestJSDocInfo(parent);
-          if (jsDocInfo == null) {
-            return;
-          }
-          String fieldName = prop.getString();
-          if (!fieldName.equals("state")) {
-            return;
-          }
-
-          stateNode[0] = parent.getParent();
-        }
-      });
-
-    return stateNode[0];
   }
 
   private boolean isClassExtendsReactComponent(Node value) {

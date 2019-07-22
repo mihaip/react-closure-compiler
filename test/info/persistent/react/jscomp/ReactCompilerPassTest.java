@@ -1237,8 +1237,12 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
-          "/** @type {{enabled: boolean}} */" +
-          "this.state = {enabled: false};" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
         "}" +
         "render() {" +
           "this.state.enabled.toFixed(2);" +
@@ -1251,8 +1255,12 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
-          "/** @type {{enabled: boolean}} */" +
-          "this.state = {enabled: false};" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState()" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
         "}" +
         "render() {" +
           "this.setState({enabled: 123});" +
@@ -1266,8 +1274,12 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
-          "/** @type {{enabled: boolean}} */" +
-          "this.state = {enabled: false};" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
         "}" +
         "render() {" +
           "this.setState((state, props) => ({enabled: 123}));" +
@@ -1280,8 +1292,12 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
-          "/** @type {{f1: boolean, f2: number, f3: (number|boolean)}} */" +
-          "this.state = {f1: false, f2: 1, f3: 2};" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{f1: boolean, f2: number, f3: (number|boolean)}} */" +
+        "initialState() {" +
+          "return {f1: false, f2: 1, f3: 2};" +
         "}" +
         "render() {" +
           "this.setState({f1: true});" +
@@ -1294,7 +1310,11 @@ public class ReactCompilerPassTest {
         "constructor(props) {" +
           "super(props);" +
           "/** @type {number} */" +
-          "this.state = {enabled: false};" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {number} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
         "}" +
         "render() {" +
           "return null;" +
@@ -1306,8 +1326,12 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
-          "/** @type {{enabled: boolean}} */" +
-          "this.state = {enabled: false};" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {{enabled: boolean}} */" +
+        "initialState() {" +
+          "return {enabled: false};" +
         "}" +
         "componentWillUpdate(nextProps, nextState) {" +
           "nextState.enabled.toFixed(2);" +

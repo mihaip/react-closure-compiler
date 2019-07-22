@@ -49,17 +49,8 @@ class StateTypeExtractor {
     this.interfaceTypeName = interfaceTypeName;
     this.compiler = compiler;
 
-    JSTypeExpression stateType = null;
     JSDocInfo stateJsDoc = stateNode.getJSDocInfo();
-    if (stateJsDoc != null) {
-      if (stateNode.isMemberFunctionDef()) {
-        // getInitialState() {
-        stateType = stateJsDoc.getReturnType();
-      } else {
-        // this.state = ...
-        stateType = stateJsDoc.getType();
-      }
-    }  
+    JSTypeExpression stateType = stateJsDoc.getReturnType();
 
     // ?ReactStateType is the default return type that we pick up from types.js,
     // also treat that as a missing return type.
