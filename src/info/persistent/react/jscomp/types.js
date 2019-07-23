@@ -579,7 +579,10 @@ ReactModule.prototype.Component.prototype.context;
 /** @override */
 ReactModule.prototype.Component.prototype.refs;
 
-/** @override */
+/**
+ * @deprecated
+ * @override
+ */
 ReactModule.prototype.Component.prototype.getInitialState;
 
 /** @override */

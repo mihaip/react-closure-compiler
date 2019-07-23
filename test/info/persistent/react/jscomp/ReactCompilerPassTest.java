@@ -1340,6 +1340,7 @@ public class ReactCompilerPassTest {
         "}" +
       "}",
       "JSC_INEXISTENT_PROPERTY");
+    // TODO(arv): Add mixin support
     // // Mixin methods that take state parameters are checked
     // testError(
     //   "var Mixin = React.createMixin({});\n" +
@@ -1544,6 +1545,8 @@ public class ReactCompilerPassTest {
     // - React.createClass and React.createElement calls should be replaced with
     //   React$createClass and React$createElement aliases (which can get fully
     //   renamed).
+
+    // TODO(arv): Add mixin support
     // test(
     //   "var Mixin = React.createMixin({" +
     //       "mixinMethod: function() {return 'foo'}" +
@@ -1560,6 +1563,7 @@ public class ReactCompilerPassTest {
     //   "})),document.body);",
     //   passOptions,
     //   null);
+
     // This should also work when using ES6 modules
     test(
       "export const anExport = 9;\n" +
@@ -2309,6 +2313,8 @@ public class ReactCompilerPassTest {
         "};\n" +
         "React.createElement(Comp, {numberProp: 1});",
         "JSC_NOT_FUNCTION_TYPE");
+    
+    // TODO(arv): Add mixin support
     // // As do abstract mixin methods that use ReactProps as the type.
     // testError(
     //     "var Mixin = React.createMixin({" +
@@ -2643,6 +2649,35 @@ public class ReactCompilerPassTest {
       // But there should be a warning if using PureRenderMixin yet
       // shouldComponentUpdate is specified.
       ReactCompilerPass.PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE);
+  }
+
+  @Test public void testExtendsPureComponent() {
+    test(
+      "class Comp extends React.PureComponent {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      // Should be fine to use React.PureComponent.
+      "class $Comp$$ extends React.PureComponent{" +
+        "render(){" +
+          "return React.createElement(\"div\")" +
+        "}" +
+      "}" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
+    testError(
+      "class Comp extends React.PureComponent {" +
+        "shouldComponentUpdate(nextProps, nextState) {" +
+          "return true;" +
+        "}" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}",
+      // But there should be a warning if using PureComponent and
+      // shouldComponentUpdate is specified.
+      ReactCompilerPass.PURE_COMPONENT_SHOULD_COMPONENT_UPDATE_OVERRIDE);
   }
 
   @Test public void testElementTypedef() {

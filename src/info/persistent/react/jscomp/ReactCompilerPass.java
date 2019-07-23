@@ -76,6 +76,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       DiagnosticType.error(
           "REACT_PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE",
           "{0} uses React.addons.PureRenderMixin, it should not define shouldComponentUpdate.");
+  static final DiagnosticType PURE_COMPONENT_SHOULD_COMPONENT_UPDATE_OVERRIDE =
+      DiagnosticType.error(
+          "PURE_COMPONENT_SHOULD_COMPONENT_UPDATE_OVERRIDE",
+          "{0} extends React.PureComponent, it should not define shouldComponentUpdate.");
   static final DiagnosticType UNEXPECTED_EXPORT_SYNTAX = DiagnosticType.error(
       "REACT_UNEXPECTED_EXPORT_SYNTAX",
       "Unexpected export syntax.");
@@ -411,7 +415,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     } else if (isReactPropTypes(n)) {
       visitReactPropTypes(n);
     } else if (isClassExtendsReactComponent(n)) {
-      visitClassExtendsReactComponent(t, n, reactClassInterfacePrototypePropsByName);
+      visitClassExtendsReactComponent(t, n);
     } else if (isStaticPropTypes(scope, n)) {
       visitStaticPropTypes(scope, n);
     } else if (isStaticDefaultProps(scope, n)) {
@@ -421,7 +425,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     } else if (n.isModuleBody() || n.isScript()) {
       handleOutOfBoundsData(t, n);
     }
-    // TODO(arv): Handle alias of React.Component and PureComponent
   }
 
   private void handleOutOfBoundsData(NodeTraversal t, Node n) {
@@ -786,18 +789,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       if (keyName.equals("propTypes")) {
         propTypesNode = key.getFirstChild();
         continue;
-      }
-      if (keyName.equals("getDefaultProps")) {
+      } else if (keyName.equals("getDefaultProps")) {
         defaultPropsNode = PropTypesExtractor.extractDefaultPropsObjectLiteralNode(key);
-      }
-      if (keyName.equals("getInitialState")) {
+      } else if (keyName.equals("getInitialState")) {
         getInitialStateNode = key;
-      }
-      if (keyName.equals("contextTypes")) {
+      } else if (keyName.equals("contextTypes")) {
         contextTypesNode = key.getFirstChild();
         continue;
-      }
-      if (keyName.equals("statics")) {
+      } else if (keyName.equals("statics")) {
         if (createFuncName.equals("React.createClass")) {
           gatherStaticsJsDocs(key, staticsJsDocs);
         }
@@ -875,27 +874,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    // Add a "<type name>Element" @typedef for the element type of this class.
-    jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordTypedef(new JSTypeExpression(
-        createReactElementTypeExpressionNode(typeName),
-        callNode.getSourceFileName()));
-    String elementTypeName = typeName + "Element";
-    Node elementTypedefNode = NodeUtil.newQName(compiler, elementTypeName);
-    if (elementTypedefNode.isName()) {
-      elementTypedefNode = IR.var(elementTypedefNode);
-    }
-    elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
-    if (!NodeUtil.isNameDeclaration(elementTypedefNode)) {
-      elementTypedefNode = IR.exprResult(elementTypedefNode);
-    }
-    elementTypedefNode.useSourceInfoFromForTree(callParentNode);
     Node typesInsertionPoint = callParentNode.getParent();
-    typesInsertionPoint.getParent().addChildAfter(
-        elementTypedefNode, typesInsertionPoint);
-    if (addModuleExports) {
-      Ast.addModuleExport(elementTypeName, elementTypedefNode);
-    }
+    addElementTypedef(callNode, callParentNode, typeName, addModuleExports, typesInsertionPoint);
 
     // Generate statics property JSDocs, so that the compiler knows about them.
     if (createFuncName.equals("React.createClass")) {
@@ -914,23 +894,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    // Trim duplicated properties that have accumulated (due to mixins defining
-    // a method and then classes overriding it). Keep the last one since it's
-    // from the class and thus most specific.
-    ListMultimap<String, Node> interfaceKeyNodes = ArrayListMultimap.create();
-    for (Node interfaceKeyNode = interfacePrototypeProps.getFirstChild();
-          interfaceKeyNode != null;
-          interfaceKeyNode = interfaceKeyNode.getNext()) {
-      interfaceKeyNodes.put(interfaceKeyNode.getString(), interfaceKeyNode);
-    }
-    for (String key : interfaceKeyNodes.keySet()) {
-      List<Node> keyNodes = interfaceKeyNodes.get(key);
-      if (keyNodes.size() > 1) {
-        for (Node keyNode : keyNodes.subList(0, keyNodes.size() - 1)) {
-          keyNode.detachFromParent();
-        }
-      }
-    }
+    trimDuplicateProperties(interfacePrototypeProps);
 
     // Generate the interface definition.
     Node interfaceTypeFunctionNode =
@@ -1101,7 +1065,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (mixinRef == null) {
       return false;
     }
-    Node mixinSpecNode = mixinRef.node;
     String methodName = getPropNode.getLastChild().getString();
     JSDocInfo abstractFuncJsDoc = getPropNode.getJSDocInfo();
 
@@ -1436,8 +1399,77 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
   private void visitClassExtendsReactComponent(
       NodeTraversal t,
-      Node classNode,
-      SymbolTable<Node> interfacePrototypePropsByName) {
+      Node classNode) {
+
+    // Adds type annotations etc to an extends React.Component class:
+    //
+    // Input:
+    //
+    // class Comp extends React.Component {
+    //   constructor(props) {
+    //     super(props);
+    //     /** @type {Comp.State} */
+    //     this.state = this.initialState();
+    //   }
+    //   initialState() {
+    //     return {a: boolean};
+    //   }
+    // }
+    // Comp.propTypes = {b: React.PropTypes.number.isRequired};
+    //
+    // Is converted into something like:
+    //
+    // class Comp extends React.Component {
+    //   constructor(props) {
+    //     super(props);
+    //     /** @type {Comp.State} */
+    //     this.state = this.initialState();
+    //   }
+    //   /**
+    //    * @return {{a:boolean}}
+    //    */
+    //   initialState() {
+    //     return {a:true};
+    //   }
+    // }
+    // {
+    //   /** @record */ var Comp$Props = function() {
+    //   };
+    //   /** @type {{b:number}} */ Comp$Props.prototype;
+    //   /** @typedef {!Comp$Props} */ Comp.Props;
+    // }
+    // /**
+    //  * @param {!Comp.Props} props
+    //  * @return {!Comp.Props}
+    //  */
+    // function Comp$$PropsValidator(props) {
+    //   return props;
+    // }
+    // {
+    //   /** @record */ var Comp$SpreadProps = function() {
+    //   };
+    //   /** @type {{b:(number|undefined|null)}} */ Comp$SpreadProps.prototype;
+    //   /** @typedef {!Comp$SpreadProps} */ Comp.SpreadProps;
+    // }
+    // /**
+    //  * @param {!Comp.SpreadProps} props
+    //  * @return {!Comp.SpreadProps}
+    //  */
+    // function Comp$$PropsValidatorSpread(props) {
+    //   return props;
+    // }
+    // /** @type {!Comp.Props} */ Comp.prototype.props;
+    // /** @typedef {{a:boolean}} */ Comp.State;
+    // /** @typedef {{a:(boolean|undefined)}} */ Comp.PartialState;
+    // /** @type {Comp.State} */ Comp.prototype.state;
+    // /**
+    //  * @param {(?Comp.PartialState|function(Comp.State,ReactProps):?Comp.PartialState)} stateOrFunction
+    //  * @param {function():void=} callback
+    //  */
+    // Comp.prototype.setState;
+    // /** @typedef {ReactElement<!Comp>} */ var CompElement;
+    // Comp.propTypes = {b:React.PropTypes.number.isRequired};  
+
     Scope scope = t.getScope();
     Node classParentNode = classNode.getParent();
     Node typeNameNode = classNode.getFirstChild();
@@ -1504,25 +1536,16 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfoAccessor.setJSDocExport(jsDocInfo, false);
     }
 
-    JSDocInfoBuilder jsDocBuilder;
-
-    // Do not add "<type name>Interface" since we can use the type directly
-  
     Node classBody = classNode.getLastChild();
 
     // Record the type so that we can later look it up in React.createElement
     // calls.
     reactClassesByName.put(typeNameNode, classBody, moduleExportInput);
 
-    // Gather methods for the interface definition.
-    Node interfacePrototypeProps = IR.objectlit();
-    interfacePrototypePropsByName.put(
-        typeNameNode, interfacePrototypeProps, moduleExportInput);
-    Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node initialStateNode = null;
     List<String> exportedNames = Lists.newArrayList();
-    boolean usesPureRenderMixin = false;
-    // TODO(arv): Check for PureComponent
+    boolean extendsPureComponent =
+        classNode.getChildAtIndex(1).getQualifiedName().equals("React.PureComponent");
     boolean hasShouldComponentUpdate = false;
     List<Node> componentMethodKeys = Lists.newArrayList();
     for (Node key : classBody.children()) {
@@ -1555,72 +1578,21 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         mergeInJsDoc(key, func, componentMethodJsDoc, true);
       }
 
-      // Ditto for abstract methods from mixins.
-      JSDocInfo abstractMethodJsDoc = abstractMethodJsDocsByName.get(keyName);
-      if (abstractMethodJsDoc != null) {
-        // Treat mixin methods as component ones too, as far as making the type
-        // used for props more specific.
-        componentMethodKeys.add(key);
-        mergeInJsDoc(key, func, abstractMethodJsDoc);
-      }
-
       // If @export is present add it to externs to prevent renaming.
       if (isExportedType && componentMethodJsDoc == null &&
           key.getJSDocInfo() != null &&
           key.getJSDocInfo().isExport()) {
         exportedNames.add(keyName);
       }
-
-      // Gather method signatures so that we can declare them where the compiler
-      // can see them.
-      addFuncToInterface(
-            keyName, func, interfacePrototypeProps, key.getJSDocInfo());
     }
 
-    if (usesPureRenderMixin && hasShouldComponentUpdate) {
+    if (hasShouldComponentUpdate && extendsPureComponent) {
       compiler.report(JSError.make(
-          classNode, PURE_RENDER_MIXIN_SHOULD_COMPONENT_UPDATE_OVERRIDE, typeName));
+          classNode, PURE_COMPONENT_SHOULD_COMPONENT_UPDATE_OVERRIDE, typeName));
       return;
     }
 
-    // Add a "<type name>Element" @typedef for the element type of this class.
-    jsDocBuilder = new JSDocInfoBuilder(true);
-    jsDocBuilder.recordTypedef(new JSTypeExpression(
-        createReactElementTypeExpressionNode(typeName),
-        classNode.getSourceFileName()));
-    String elementTypeName = typeName + "Element";
-    Node elementTypedefNode = NodeUtil.newQName(compiler, elementTypeName);
-    if (elementTypedefNode.isName()) {
-      elementTypedefNode = IR.var(elementTypedefNode);
-    }
-    elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
-    if (!NodeUtil.isNameDeclaration(elementTypedefNode)) {
-      elementTypedefNode = IR.exprResult(elementTypedefNode);
-    }
-    elementTypedefNode.useSourceInfoFromForTree(classParentNode);
-    typesInsertionPoint.getParent().addChildAfter(
-        elementTypedefNode, typesInsertionPoint);
-    if (addModuleExports) {
-      Ast.addModuleExport(elementTypeName, elementTypedefNode);
-    }
-
-    // Trim duplicated properties that have accumulated (due to mixins defining
-    // a method and then classes overriding it). Keep the last one since it's
-    // from the class and thus most specific.
-    ListMultimap<String, Node> interfaceKeyNodes = ArrayListMultimap.create();
-    for (Node interfaceKeyNode = interfacePrototypeProps.getFirstChild();
-          interfaceKeyNode != null;
-          interfaceKeyNode = interfaceKeyNode.getNext()) {
-      interfaceKeyNodes.put(interfaceKeyNode.getString(), interfaceKeyNode);
-    }
-    for (String key : interfaceKeyNodes.keySet()) {
-      List<Node> keyNodes = interfaceKeyNodes.get(key);
-      if (keyNodes.size() > 1) {
-        for (Node keyNode : keyNodes.subList(0, keyNodes.size() - 1)) {
-          keyNode.detachFromParent();
-        }
-      }
-    }
+    addElementTypedef(classNode, classParentNode, typeName, addModuleExports, typesInsertionPoint);
 
     if (initialStateNode != null) {
       StateTypeExtractor extractor = new StateTypeExtractor(
@@ -1647,6 +1619,55 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       String replaceName = extendsNode.getQualifiedName().equals("React.Component") ?
           COMPONENT_ALIAS_NAME : PURE_COMPONENT_ALIAS_NAME;
       extendsNode.replaceWith(IR.name(replaceName));
+    }
+  }
+
+  /**
+   * Trim duplicated properties that have accumulated (due to mixins defining
+   * a method and then classes overriding it). Keep the last one since it's
+   * from the class and thus most specific.
+   */
+  private void trimDuplicateProperties(Node interfacePrototypeProps) {
+    ListMultimap<String, Node> interfaceKeyNodes = ArrayListMultimap.create();
+    for (Node interfaceKeyNode = interfacePrototypeProps.getFirstChild();
+          interfaceKeyNode != null;
+          interfaceKeyNode = interfaceKeyNode.getNext()) {
+      interfaceKeyNodes.put(interfaceKeyNode.getString(), interfaceKeyNode);
+    }
+    for (String key : interfaceKeyNodes.keySet()) {
+      List<Node> keyNodes = interfaceKeyNodes.get(key);
+      if (keyNodes.size() > 1) {
+        for (Node keyNode : keyNodes.subList(0, keyNodes.size() - 1)) {
+          keyNode.detachFromParent();
+        }
+      }
+    }
+  }
+
+  /**
+   * Add a "<type name>Element" @typedef for the element type of this class.
+   */
+  private void addElementTypedef(Node classNode, Node classParentNode, String typeName, boolean addModuleExports,
+      final Node typesInsertionPoint) {
+    JSDocInfoBuilder jsDocBuilder;
+    jsDocBuilder = new JSDocInfoBuilder(true);
+    jsDocBuilder.recordTypedef(new JSTypeExpression(
+        createReactElementTypeExpressionNode(typeName),
+        classNode.getSourceFileName()));
+    String elementTypeName = typeName + "Element";
+    Node elementTypedefNode = NodeUtil.newQName(compiler, elementTypeName);
+    if (elementTypedefNode.isName()) {
+      elementTypedefNode = IR.var(elementTypedefNode);
+    }
+    elementTypedefNode.setJSDocInfo(jsDocBuilder.build());
+    if (!NodeUtil.isNameDeclaration(elementTypedefNode)) {
+      elementTypedefNode = IR.exprResult(elementTypedefNode);
+    }
+    elementTypedefNode.useSourceInfoFromForTree(classParentNode);
+    typesInsertionPoint.getParent().addChildAfter(
+        elementTypedefNode, typesInsertionPoint);
+    if (addModuleExports) {
+      Ast.addModuleExport(elementTypeName, elementTypedefNode);
     }
   }
 
