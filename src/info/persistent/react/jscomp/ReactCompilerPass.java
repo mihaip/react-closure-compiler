@@ -110,7 +110,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       new SymbolTable<>();
   private final SymbolTable<ClassOutOfBoundsData> classOutOfBoundsMap =
       new SymbolTable<>();
-  private final List<Node> reactCreateElementNodes = Lists.newArrayList();
+  private final List<NodeAndScope> reactCreateElementNodes = Lists.newArrayList();
 
   // Make debugging test failures easier by allowing the processed output to
   // be inspected.
@@ -157,6 +157,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       this.componentMethodKeys = componentMethodKeys;
       this.exportedNames = exportedNames;
       typeName = nameNode.getQualifiedName();
+    }
+  }
+
+  private class NodeAndScope {
+    final Node node;
+    final Scope scope;
+    NodeAndScope(Node node, Scope scope) {
+      this.node = node;
+      this.scope = scope;
     }
   }
 
@@ -398,7 +407,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     } else if (isReactCreateElement(n)) {
       // We have to defer dealing with this until we are done with the script
       // because the propTypes and defaultProps might be out of line.
-      reactCreateElementNodes.add(n);
+      reactCreateElementNodes.add(new NodeAndScope(n, scope));
     } else if (isReactPropTypes(n)) {
       visitReactPropTypes(n);
     } else if (isClassExtendsReactComponent(n)) {
@@ -426,8 +435,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       synthesizeExterns(data.exportedNames, data.typeName);
     }
 
-    for (Node createElementNode : reactCreateElementNodes) {
-      visitReactCreateElement(t.getScope(), createElementNode);
+    for (NodeAndScope pair : reactCreateElementNodes) {
+      visitReactCreateElement(pair.scope, pair.node);
     }
 
     classOutOfBoundsMap.clear();
@@ -1274,6 +1283,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc) {
+    mergeInJsDoc(key, func, jsDoc, false);
+  }
+
+  private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc, boolean forceOverride) {
     JSDocInfo existingJsDoc = key.getJSDocInfo();
     List<String> funcParamNames = Lists.newArrayList();
     for (Node param : NodeUtil.getFunctionParameters(func).children()) {
@@ -1304,7 +1317,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         jsDoc.getTypeTransformations().entrySet()) {
       jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
     }
-    if (jsDoc.isOverride()) {
+    if (forceOverride || jsDoc.isOverride()) {
       jsDocBuilder.recordOverride();
     }
     key.setJSDocInfo(jsDocBuilder.build());
@@ -1535,12 +1548,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // If the function is an implementation of a standard component method
       // (like shouldComponentUpdate), then copy the parameter and return type
       // from the ReactComponent interface method, so that it gets type checking
-      // (without an explicit @override annotation, which doesn't appear to work
-      // for interface extending interfaces in any case).
+      // Also add an explicit @override.
       JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
       if (componentMethodJsDoc != null) {
         componentMethodKeys.add(key);
-        mergeInJsDoc(key, func, componentMethodJsDoc);
+        mergeInJsDoc(key, func, componentMethodJsDoc, true);
       }
 
       // Ditto for abstract methods from mixins.
@@ -1563,14 +1575,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // can see them.
       addFuncToInterface(
             keyName, func, interfacePrototypeProps, key.getJSDocInfo());
-
-      // If the function is an implementation of a standard component method
-      // (like shouldComponentUpdate), then add @override.
-      if (componentMethodJsDoc != null) {
-        jsDocBuilder = new JSDocInfoBuilder(true);
-        jsDocBuilder.recordOverride();
-        mergeInJsDoc(key, func, jsDocBuilder.build());
-      }
     }
 
     if (usesPureRenderMixin && hasShouldComponentUpdate) {

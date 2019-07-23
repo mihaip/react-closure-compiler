@@ -119,7 +119,6 @@ public class ReactCompilerPassTest {
               "}" +
             "})," +
             "document.body);");
-
   }
 
   @Test public void testEs6Modules() {

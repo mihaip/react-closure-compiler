@@ -142,9 +142,9 @@ ReactComponent.prototype.context;
 ReactComponent.prototype.refs;
 
 /**
- * @return {?ReactState}
+ * @type {(function(): ?ReactState)|undefined}
  */
-ReactComponent.prototype.getInitialState = function() {};
+ReactComponent.prototype.getInitialState;
 
 /**
  * @return {Object}
@@ -567,111 +567,60 @@ ReactModule.prototype.Children;
  */
 ReactModule.prototype.Component = function (props, context) { }
 
-/**
- * @type {ReactProps}
- * @const
- */
+/** @override */
 ReactModule.prototype.Component.prototype.props;
 
-/**
- * @type {?ReactState}
- * @const
- */
+/** @override */
 ReactModule.prototype.Component.prototype.state;
 
-/**
- * @type {Object}
- * @const
- */
+/** @override */
 ReactModule.prototype.Component.prototype.context;
 
-/**
- * @type {ReactRefs}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.refs;
 
-/**
- * @return {?ReactState}
- */
-ReactModule.prototype.Component.prototype.getInitialState = function() {};
+/** @override */
+ReactModule.prototype.Component.prototype.getInitialState;
 
-/**
- * @return {Object}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.getChildContext = function() {};
 
-/**
- * @param {?ReactState|function(?ReactState, ReactProps): ?ReactState} stateOrFunction
- * @param {function(): void=} callback
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.setState = function(stateOrFunction, callback) {};
 
-/**
- * @param {ReactState} state
- * @param {function(): void=} callback
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.replaceState = function(state, callback) {};
 
-/**
- * @return {ReactElement|boolean}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.render = function() {};
 
-/**
- * @param {function(): void=} callback
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.forceUpdate = function(callback) {};
 
-/**
- * @return {boolean}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.isMounted = function() {};
 // it's undocumented. Implementations can still add it (and it will not be
 // flagged as an error).
 
-/**
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentWillMount = function() {};
 
-/**
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentDidMount = function() {};
 
-/**
- * @param {ReactProps} nextProps
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentWillReceiveProps = function(nextProps) {};
 
-/**
- * @param {ReactProps} nextProps
- * @param {ReactState} nextState
- * @return {boolean}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.shouldComponentUpdate = function(nextProps, nextState) {};
 
-/**
- * @param {ReactProps} nextProps
- * @param {ReactState} nextState
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentWillUpdate = function(nextProps, nextState) {};
 
-/**
- * @param {ReactProps} prevProps
- * @param {ReactState} prevState
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentDidUpdate = function(prevProps, prevState) {};
 
-/**
- * @return {void}
- */
+/** @override */
 ReactModule.prototype.Component.prototype.componentWillUnmount = function() {};
 
 /**
