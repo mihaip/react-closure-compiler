@@ -580,11 +580,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     CompilerInput moduleExportInput = scope.isModuleScope() ? t.getInput() : null;
     reactMixinsByName.put(nameNode, new MixinRef(data.classNode, data.scope), moduleExportInput);
     reactMixinInterfacePrototypePropsByName.put(nameNode, IR.objectlit(), moduleExportInput);
-
-    // TODO(arv): Figure out how to make GCC strip unused components.
-    // // Mark the call as not having side effects, so that unused components and
-    // // mixins can be removed.
-    // callNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
   }
 
   private boolean isReactSupportMixin(Node n) {
@@ -622,11 +617,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
 
     data.mixins = mixinNameNodes;
-
-    // TODO(arv): Figure out how to make GCC strip unused components.
-    // // Mark the call as not having side effects, so that unused components and
-    // // mixins can be removed.
-    // callNode.setSideEffectFlags(SideEffectFlags.NO_SIDE_EFFECTS);
   }
 
   /**

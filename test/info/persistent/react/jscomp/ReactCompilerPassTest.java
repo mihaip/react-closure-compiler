@@ -46,6 +46,11 @@ public class ReactCompilerPassTest {
   // modules can be tested).
   private static String FILE_SEPARATOR = "\n\n/* --file-separator-- */\n\n";
 
+  private static String REACT_SUPPORT_CODE = "var ReactSupport={" +
+    "declareMixin(mixin){}," +
+    "mixin(comp,...mixins){comp.mixins=mixins}" +
+  "};";
+
   @Test public void testMinimalComponent() {
     test(
       "var Comp = React.createClass({" +
@@ -359,11 +364,13 @@ public class ReactCompilerPassTest {
   @Test public void testEs6ModulesMixinsClass() {
     // Mixin references across modules work
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin extends React.Component {" +
           "mixinMethod() {window.foo = 123}" +
         "}" +
         "ReactSupport.declareMixin(Mixin);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';\n" +
         "export class Comp extends React.Component {" +
           "render() {" +
@@ -374,11 +381,13 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, file1.Mixin);");
     // Mixins can be imported directly
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin extends React.Component {" +
           "mixinMethod() {window.foo = 123}" +
         "}" +
         "ReactSupport.declareMixin(Mixin);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import {Mixin} from './file1.js';" +
         "export class Comp extends React.Component {" +
           "render() {" +
@@ -389,11 +398,13 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, Mixin);");
     // Make sure we can use the mixin twice without adding an import twice
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin extends React.Component {" +
           "mixinMethod() {window.foo = 123}" +
         "}" +
         "ReactSupport.declareMixin(Mixin);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import {Mixin} from './file1.js';" +
         "export class Comp extends React.Component {" +
           "render() {" +
@@ -412,11 +423,13 @@ public class ReactCompilerPassTest {
 
     // Or under a different name
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin extends React.Component {" +
           "mixinMethod() {window.foo = 123}" +
         "}" +
         "ReactSupport.declareMixin(Mixin);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import {Mixin as m} from './file1.js';\n" +
         "export class Comp extends React.Component {" +
           "render() {" +
@@ -427,11 +440,13 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, m);");
     // Mixin references can be chained too.
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin1 extends React.Component {" +
           "mixinMethod1() {window.foo = 123}" +
         "}" +
         "ReactSupport.declareMixin(Mixin1);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';\n" +
         "export class Mixin2 extends React.Component {" +
           "mixinMethod2() {window.foo = 123}" +
@@ -439,6 +454,7 @@ public class ReactCompilerPassTest {
         "ReactSupport.declareMixin(Mixin2);" +
         "ReactSupport.mixin(Mixin2, file1.Mixin1);" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import * as file2 from './file2.js';\n" +
         "export class Comp extends React.Component {" +
           "render() {" +
@@ -450,12 +466,14 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, file2.Mixin2);");
     // propTypes from imported mixins are handled correctly
     testNoError(
+        REACT_SUPPORT_CODE +
         "export class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "Mixin.propTypes = {" +
           "mixinFuncProp: React.PropTypes.func.isRequired" +
         "};" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';" +
         "class Comp extends React.Component {" +
           "render() {return this.props.mixinFuncProp();}" +
@@ -463,6 +481,7 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, file1.Mixin);");
     // Including those that reference types from the mixin's file
     testNoError(
+        REACT_SUPPORT_CODE +
         "export const Obj = class {};\n" +
         "export class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
@@ -470,6 +489,7 @@ public class ReactCompilerPassTest {
           "mixinProp: React.PropTypes.instanceOf(Obj).isRequired" +
         "};" +
         FILE_SEPARATOR +
+        REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';\n" +
         "class Comp extends React.Component {" +
           "render() {return null;}" +
@@ -749,54 +769,55 @@ public class ReactCompilerPassTest {
 
   @Test public void testMixinsClass() {
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(42);",
       "DECLARE_MIXIN_PARAM_NOT_VALID");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(x, y);",
       "DECLARE_MIXIN_UNEXPECTED_NUMBER_OF_PARAMS");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin();",
       "DECLARE_MIXIN_UNEXPECTED_NUMBER_OF_PARAMS");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(Unknown);",
       "REACT_MIXIN_UNKNOWN");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.mixin();",
       "MIXIN_UNEXPECTED_NUMBER_OF_PARAMS");
     testError(
+      REACT_SUPPORT_CODE +
       "class Comp extends React.Component {}" +
       "ReactSupport.mixin(Comp);",
       "MIXIN_UNEXPECTED_NUMBER_OF_PARAMS");
 
     test(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {}" +
       "ReactSupport.mixin(Comp, Mixin);",
-      "class $Mixin$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
-      "class $Comp$$ extends React.Component{}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);");
+      "");
     test(
+      REACT_SUPPORT_CODE +
       "class MixinA extends React.Component {}" +
       "ReactSupport.declareMixin(MixinA);" +
       "class MixinB extends React.Component {}" +
       "ReactSupport.declareMixin(MixinB);" +
       "class Comp extends React.Component {}" +
       "ReactSupport.mixin(Comp, MixinA, MixinB);",
-      "class $MixinA$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($MixinA$$);" +
-      "class $MixinB$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($MixinB$$);" +
-      "class $Comp$$ extends React.Component{}" +
-      "ReactSupport.mixin($Comp$$,$MixinA$$,$MixinB$$);");
+      "");
 
     testError(
+      REACT_SUPPORT_CODE +
       "class Comp extends React.Component {}" +
       "class NotAMixin extends React.Component {}" +
       "ReactSupport.mixin(Comp, NotAMixin);",
@@ -805,6 +826,7 @@ public class ReactCompilerPassTest {
     // TODO(arv): How can GCC inline this? It depends on runtime dependencies
     // that are not even available statically?
     test(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "/** @return {*} */" +
         "mixinMethod() {window.foo=this.mixinAbstractMethod()}" +
@@ -821,13 +843,13 @@ public class ReactCompilerPassTest {
       "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
       "inst.mixinMethod();",
       "class $Mixin$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
       "class $Comp$$ extends React.Component{}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);" +
+      "$Comp$$.mixins=[$Mixin$$];" +
       "ReactDOM.render(React.createElement($Comp$$),document.body);" +
       "window.$foo$=42;");
 
     test(
+      REACT_SUPPORT_CODE +
       "class ChainedMixin extends React.Component {" +
         "chainedMixinMethod() {window.foo = 456}" +
       "}" +
@@ -851,22 +873,21 @@ public class ReactCompilerPassTest {
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
       "class $ChainedMixin$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($ChainedMixin$$);" +
       "class $Mixin$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
-      "ReactSupport.mixin($Mixin$$,$ChainedMixin$$);" +
+      "$Mixin$$.mixins=[$ChainedMixin$$];" +
       "class $Comp$$ extends React.Component{" +
         "render(){" +
           "window.$foo$=456;" +
           "return React.createElement(\"div\")" +
         "}" +
       "}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);" +
+      "$Comp$$.mixins=[$Mixin$$];" +
       "ReactDOM.render(React.createElement($Comp$$),document.body);" +
       "window.$foo$=123;" +
       "window.$foo$=456;");
 
     test(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "mixinMethod() {window.foo=this.mixinAbstractMethod()}" +
       "}" +
@@ -884,17 +905,17 @@ public class ReactCompilerPassTest {
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
       "class $Mixin$$ extends React.Component{}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
       "class $Comp$$ extends React.Component{" +
-      "render(){" +
+        "render(){" +
           "window.$foo$=123;" +
           "return React.createElement(\"div\")" +
         "}" +
       "}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);" +
+      "$Comp$$.mixins=[$Mixin$$];" +
       "ReactDOM.render(React.createElement($Comp$$),document.body);");
 
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "/** @param {number} a */" +
         "mixinMethod(a) {window.foo = 123}" +
@@ -913,6 +934,7 @@ public class ReactCompilerPassTest {
       // the component.
       "JSC_TYPE_MISMATCH");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "/** @private */" +
         "privateMixinMethod_() {}" +
@@ -928,6 +950,7 @@ public class ReactCompilerPassTest {
       // Private mixin methods should not be exposed to the component.
       "JSC_INEXISTENT_PROPERTY");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "mixinMethod() {" +
           "window.foo = this.mixinAbstractMethod().noSuchMethod()" +
@@ -948,6 +971,7 @@ public class ReactCompilerPassTest {
       // side...
       "JSC_INEXISTENT_PROPERTY");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "mixinMethod() {window.foo = this.mixinAbstractMethod()}" +
       "}" +
@@ -965,57 +989,60 @@ public class ReactCompilerPassTest {
       // ...and the component side
       "JSC_TYPE_MISMATCH");
 
-    // // TODO(arv): Figure out how to correctly eliminate daed code
-    // test(
-    //   "class Mixin extends React.Component {}" +
-    //   "ReactSupport.declareMixin(Mixin);" +
-    //   "/** @param {number} param1 */" +
-    //   "Mixin.mixinAbstractMethod;" +
-    //   "class Comp extends React.Component {" +
-    //     "render() {" +
-    //       "return React.createElement(\"div\");" +
-    //     "}" +
-    //     "mixinAbstractMethod() {}" +
-    //   "}" +
-    //   "ReactSupport.mixin(Comp, Mixin);",
-    //   // But implementations should be OK if they omit parameters...
-    //   "");
-    // test(
-    //   "class Mixin extends React.Component {}" +
-    //   "ReactSupport.declareMixin(Mixin);" +
-    //   "/** @param {number} param1 */" +
-    //   "Mixin.mixinAbstractMethod;" +
-    //   "class Comp extends React.Component {" +
-    //     "render() {" +
-    //       "return React.createElement(\"div\");" +
-    //     "}" +
-    //     "mixinAbstractMethod(renamedParam1) {}" +
-    //   "}" +
-    //   "ReactSupport.mixin(Comp, Mixin);",
-    //   //  ...or rename them.
-    //   "");
-    // test(
-    //   "class Mixin extends React.Component {}" +
-    //   "ReactSupport.declareMixin(Mixin);" +
-    //   "/**\n" +
-    //   " * @param {T} param1\n" +
-    //   " * @return {T}\n" +
-    //   " * @template T\n" +
-    //   " */" +
-    //   "Mixin.mixinAbstractMethod;" +
-    //   "class Comp extends React.Component {" +
-    //     "render() {" +
-    //       "return React.createElement(\"div\");" +
-    //     "}" +
-    //     "mixinAbstractMethod(param1) {return param1}" +
-    //   "}" +
-    //   "ReactSupport.mixin(Comp, Mixin);",
-    //   // Template types are copied over.
-    //   "");
+    test(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @param {number} param1 */" +
+      "Mixin.mixinAbstractMethod;" +
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+        "mixinAbstractMethod() {}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);",
+      // But implementations should be OK if they omit parameters...
+      "");
+    test(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @param {number} param1 */" +
+      "Mixin.mixinAbstractMethod;" +
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+        "mixinAbstractMethod(renamedParam1) {}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);",
+      //  ...or rename them.
+      "");
+    test(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/**\n" +
+      " * @param {T} param1\n" +
+      " * @return {T}\n" +
+      " * @template T\n" +
+      " */" +
+      "Mixin.mixinAbstractMethod;" +
+      "class Comp extends React.Component {" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+        "mixinAbstractMethod(param1) {return param1}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);",
+      // Template types are copied over.
+      "");
   }
 
   @Test public void testMixinImplementsClass() {
     test(
+        REACT_SUPPORT_CODE +
         "/** @interface */" +
         "class I {" +
           "/**\n" +
@@ -1032,10 +1059,7 @@ public class ReactCompilerPassTest {
         "ReactSupport.declareMixin(Mixin);" +
         "class Comp extends React.Component {}" +
         "ReactSupport.mixin(Comp, Mixin);",
-        "class $Mixin$$ extends React.Component{}" +
-        "ReactSupport.declareMixin($Mixin$$);" +
-        "class $Comp$$ extends React.Component{}" +
-        "ReactSupport.mixin($Comp$$,$Mixin$$);");
+        "");
   }
 
   @Test public void testMixinsRepeatedMethods() {
@@ -1057,6 +1081,7 @@ public class ReactCompilerPassTest {
 
   @Test public void testMixinsRepeatedMethodsClass() {
     test(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "componentDidMount() {}" +
       "}" +
@@ -1070,17 +1095,7 @@ public class ReactCompilerPassTest {
       "ReactSupport.mixin(Comp, Mixin);",
       // It's OK for a base class to redefine a mixin's method component
       // lifecycle method.
-      "class $Mixin$$ extends React.Component{" +
-        "componentDidMount(){}" +
-      "}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
-      "class $Comp$$ extends React.Component{" +
-        "componentDidMount(){}" +
-        "render(){" +
-          "return React.createElement(\"div\")" +
-        "}" +
-      "}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);");
+      "");
   }
 
   @Test public void testNamespacedComponent() {
@@ -1429,6 +1444,7 @@ public class ReactCompilerPassTest {
       "}",
       "JSC_TYPE_MISMATCH");
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
         "shouldComponentUpdate(nextProps, nextState) {return 123;}" +
       "}" +
@@ -1784,6 +1800,7 @@ public class ReactCompilerPassTest {
 
     // Mixin methods that take state parameters are checked
     testError(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(Mixin);" +
       "/** @param {!ReactState} state */" +
@@ -1995,33 +2012,37 @@ public class ReactCompilerPassTest {
     //   renamed).
 
     test(
+      REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
           "mixinMethod() {return 'foo'}" +
       "}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {" +
-        "render() {return React.createElement(\"div\", null, this.mixinMethod());}" +
+        "render() {" +
+          "return React.createElement(\"div\", null, this.mixinMethod());" +
+        "}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);" +
       "Comp.propTypes = {aProp: React.PropTypes.string};" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "class $Mixin$$ extends $React$Component$${}" +
-      "ReactSupport.declareMixin($Mixin$$);" +
       "class $Comp$$ extends $React$Component$${" +
         "render(){" +
           "return $React$createElement$$(\"div\",null,\"foo\")" +
         "}" +
       "}" +
-      "ReactSupport.mixin($Comp$$,$Mixin$$);" +
+      "$Comp$$.mixins=[$Mixin$$];" +
       "ReactDOM.render($React$createElement$$($Comp$$),document.body);",
       passOptions,
       null);
 
     // This should also work when using ES6 modules
     test(
-      "export const anExport = 9;\n" +
+      "export const anExport = 9;" +
       "class Comp extends React.Component {" +
-        "render() {return React.createElement(\"div\");}" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
       "}" +
       "Comp.propTypes = {aProp: React.PropTypes.string};" +
       "Comp.defaultProps = {aProp: \"hi\"};" +
@@ -2730,6 +2751,7 @@ public class ReactCompilerPassTest {
 
   @Test public void testPropTypesMixinsClass() {
     testError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {" +
         "}" +
         "ReactSupport.declareMixin(Mixin);" +
@@ -2747,6 +2769,7 @@ public class ReactCompilerPassTest {
     // Even when the component doesn't have its own propTypes those of the
     // mixin are considered.
     testError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "Mixin.propTypes = {" +
@@ -2758,6 +2781,7 @@ public class ReactCompilerPassTest {
         "ReactSupport.mixin(Comp, Mixin);",
         "JSC_NOT_FUNCTION_TYPE");
     testNoError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "Mixin.propTypes = {" +
@@ -2770,6 +2794,7 @@ public class ReactCompilerPassTest {
     // The same propTypes can be in both mixins and components (and the
     // component one has precedence).
     testNoError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "Mixin.propTypes = {" +
@@ -2784,6 +2809,7 @@ public class ReactCompilerPassTest {
         "};");
     // Custom type expressions are handled
     testNoError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "Mixin.propTypes = {" +
@@ -2849,6 +2875,7 @@ public class ReactCompilerPassTest {
 
     // As do abstract mixin methods that use ReactProps as the type.
     testError(
+        REACT_SUPPORT_CODE +
         "class Mixin extends React.Component {}" +
         "ReactSupport.declareMixin(Mixin);" +
         "/** @param {ReactProps} props @protected */" +
@@ -3373,10 +3400,7 @@ public class ReactCompilerPassTest {
             "/** @constructor */ function Event() {};" +
             "var document;" +
             "document.body;" +
-            "var window;" +
-            "var ReactSupport;" +
-            "ReactSupport.mixin;" +
-            "ReactSupport.declareMixin;"))
+            "var window;"))
         .build();
 
     if (passOptions.optimizeForSize) {
