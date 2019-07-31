@@ -1474,6 +1474,7 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\",null,this.props.$aProp$)" +
         "}" +
       "}" +
+      "$Comp$$.propTypes={$aProp$:React.PropTypes.string};" +
       "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
@@ -1571,12 +1572,15 @@ public class ReactCompilerPassTest {
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "Comp.propTypes = {aProp: React.PropTypes.string};" +
+      "Comp.defaultProps = {aProp: \"hi\"};" +
+      "Comp.contextTypes = {aContext: React.PropTypes.number};" +      
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "class $Comp$$module$src$file1$$ extends $React$Component$${" +
         "render(){" +
           "return $React$createElement$$(\"div\")" +
         "}" +
       "}" +
+      "$Comp$$module$src$file1$$.defaultProps={$aProp$:\"hi\"};" +
       "ReactDOM.render($React$createElement$$($Comp$$module$src$file1$$),document.body);",
       passOptions,
       null);
@@ -1717,6 +1721,7 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\",null,this.props.aProp)" +
         "}" +
       "}" +
+      "$Comp$$.propTypes={aProp:React.PropTypes.string};" +
       "ReactDOM.render(React.createElement($Comp$$,{aProp:\"foo\"}),document.body);");
     // Even with a minified build there is no renaming.
     ReactCompilerPass.Options minifiedReactPassOptions =
@@ -2115,15 +2120,23 @@ public class ReactCompilerPassTest {
         "React.createElement(Comp, {}, null);",
         "JSC_TYPE_MISMATCH");
 
-    testNoError(
+    test(
         "class Comp extends React.Component {" +
           "render() {return null;}" +
         "}\n" +
         "Comp.propTypes = {" +
           "aProp: React.PropTypes.string.isRequired" +
         "};" +
-        "Comp.defaultProps ={aProp: \"1\"};" +
-        "React.createElement(Comp, Object.assign({aProp: \"1\"}, {}))");
+        "Comp.defaultProps = {aProp: \"1\"};" +
+        "React.createElement(Comp, Object.assign({aProp: \"1\"}, {}))",
+        "class $Comp$$ extends React.Component{" +
+          "render(){" +
+            "return null" +
+          "}" +
+        "}" +
+        "$Comp$$.propTypes={$aProp$:React.PropTypes.string.isRequired};" +
+        "$Comp$$.defaultProps={$aProp$:\"1\"};" +
+        "React.createElement($Comp$$,Object.assign({$aProp$:\"1\"},{}));");
     testNoError(
       "class Comp extends React.Component {" +
         "render() {return null;}" +
@@ -2411,8 +2424,10 @@ public class ReactCompilerPassTest {
       "class $Comp$$ extends React.Component{" +
         "render(){" +
           "return React.createElement(\"div\",null,React.Children.only(this.props.children))" +
-        "}}" +
-        "ReactDOM.render(React.createElement($Comp$$),document.body);");
+        "}" +
+      "}" +
+      "$Comp$$.propTypes={children:React.PropTypes.element.isRequired};" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
   @Test public void testContextTypesTypeChecking() {
@@ -2466,7 +2481,7 @@ public class ReactCompilerPassTest {
       "Comp.contextTypes = {numberProp: React.PropTypes.number};",
       "JSC_NOT_FUNCTION_TYPE");
     // Both props and context are checked
-    testNoError(
+    test(
       "class Comp extends React.Component {" +
         "render() {" +
           "this.context.functionProp(this.props.numberProp);" +
@@ -2477,7 +2492,17 @@ public class ReactCompilerPassTest {
         "/** @type {function(number)} */\n" +
         "functionProp: React.PropTypes.func," +
       "};" +
-      "Comp.propTypes = {numberProp: React.PropTypes.number.isRequired};");
+      "Comp.propTypes = {numberProp: React.PropTypes.number.isRequired};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends React.Component{" +
+        "render(){" +
+          "this.context.$functionProp$(this.props.$numberProp$);" +
+          "return null" +
+        "}" +
+      "}" +
+      "$Comp$$.contextTypes={$functionProp$:React.PropTypes.func};" +
+      "$Comp$$.propTypes={$numberProp$:React.PropTypes.number.isRequired};" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
     testError(
       "class Comp extends React.Component {" +
         "render() {" +
