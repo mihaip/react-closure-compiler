@@ -552,6 +552,10 @@ class PropTypesExtractor {
     }
   }
 
+  /**
+   * Replaces {ReactProps} with more specific types in the JSDoc for the
+   * provided methods.
+   */
   public void addToComponentMethods(List<Node> componentMethodKeys) {
     // Changes the ReactProps parameter type from built-in component methods to
     // the more specific prop type.
