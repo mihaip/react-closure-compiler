@@ -532,6 +532,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             mixedInPropTypes, compiler, true);
         extractor.extract();
         extractor.insert(insertionNode, data.addModuleExports);
+
+        maybeAddNoCollapse(contextTypesNode);
+      }
+
+      // We need to add @nocollapse to the static properties that React API
+      // depends on.
+      if (defaultPropsNode != null) {       
+        addNoCollapse(defaultPropsNode);
       }
 
       if (propTypesNode != null) {
@@ -542,6 +550,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         extractor.insert(insertionNode, data.addModuleExports);
         extractor.addToComponentMethods(data.componentMethodKeys);
         propTypesExtractorsByName.put(classNameNode, extractor, moduleExportInput);
+        
+        maybeAddNoCollapse(propTypesNode);
       }
     } else {
       if (propTypesNode != null) {
@@ -551,6 +561,19 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         PropTypesExtractor.cleanUpPropTypesWhenNotChecking(contextTypesNode);
       }
     }
+  }
+
+  private void maybeAddNoCollapse(Node objectLiteralNode) {
+    if (!options.optimizeForSize) {
+      addNoCollapse(objectLiteralNode);
+    }
+  }
+
+  private void addNoCollapse(Node objectLiteralNode) {
+    Node jsdocOwnerNode = NodeUtil.getBestJSDocInfoNode(objectLiteralNode.getGrandparent());
+    JSDocInfoBuilder builder = JSDocInfoBuilder.maybeCopyFrom(jsdocOwnerNode.getJSDocInfo());
+    builder.recordNoCollapse();
+    jsdocOwnerNode.setJSDocInfo(builder.build());
   }
 
   private static boolean isReactCreateClass(Node value) {
