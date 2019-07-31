@@ -748,6 +748,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private void addNoCollapse(Node objectLiteralNode) {
+    if (objectLiteralNode.getGrandparent() == null) {
+      // Might have been detached already.
+      return;
+    }
     Node jsdocOwnerNode = NodeUtil.getBestJSDocInfoNode(objectLiteralNode.getGrandparent());
     JSDocInfoBuilder builder = JSDocInfoBuilder.maybeCopyFrom(jsdocOwnerNode.getJSDocInfo());
     builder.recordNoCollapse();
