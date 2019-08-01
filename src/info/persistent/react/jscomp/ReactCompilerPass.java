@@ -90,7 +90,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       "JSDoc is required for static property {0}.");
   static final DiagnosticType DECLARE_MIXIN_UNEXPECTED_NUMBER_OF_PARAMS = DiagnosticType.error(
       "DECLARE_MIXIN_UNEXPECTED_NUMBER_OF_PARAMS",
-      "ReactSupport.DeclareMixin call has too many arguments.");
+      "ReactSupport.declareMixin call has too many arguments.");
   static final DiagnosticType DECLARE_MIXIN_PARAM_NOT_VALID = DiagnosticType.error(
     "DECLARE_MIXIN_PARAM_NOT_VALID",
     "ReactSupport.DeclareMixin takes a reference to a mixin class.");
@@ -671,7 +671,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // module.
       for (Node otherImportSpec : importSpec.getParent().children()) {
         if (otherImportSpec.getLastChild().getString().equals(localName)) {
-          // Alredy imported
+          // Already imported
           return;
         }
       }

@@ -823,8 +823,8 @@ public class ReactCompilerPassTest {
       "ReactSupport.mixin(Comp, NotAMixin);",
       "MIXIN_PARAM_IS_NOT_MIXIN");
 
-    // TODO(arv): How can GCC inline this? It depends on runtime dependencies
-    // that are not even available statically?
+    // It is a bit surprising that Closure Compiler can inline this. It probably
+    // works because there is only one implementation of the method.
     test(
       REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
