@@ -473,12 +473,20 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // until ES2021(?) (still in stage 3 at the time of this writing and not yet
     // supported by Closure Compiler.)
     CompilerInput moduleExportInput = t.getScope().isModuleScope() ? t.getInput() : null;
+    
+    // We need to keep mixins around for other modules but we can clear the non
+    // mixin classes when we leave a module.
+    List<ClassOutOfBoundsData> dataToRemove = Lists.newArrayList();
+
     for (ClassOutOfBoundsData data : classOutOfBoundsMap.values()) {
       if (!data.done) {
         transformClassExtendsReactComponent(data, t.getInput());
         transformPropTypesForClass(data, moduleExportInput);
         synthesizeExterns(data.exportedNames, data.typeName);
         data.done = true;
+        if (!data.isMixin) {
+          dataToRemove.add(data);
+        }
       }
     }
 
@@ -487,6 +495,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
 
     reactCreateElementNodes.clear();
+    for (ClassOutOfBoundsData data : dataToRemove) {
+      classOutOfBoundsMap.remove(data.scope, data.nameNode);
+    }
   }
 
   private boolean isStaticDefaultProps(Scope scope, Node n) {
