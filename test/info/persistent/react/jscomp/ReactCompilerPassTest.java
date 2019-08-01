@@ -1042,7 +1042,7 @@ public class ReactCompilerPassTest {
 
   @Test public void testMixinOnExportClass() {
     // The real error here was that SymbolTable uses a HashMap but we need an
-    // Map that iterates in th insertion order.
+    // Map that iterates in the insertion order.
     testNoError(
       REACT_SUPPORT_CODE +
       "class TestMixin extends React.Component {" +
