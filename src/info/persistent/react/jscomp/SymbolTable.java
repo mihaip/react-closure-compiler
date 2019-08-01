@@ -33,6 +33,10 @@ class SymbolTable<V> {
     return map.get(name);
   }
 
+  public V remove(Scope scope, Node nameNode) {
+    return map.remove(readKey(scope, nameNode));
+  }
+
   public void clear() {
     map.clear();
   }
@@ -75,8 +79,6 @@ class SymbolTable<V> {
     }
     ModulePath modulePath = ModulePathAccessor.getVarInputModulePath(nameVar);
     if (namePieces.length == 1) {
-      nameVar.getNode();
-      nameVar.getNode().getParent().isImportSpec();
       if (nameVar.getNode().getParent().isImportSpec()) {
         // Even if we're not doing a property access the name could be something
         // that's exported. We handle both patterns:
