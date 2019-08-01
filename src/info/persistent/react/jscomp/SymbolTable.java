@@ -15,7 +15,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 class SymbolTable<V> {
-  private final Map<String, V> map = Maps.newHashMap();
+  // Need insertion order iteration
+  private final Map<String, V> map = Maps.newLinkedHashMap();
 
   public Collection<V> values() {
     return map.values();

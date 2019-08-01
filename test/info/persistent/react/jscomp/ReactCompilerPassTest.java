@@ -1040,6 +1040,28 @@ public class ReactCompilerPassTest {
       "");
   }
 
+  @Test public void testMixinOnExportClass() {
+    // The real error here was that SymbolTable uses a HashMap but we need an
+    // Map that iterates in th insertion order.
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class TestMixin extends React.Component {" +
+        "/** @return {string} */" +
+        "d1() {" +
+          "return \"M12\";" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(TestMixin);" +
+      "export class AddCommentIcon extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.d1();" +
+          "return null;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(AddCommentIcon, TestMixin);");
+  }
+
   @Test public void testMixinImplementsClass() {
     test(
         REACT_SUPPORT_CODE +
