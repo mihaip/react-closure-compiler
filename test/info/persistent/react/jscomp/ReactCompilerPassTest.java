@@ -1024,9 +1024,8 @@ public class ReactCompilerPassTest {
       "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(Mixin);" +
       "/**\n" +
-      " * @param {T} param1\n" +
-      " * @return {T}\n" +
-      " * @template T\n" +
+      " * @param {string} param1\n" +
+      " * @return {string}\n" +
       " */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
@@ -1061,6 +1060,56 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.mixin(AddCommentIcon, TestMixin);");
   }
+
+  @Test public void testMixinOptionalAbstractMethodClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "/** @return {number} */" +
+        "method() {" +
+          "if (this.optionalAbstract) {" +
+            "return this.optionalAbstract();" +
+          "}"+
+          "return 42;" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @return {number} */" +
+      "Mixin.optionalAbstract;" +
+      "class Comp extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.method();" +
+          "return null;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "/** @return {number} */" +
+        "method() {" +
+          "if (this.optionalAbstract) {" +
+            "return this.optionalAbstract();" +
+          "}"+
+          "return 42;" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @return {number} */" +
+      "Mixin.optionalAbstract;" +
+      "class Comp extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.method();" +
+          "return null;" +
+        "}" +
+        "optionalAbstract() {" +
+          "return 42;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);");
+    }
 
   @Test public void testMixinImplementsClass() {
     test(

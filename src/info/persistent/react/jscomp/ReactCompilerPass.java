@@ -100,6 +100,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   static final DiagnosticType MIXIN_PARAM_IS_NOT_MIXIN = DiagnosticType.error(
     "MIXIN_PARAM_IS_NOT_MIXIN",
     "ReactSupport.mixin parameter {0} is not a mixin.");
+  static final DiagnosticType INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD = DiagnosticType.error(
+    "INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD",
+    "Cannot use template parameters on abstract optional methods in mixin.");
 
   public static final DiagnosticGroup MALFORMED_MIXINS = new DiagnosticGroup(
         MIXINS_UNEXPECTED_TYPE, MIXIN_EXPECTED_NAME, MIXIN_UNKNOWN);
@@ -473,7 +476,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // until ES2021(?) (still in stage 3 at the time of this writing and not yet
     // supported by Closure Compiler.)
     CompilerInput moduleExportInput = t.getScope().isModuleScope() ? t.getInput() : null;
-    
+
     // We need to keep mixins around for other modules but we can clear the non
     // mixin classes when we leave a module.
     List<ClassOutOfBoundsData> dataToRemove = Lists.newArrayList();
@@ -619,7 +622,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     for (int i = 2; i < callNode.getChildCount(); i++) {
       Node mixinNameNode = callNode.getChildAtIndex(i);
       maybeImportMixinInterface(scope, mixinNameNode, data.insertionPoint);
-      ClassOutOfBoundsData mixinData = classOutOfBoundsMap.get(scope, mixinNameNode);    
+      ClassOutOfBoundsData mixinData = classOutOfBoundsMap.get(scope, mixinNameNode);
       if (mixinData == null || !mixinData.isMixin) {
         compiler.report(JSError.make(callNode, MIXIN_PARAM_IS_NOT_MIXIN, mixinNameNode.getQualifiedName()));
         return;
@@ -633,14 +636,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   /**
    * Adds the required import bindings. Since the interface is a different
    * binding than the class we also need to import it.
-   * 
+   *
    * Before:
-   * 
+   *
    *   import {Mixin} from "...";
    *   import {Mixin as Other} from "...";
-   * 
+   *
    * After:
-   * 
+   *
    *   import {Mixin, MixinInterface} from "...";
    *   import {Mixin as Other, MixinInterface as OtherInterface} from "...";
    * */
@@ -649,7 +652,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
-    Var mixinInterfaceVar = scope.getVar(mixinNameNode.getQualifiedName() + "Interface");    
+    Var mixinInterfaceVar = scope.getVar(mixinNameNode.getQualifiedName() + "Interface");
     if (mixinInterfaceVar != null) {
       return;
     }
@@ -676,8 +679,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
       // Also import MixinInterface as mInterface
       String remoteName = importSpec.getFirstChild().getString() + "Interface";
-      String localName = importSpec.getSecondChild().getString() + "Interface";  
-      
+      String localName = importSpec.getSecondChild().getString() + "Interface";
+
       // Look for existing import from a previous use of the mixin in this
       // module.
       for (Node otherImportSpec : importSpec.getParent().children()) {
@@ -723,7 +726,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
       // We need to add @nocollapse to the static properties that React API
       // depends on.
-      if (defaultPropsNode != null) {       
+      if (defaultPropsNode != null) {
         addNoCollapse(defaultPropsNode);
       }
 
@@ -739,7 +742,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         extractor.insert(insertionNode, data.addModuleExports);
         extractor.addToComponentMethods(data.componentMethodKeys);
         propTypesExtractorsByName.put(classNameNode, extractor, moduleExportInput);
-        
+
         maybeAddNoCollapse(propTypesNode);
       }
     } else {
@@ -2046,25 +2049,28 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     for (Node key : mixinInterfacePrototypeNode.children()) {
       String keyName = key.getString();
-      if (!abstractMethodJsDocsByName.containsKey(keyName)) {
-        JSDocInfo jsdocInfo = key.getJSDocInfo();
-        if (jsdocInfo == null) {
-          // We need a JSDocInfo to get Closure Compiler to treat this as a
-          // method.
-          JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-          builder.recordOverride();
-          jsdocInfo = builder.build();
-        } else {
-          jsdocInfo = jsdocInfo.clone();
-        }
-        insertionPoint.getParent().addChildAfter(
-          NodeUtil.newQNameDeclaration(
-              compiler,
-              typeName + ".prototype." + keyName,
-              null,
-              jsdocInfo),
-              insertionPoint);
+      JSDocInfo jsdocInfo = key.getJSDocInfo();
+      if (jsdocInfo == null) {
+        // We need a JSDocInfo to get Closure Compiler to treat this as a
+        // method.
+        JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+        builder.recordOverride();
+        jsdocInfo = builder.build();
+      } else {
+        jsdocInfo = jsdocInfo.clone();
       }
+      boolean isAbstract = abstractMethodJsDocsByName.containsKey(keyName);
+      if (isAbstract) {
+        // Use /** @type {(function(a):b)|undefined} */
+        jsdocInfo = convertJSDocInfoToFunctionType(jsdocInfo, key.getSourceFileName());
+      }
+      insertionPoint.getParent().addChildAfter(
+        NodeUtil.newQNameDeclaration(
+            compiler,
+            typeName + ".prototype." + keyName,
+            null,
+            jsdocInfo),
+        insertionPoint);
     }
 
     // Make sure we are also adding methods that mixins got from other mixins.
@@ -2246,5 +2252,28 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       this.node = node;
       this.scope = scope;
     }
+  }
+
+  /**
+   * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
+   */
+  private JSDocInfo convertJSDocInfoToFunctionType(JSDocInfo info, String sourceFileName) {
+    if (!info.getTemplateTypeNames().isEmpty()) {
+      compiler.report(JSError.make(
+          INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD));
+    }
+
+    Node paramList = IR.paramList();
+    for (int i = 0; i < info.getParameterCount(); i++) {
+      String name = info.getParameterNameAt(i);
+      JSTypeExpression type = info.getParameterType(name);
+      paramList.addChildToBack(type.getRoot());
+    }
+    Node returnType = info.hasReturnType() ? info.getReturnType().getRoot() : IR.empty();
+    Node functionType = new Node(Token.FUNCTION, paramList, returnType);
+    Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
+    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+    builder.recordType(new JSTypeExpression(unionType, sourceFileName));
+    return builder.build();
   }
 }
