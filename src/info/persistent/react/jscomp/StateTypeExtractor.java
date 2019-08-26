@@ -50,7 +50,7 @@ class StateTypeExtractor {
     this.compiler = compiler;
 
     JSDocInfo stateJsDoc = stateNode.getJSDocInfo();
-    JSTypeExpression stateType = stateJsDoc.getReturnType();
+    JSTypeExpression stateType = stateJsDoc != null ? stateJsDoc.getReturnType() : null;
 
     // ?ReactStateType is the default return type that we pick up from types.js,
     // also treat that as a missing return type.
