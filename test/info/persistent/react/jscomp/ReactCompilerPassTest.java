@@ -1109,7 +1109,32 @@ public class ReactCompilerPassTest {
         "}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);");
-    }
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "/** @return {number} */" +
+        "method() {" +
+          "if (this.optionalAbstract) {" +
+            "this.optionalAbstract(42);" +
+          "}"+
+          "return 42;" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @param {number} x */" +
+      "Mixin.optionalAbstract;" +
+      "class Comp extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.method();" +
+          "return null;" +
+        "}" +
+        "optionalAbstract(x) {" +
+          "window.x = x;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);");
+  }
 
   @Test public void testMixinImplementsClass() {
     test(
