@@ -2267,9 +2267,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     for (int i = 0; i < info.getParameterCount(); i++) {
       String name = info.getParameterNameAt(i);
       JSTypeExpression type = info.getParameterType(name);
-      paramList.addChildToBack(type.getRoot());
+      paramList.addChildToBack(type.getRoot().cloneTree());
     }
-    Node returnType = info.hasReturnType() ? info.getReturnType().getRoot() : IR.empty();
+    Node returnType = info.hasReturnType() ? info.getReturnType().getRoot().cloneTree() : IR.empty();
     Node functionType = new Node(Token.FUNCTION, paramList, returnType);
     Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
     JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
