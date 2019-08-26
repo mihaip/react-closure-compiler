@@ -1895,7 +1895,20 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
       "JSC_INEXISTENT_PROPERTY");
-  }
+  
+    testNoError(
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+        "}" +
+        "initialState() {" +
+          "return null;" +
+        "}" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}");
+   }
 
   @Test public void testFields() {
     // Fields defined in getInitialState are checked
