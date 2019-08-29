@@ -1233,6 +1233,52 @@ public class ReactCompilerPassTest {
       "");
   }
 
+  @Test public void testMixinsParameters() {
+    testNoError(
+      "const TestMixin = React.createMixin({" +
+        "/**" +
+        " * @param {string} p1\n" +
+        " * @param {number} p2\n" +
+        " * @return {string}" +
+        " */" +
+        "method(p1, p2) {" +
+          "return p1 + p2;" +
+        "}" +
+      "});" +
+      "const AddCommentIcon = React.createClass({" +
+        "mixins: [TestMixin]," +
+        "/** @override */" +
+        "render() {" +
+          "this.method(\"a\", 1);" +
+          "return null;" +
+        "}" +
+      "})");
+  }
+
+  @Test public void testMixinsParametersClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class TestMixin extends React.Component {" +
+        "/**" +
+        " * @param {string} p1\n" +
+        " * @param {number} p2\n" +
+        " * @return {string}" +
+        " */" +
+        "method(p1, p2) {" +
+          "return p1 + p2;" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(TestMixin);" +
+      "class AddCommentIcon extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.method(\"a\", 1);" +
+          "return null;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(AddCommentIcon, TestMixin);");
+  }
+
   @Test public void testMixinsRepeatedMethodsClass() {
     test(
       REACT_SUPPORT_CODE +
@@ -2205,7 +2251,6 @@ public class ReactCompilerPassTest {
       passOptions,
       null);
   }
-
 
   @Test public void testOptimizeForSizeClass() {
     ReactCompilerPass.Options passOptions =

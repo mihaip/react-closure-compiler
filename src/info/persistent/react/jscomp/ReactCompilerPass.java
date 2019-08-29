@@ -1906,9 +1906,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         if (key.getJSDocInfo() == null || key.getJSDocInfo().getVisibility() != Visibility.PRIVATE) {
           // Create methods on the interface too
           Node prototypeNode = reactMixinInterfacePrototypePropsByName.get(scope, nameNode);
+          Node paramListNode = key.getFirstChild().getSecondChild().cloneTree();
           Node methodNode = IR.memberFunctionDef(
               keyName,
-              IR.function(IR.name(""), IR.paramList(), IR.block()));
+              IR.function(IR.name(""), paramListNode, IR.block()));
           JSDocInfoBuilder methodJSDocInfoBuilder = newJsDocInfoBuilderForNode(key);
           methodNode.setJSDocInfo(methodJSDocInfoBuilder.build());
           prototypeNode.addChildToBack(methodNode);
