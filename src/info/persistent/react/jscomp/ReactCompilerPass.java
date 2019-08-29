@@ -719,7 +719,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             contextTypesNode, null, typeName, typeName,
             mixedInContextTypes, compiler, true);
         extractor.extract();
-        extractor.insert(insertionNode, data.addModuleExports);
+        if (!options.optimizeForSize) {
+          extractor.insert(insertionNode);
+        }
 
         maybeAddNoCollapse(contextTypesNode);
       }
@@ -739,7 +741,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             propTypesNode, defaultPropsNode, typeName, typeName,
             mixedInPropTypes, compiler);
         extractor.extract();
-        extractor.insert(insertionNode, data.addModuleExports);
+        if (!options.optimizeForSize) {
+          extractor.insert(insertionNode);
+        }
         extractor.addToComponentMethods(data.componentMethodKeys);
         propTypesExtractorsByName.put(classNameNode, extractor, moduleExportInput);
 
@@ -1147,13 +1151,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     if (contextTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(contextTypesNode)) {
-      if (options.propTypesTypeChecking) {
+      if (options.propTypesTypeChecking){
         // TODO(arv): mixedInPropTypes below should be mixedInContextTypes.
         PropTypesExtractor extractor = new PropTypesExtractor(
             contextTypesNode, null, typeName, interfaceTypeName,
             mixedInPropTypes, compiler, true);
         extractor.extract();
-        extractor.insert(typesInsertionPoint, addModuleExports);
+        if (!options.optimizeForSize) {
+          extractor.insert(typesInsertionPoint);
+        }
       } else {
         PropTypesExtractor.cleanUpPropTypesWhenNotChecking(contextTypesNode);
       }
@@ -1172,7 +1178,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             propTypesNode, defaultPropsNode, typeName, interfaceTypeName,
             mixedInPropTypes, compiler);
         extractor.extract();
-        extractor.insert(typesInsertionPoint, addModuleExports);
+        if (!options.optimizeForSize) {
+          extractor.insert(typesInsertionPoint);
+        }
         if (createFuncName.equals("React.createClass")) {
           extractor.addToComponentMethods(componentMethodKeys);
         }
