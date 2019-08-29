@@ -1151,7 +1151,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     if (contextTypesNode != null &&
         PropTypesExtractor.canExtractPropTypes(contextTypesNode)) {
-      if (options.propTypesTypeChecking){
+      if (options.propTypesTypeChecking) {
         // TODO(arv): mixedInPropTypes below should be mixedInContextTypes.
         PropTypesExtractor extractor = new PropTypesExtractor(
             contextTypesNode, null, typeName, interfaceTypeName,
