@@ -671,7 +671,7 @@ class PropTypesExtractor {
       jsDocBuilder.recordReturnType(
           new JSTypeExpression(childrenPropTypeNode, sourceFileName));
       childrenValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
-      childrenValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      childrenValidatorAssignmentNode.useSourceInfoIfMissingFromForTree(insertionPoint);
       insertionPoint.getParent().addChildAfter(
         childrenValidatorAssignmentNode, insertionPoint);
       insertionPoint = childrenValidatorAssignmentNode;
