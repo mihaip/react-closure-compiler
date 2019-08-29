@@ -1995,12 +1995,16 @@ public class ReactCompilerPassTest {
         "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.render(React.createElement(React.createClass({" +
+      "var $Comp$$=React.createClass({" +
         "propTypes:{$aProp$:React.PropTypes.string}," +
         "render:function(){" +
           "return React.createElement(\"div\",null,this.props.$aProp$)" +
         "}" +
-      "})),document.body);");
+      "});" +
+      "$Comp$$.$PropsValidator$=function($props$jscomp$5$$){" +
+        "return $props$jscomp$5$$" +
+      "};" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
     // isRequired variant
     test(
       "window.foo=React.PropTypes.string.isRequired;",
@@ -3075,15 +3079,22 @@ public class ReactCompilerPassTest {
           "}" +
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
-      "ReactDOM.render(React.createElement(React.createClass({" +
+      "var $Comp$$=React.createClass({" +
         "propTypes:{" +
           "children:React.PropTypes.element.isRequired" +
         "}," +
         "render:function(){" +
           "return React.createElement(" +
-              "\"div\",null,React.Children.only(this.props.children))" +
+            "\"div\",null,React.Children.only(this.props.children))" +
         "}" +
-      "})),document.body);");
+      "});" +
+      "$Comp$$.$PropsValidator$=function($props$jscomp$5$$){" +
+        "return $props$jscomp$5$$" +
+      "};" +
+      "$Comp$$.$ChildrenValidator$=function($children$jscomp$7$$){" +
+        "return $children$jscomp$7$$" +
+      "};" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
   }
 
   @Test public void testChildrenClass() {
