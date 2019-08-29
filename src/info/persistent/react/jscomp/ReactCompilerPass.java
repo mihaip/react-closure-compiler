@@ -1481,10 +1481,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc) {
-    mergeInJsDoc(key, func, jsDoc, false);
-  }
-
-  private static void mergeInJsDoc(Node key, Node func, JSDocInfo jsDoc, boolean forceOverride) {
     JSDocInfo existingJsDoc = key.getJSDocInfo();
     List<String> funcParamNames = Lists.newArrayList();
     for (Node param : NodeUtil.getFunctionParameters(func).children()) {
@@ -1515,7 +1511,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         jsDoc.getTypeTransformations().entrySet()) {
       jsDocBuilder.recordTypeTransformation(entry.getKey(), entry.getValue());
     }
-    if (forceOverride || jsDoc.isOverride()) {
+    if (jsDoc.isOverride()) {
       jsDocBuilder.recordOverride();
     }
     key.setJSDocInfo(jsDocBuilder.build());
@@ -1885,7 +1881,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfo componentMethodJsDoc = componentMethodJsDocs.get(keyName);
       if (componentMethodJsDoc != null) {
         outOfBoundsData.componentMethodKeys.add(key);
-        mergeInJsDoc(key, func, componentMethodJsDoc, true);
+        mergeInJsDoc(key, func, componentMethodJsDoc);
       }
 
       if (!outOfBoundsData.isMixin) {
@@ -1895,7 +1891,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         JSDocInfo mixinMethodJSDoc = abstractMethodJsDocsByName.get(keyName);
         if (mixinMethodJSDoc != null) {
           outOfBoundsData.componentMethodKeys.add(key);
-          mergeInJsDoc(key, func, mixinMethodJSDoc, true);
+          mergeInJsDoc(key, func, mixinMethodJSDoc);
         }
       }
 

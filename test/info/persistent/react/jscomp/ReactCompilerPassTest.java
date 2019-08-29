@@ -72,6 +72,7 @@ public class ReactCompilerPassTest {
   @Test public void testMinimalComponentClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(" +
             "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
@@ -89,6 +90,7 @@ public class ReactCompilerPassTest {
       // ClassExpression using VariableDeclaration
       test(
         "var Comp = class extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "return React.createElement(" +
               "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
@@ -109,6 +111,7 @@ public class ReactCompilerPassTest {
       test(
         "var Comp;" +
         "Comp = class extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "return React.createElement(" +
               "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
@@ -185,6 +188,7 @@ public class ReactCompilerPassTest {
   @Test public void testEs6ModulesClass() {
     test(
       "export class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(" +
             "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
@@ -206,6 +210,7 @@ public class ReactCompilerPassTest {
     // Cross-module type checking works for props...
     testError(
       "export class Comp extends React.Component {\n" +
+        "/* @override */" +
         "render() {return null;}\n" +
       "}\n" +
       "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
@@ -215,6 +220,7 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
     testError(
       "export class Comp extends React.Component {\n" +
+        "/* @override */" +
         "render() {return null;}\n" +
       "}\n" +
       "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
@@ -225,6 +231,7 @@ public class ReactCompilerPassTest {
     // ...and methods.
     testError(
       "export class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return null;}\n" +
         "/** @param {number} a */" +
         "method(a) {window.foo = a;}" +
@@ -267,6 +274,7 @@ public class ReactCompilerPassTest {
     // be confused with the Comp from the first file.
     testNoError(
       "export class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return null;}" +
       "}\n" +
       "Comp.propTypes = {children: React.PropTypes.element.isRequired};" +
@@ -280,6 +288,7 @@ public class ReactCompilerPassTest {
     // when it's exported.
     testError(
       "export class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return null;}" +
       "}\n" +
       "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
@@ -392,6 +401,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';\n" +
         "export class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod();" +
             "return React.createElement(\"div\");" +
@@ -409,6 +419,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import {Mixin} from './file1.js';" +
         "export class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod();" +
             "return React.createElement(\"div\");" +
@@ -426,6 +437,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import {Mixin} from './file1.js';" +
         "export class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod();" +
             "return React.createElement(\"div\");" +
@@ -433,6 +445,7 @@ public class ReactCompilerPassTest {
         "}" +
         "ReactSupport.mixin(Comp, Mixin);" +
         "export class Comp2 extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod();" +
             "return null;" +
@@ -451,6 +464,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import {Mixin as m} from './file1.js';\n" +
         "export class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod();" +
             "return React.createElement(\"div\");" +
@@ -476,6 +490,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import * as file2 from './file2.js';\n" +
         "export class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {" +
             "this.mixinMethod1();" +
             "this.mixinMethod2();" +
@@ -495,6 +510,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';" +
         "class Comp extends React.Component {" +
+          "/* @override */" +  
           "render() {return this.props.mixinFuncProp();}" +
         "}" +
         "ReactSupport.mixin(Comp, file1.Mixin);");
@@ -511,6 +527,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';\n" +
         "class Comp extends React.Component {" +
+          "/* @override */" +
           "render() {return null;}" +
         "}" +
         "ReactSupport.mixin(Comp, file1.Mixin);");
@@ -567,6 +584,7 @@ public class ReactCompilerPassTest {
   @Test public void testInstanceMethodsClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "method() {window.foo = 123;}" +
       "}" +
@@ -580,6 +598,7 @@ public class ReactCompilerPassTest {
       "window.$foo$=123;");
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "/** @private */" +
         "privateMethod1_(a) {window.foo = 123 + a;}" +
@@ -594,6 +613,7 @@ public class ReactCompilerPassTest {
       "ReactDOM.render(React.createElement($Comp$$),document.body);");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "/** @param {number} a */" +
         "method(a) {window.foo = a;}" +
@@ -604,6 +624,7 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "var inst = ReactDOM.render(React.createElement(Comp), document.body);" +
@@ -854,6 +875,7 @@ public class ReactCompilerPassTest {
       "/** @return {number} @protected */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "mixinAbstractMethod() {" +
           "return 42;" +
         "}" +
@@ -879,6 +901,7 @@ public class ReactCompilerPassTest {
       "ReactSupport.declareMixin(Mixin);" +
       "ReactSupport.mixin(Mixin, ChainedMixin);"  +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.mixinMethod();" +
           "this.chainedMixinMethod();" +
@@ -914,10 +937,12 @@ public class ReactCompilerPassTest {
       "/** @return {number} @protected */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.mixinMethod();" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod() {return 123;}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);" +
@@ -941,6 +966,7 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.mixinMethod(\"notanumber\");" +
           "return React.createElement(\"div\");" +
@@ -960,6 +986,7 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.privateMixinMethod_();" +
           "return null;" +
@@ -979,10 +1006,12 @@ public class ReactCompilerPassTest {
       "/** @return {number} */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.mixinMethod();" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod() {return 123;}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
@@ -998,10 +1027,12 @@ public class ReactCompilerPassTest {
       "/** @return {number} */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.mixinMethod();" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod() {return \"notanumber\";}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
@@ -1015,9 +1046,11 @@ public class ReactCompilerPassTest {
       "/** @param {number} param1 */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod() {}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
@@ -1030,9 +1063,11 @@ public class ReactCompilerPassTest {
       "/** @param {number} param1 */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod(renamedParam1) {}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
@@ -1048,9 +1083,11 @@ public class ReactCompilerPassTest {
       " */" +
       "Mixin.mixinAbstractMethod;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
+        "/* @override */" +
         "mixinAbstractMethod(param1) {return param1}" +
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
@@ -1123,6 +1160,7 @@ public class ReactCompilerPassTest {
           "this.method();" +
           "return null;" +
         "}" +
+        "/* @override */" +
         "optionalAbstract() {" +
           "return 42;" +
         "}" +
@@ -1148,6 +1186,7 @@ public class ReactCompilerPassTest {
           "this.method();" +
           "return null;" +
         "}" +
+        "/* @override */" +
         "optionalAbstract(x) {" +
           "window.x = x;" +
         "}" +
@@ -1198,11 +1237,14 @@ public class ReactCompilerPassTest {
     test(
       REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
+        "/* @override */" +
         "componentDidMount() {}" +
       "}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "componentDidMount() {}" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
@@ -1227,7 +1269,10 @@ public class ReactCompilerPassTest {
   @Test public void testNamespacedComponentClass() {
     test(
       "var ns = {};ns.Comp = class extends React.Component {" +
-        "render() {return React.createElement(\"div\");}" +
+        "/* @override */" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
       "};" +
       "ReactDOM.render(React.createElement(ns.Comp), document.body);",
       "ReactDOM.render(React.createElement(" +
@@ -1252,6 +1297,7 @@ public class ReactCompilerPassTest {
     test(
       // Unused components should not appear in the output.
       "class Unused extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\", null);}" +
       "}",
       "");
@@ -1274,6 +1320,7 @@ public class ReactCompilerPassTest {
   @Test public void testThisUsageClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "method() {this.setState({foo: 123});}" +
       "}" +
@@ -1381,6 +1428,7 @@ public class ReactCompilerPassTest {
     // Tests that element.type is not a string...
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "React.createElement(Comp).type.charAt(0)",
@@ -1388,6 +1436,7 @@ public class ReactCompilerPassTest {
     // ...but is present...
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "window.type = React.createElement(Comp).type;",
@@ -1398,6 +1447,7 @@ public class ReactCompilerPassTest {
     // ...unlike other properties.
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "window.foo = React.createElement(Comp).notAnElementProperty;",
@@ -1526,13 +1576,16 @@ public class ReactCompilerPassTest {
 
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
       "}" +
       "ReactDOM.render(React.createElement(Comp), document.body, 123);",
       "JSC_TYPE_MISMATCH");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
+        "/* @override */" +
         "shouldComponentUpdate(nextProps, nextState) {return 123;}" +
       "}",
       // Overrides/implemementations of built-in methods should conform to the
@@ -1541,26 +1594,32 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
+        "/* @override */" +
         "shouldComponentUpdate() {return false;}" +
       "}",
       // But implementations should be OK if they omit parameters...
       "");
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
+        "/* @override */" +
         "shouldComponentUpdate(param1, param2) {return false;}" +
       "}",
       // ...or rename them.
       "");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return 123;}" +
       "}",
       "JSC_TYPE_MISMATCH");
     testError(
       REACT_SUPPORT_CODE +
       "class Mixin extends React.Component {" +
+        "/* @override */" +
         "shouldComponentUpdate(nextProps, nextState) {return 123;}" +
       "}" +
       "ReactSupport.declareMixin(Mixin);",
@@ -1568,6 +1627,7 @@ public class ReactCompilerPassTest {
       "JSC_TYPE_MISMATCH");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.isMounted().indexOf(\"true\");" +
           "return React.createElement(\"div\");" +
@@ -1613,6 +1673,7 @@ public class ReactCompilerPassTest {
   @Test public void testMethodJsDocClass() {
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "/** @param {number} numberParam */" +
         "someMethod(numberParam) {numberParam.notAMethod();}" +
@@ -1620,6 +1681,7 @@ public class ReactCompilerPassTest {
       "JSC_INEXISTENT_PROPERTY");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(" +
             "\"div\", null, this.someMethod(\"notanumber\"));}" +
         "/** @param {number} numberParam */" +
@@ -1644,6 +1706,7 @@ public class ReactCompilerPassTest {
   @Test public void testMethodDefaultParametersClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return React.createElement(\"div\");}" +
         "/** @param {number=} numberParam @return {number}*/" +
         "someMethod(numberParam = 1) {return numberParam * 2;}" +
@@ -1692,6 +1755,7 @@ public class ReactCompilerPassTest {
         "/** @override */ interfaceMethod() {\n" +
             "return 1;\n" +
         "}\n" +
+        "/* @override */" +
         "render() {\n" +
           "return React.createElement(\"div\");\n" +
         "}" +
@@ -1815,6 +1879,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "this.state.enabled.toFixed(2);" +
           "return null" +
@@ -1833,6 +1898,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "this.setState({enabled: 123});" +
           "return null;" +
@@ -1852,6 +1918,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "this.setState((state, props) => ({enabled: 123}));" +
           "return null;" +
@@ -1870,6 +1937,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {f1: false, f2: 1, f3: 2};" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "this.setState({f1: true});" +
           "return null;" +
@@ -1887,6 +1955,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "return null;" +
         "}" +
@@ -1904,6 +1973,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "componentWillUpdate(nextProps, nextState) {" +
           "nextState.enabled.toFixed(2);" +
         "}" +
@@ -1930,9 +2000,11 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return {enabled: false};" +
         "}" +
+        "/* @override */" +
         "mixinMethod(state) {" +
           "state.enabled.toFixed(2);" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "return null;" +
         "}" +
@@ -1948,6 +2020,7 @@ public class ReactCompilerPassTest {
         "initialState() {" +
           "return null;" +
         "}" +
+        "/* @override */" +
         "render() {" +
           "return null;" +
         "}" +
@@ -2060,6 +2133,7 @@ public class ReactCompilerPassTest {
     // Basic prop types
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\", null, this.props.aProp);" +
         "}" +
@@ -2150,6 +2224,7 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.declareMixin(Mixin);" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\", null, this.mixinMethod());" +
         "}" +
@@ -2172,6 +2247,7 @@ public class ReactCompilerPassTest {
     test(
       "export const anExport = 9;" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
@@ -2665,6 +2741,7 @@ public class ReactCompilerPassTest {
     // Validate use of props within methods.
     testError(
       "export{};class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.props.numberProp();" +
           "return null;" +
@@ -2998,9 +3075,11 @@ public class ReactCompilerPassTest {
     // type injected.
     testError(
         "class Comp extends React.Component {" +
+        "/* @override */" +
           "componentWillReceiveProps(nextProps) {" +
              "nextProps.numberProp();" +
           "}\n" +
+          "/* @override */" +
           "render() {return null;}" +
         "}\n" +
         "Comp.propTypes = {" +
@@ -3017,9 +3096,11 @@ public class ReactCompilerPassTest {
         "/** @param {ReactProps} props @protected */" +
         "Mixin.mixinAbstractMethod;" +
         "class Comp extends React.Component {" +
+          "/* @override */" +
           "mixinAbstractMethod(props) {" +
              "props.numberProp();" +
           "}" +
+          "/* @override */" +
           "render() {return null;}" +
         "}" +
         "ReactSupport.mixin(Comp, Mixin);" +
@@ -3028,6 +3109,34 @@ public class ReactCompilerPassTest {
         "};" +
         "React.createElement(Comp, {numberProp: 1});",
         "JSC_NOT_FUNCTION_TYPE");
+
+    test(
+      "class Comp extends React.Component {" +
+        "/* @override */" +
+        "componentWillReceiveProps(nextProps) {" +
+            "nextProps.numFunc(42);" +
+        "}\n" +
+        "/* @override */" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = {" +
+        "/** @type {function(number)} */" +
+        "numFunc: React.PropTypes.func.isRequired" +
+      "};\n" +
+      "React.createElement(Comp, {numFunc: x => x/10});",
+      "class $Comp$$ extends React.Component{" +
+        "componentWillReceiveProps($nextProps$jscomp$6$$){" +
+          "$nextProps$jscomp$6$$.$numFunc$(42)" +
+        "}" +
+        "render(){" +
+          "return null" +
+        "}" +
+      "}" +
+      "$Comp$$.propTypes={" +
+        "$numFunc$:React.PropTypes.func.isRequired" +
+      "};" +
+      "React.createElement($Comp$$,{$numFunc$:$x$jscomp$15$$=>$x$jscomp$15$$/10});");
+  
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {
@@ -3042,6 +3151,7 @@ public class ReactCompilerPassTest {
     testError(
       "class Message {}\n" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return null;}" +
       "}\n" +
       "Comp.propTypes = " + propTypes + ";\n" +
@@ -3060,6 +3170,7 @@ public class ReactCompilerPassTest {
     testNoError(
       "class Message {}\n" +
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {return null;}" +
       "}\n" +
       "Comp.propTypes = " + propTypes + ";\n" +
@@ -3101,6 +3212,7 @@ public class ReactCompilerPassTest {
     // Non-comprehensive test that the React.Children namespace functions exist.
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(" +
               "\"div\", null, React.Children.only(this.props.children));" +
@@ -3162,6 +3274,7 @@ public class ReactCompilerPassTest {
     // Validate use of context within methods.
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.context.numberProp();" +
           "return null;" +
@@ -3172,6 +3285,7 @@ public class ReactCompilerPassTest {
     // Both props and context are checked
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.context.functionProp(this.props.numberProp);" +
           "return null;" +
@@ -3194,6 +3308,7 @@ public class ReactCompilerPassTest {
       "ReactDOM.render(React.createElement($Comp$$),document.body);");
     testError(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "this.context.functionProp(this.props.stringProp);" +
           "return null;" +
@@ -3368,6 +3483,7 @@ public class ReactCompilerPassTest {
   @Test public void testExtendsPureComponent() {
     test(
       "class Comp extends React.PureComponent {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
@@ -3419,6 +3535,7 @@ public class ReactCompilerPassTest {
   @Test public void testElementTypedefClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
@@ -3429,6 +3546,7 @@ public class ReactCompilerPassTest {
     test(
       "const ns = {};" +
       "ns.Comp = class extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "return React.createElement(\"div\");" +
         "}" +
@@ -3457,6 +3575,7 @@ public class ReactCompilerPassTest {
   @Test public void testPropsSpreadInliningClass() {
     test(
       "class Comp extends React.Component {" +
+        "/* @override */" +
         "render() {" +
           "var props = {a: \"1\"};\n" +
           "return React.createElement(\"div\", {...props});" +
