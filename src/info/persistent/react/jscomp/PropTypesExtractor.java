@@ -83,8 +83,8 @@ class PropTypesExtractor {
       "REACT_PROP_TYPES_VALIDATION_MISMATCH",
       "Invalid props provided when creating a {0} element:\n{1}");
 
-  private static final String PROPS_VALIDATOR_SUFFIX = "$$PropsValidator";
-  private static final String CHILDREN_VALIDATOR_SUFFIX = "$$ChildrenValidator";
+  private static final String PROPS_VALIDATOR_SUFFIX = ".PropsValidator";
+  private static final String CHILDREN_VALIDATOR_SUFFIX = ".ChildrenValidator";
 
   private static final JSTypeExpression REACT_PROPS_TYPE = new JSTypeExpression(
       IR.string("ReactProps"), null);
@@ -572,7 +572,7 @@ class PropTypesExtractor {
             .build());
   }
 
-  public void insert(Node insertionPoint, boolean addModuleExports) {
+  public void insert(Node insertionPoint) {
     Node propsRecordTypeNode = getPropsRecordTypeNode(
         propsTypeName, RequiredMode.COMPONENT);
     propsRecordTypeNode.useSourceInfoIfMissingFromForTree(insertionPoint);
@@ -628,9 +628,13 @@ class PropTypesExtractor {
       insertionPoint = validatorPropsRecordTypeNode;
     }
     validatorFuncNode = IR.function(
-        IR.name(validatorFuncName),
+        IR.name(""),
         IR.paramList(IR.name("props")),
         IR.block(IR.returnNode(IR.name("props"))));
+    Node validatorAssignmentNode = IR.exprResult(
+      IR.assign(
+        NodeUtil.newQName(compiler, validatorFuncName),
+        validatorFuncNode));
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     Node propsTypeNode = IR.string(validatorPropsTypeName);
     if (canBeCreatedWithNoProps) {
@@ -644,21 +648,22 @@ class PropTypesExtractor {
     jsDocBuilder.recordReturnType(
         new JSTypeExpression(propsTypeNode, sourceFileName));
     validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
-    validatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+    validatorAssignmentNode.useSourceInfoIfMissingFromForTree(insertionPoint);
     insertionPoint.getParent().addChildAfter(
-        validatorFuncNode, insertionPoint);
-    insertionPoint = validatorFuncNode;
-    if (addModuleExports) {
-      Ast.addModuleExport(validatorFuncName, validatorFuncNode);
-    }
+      validatorAssignmentNode, insertionPoint);
+    insertionPoint = validatorAssignmentNode;
 
     // A similar validator function is also necessary to validate the children
     // parameter of React.createElement.
     if (childrenPropTypeNode != null) {
       Node childrenValidatorFuncNode = IR.function(
-          IR.name(childrenValidatorFuncName),
+          IR.name(""),
           IR.paramList(IR.name("children")),
           IR.block(IR.returnNode(IR.name("children"))));
+      Node childrenValidatorAssignmentNode = IR.exprResult(
+        IR.assign(
+          NodeUtil.newQName(compiler, childrenValidatorFuncName),
+          childrenValidatorFuncNode));
       jsDocBuilder = new JSDocInfoBuilder(true);
       jsDocBuilder.recordParameter(
           "children",
@@ -668,12 +673,8 @@ class PropTypesExtractor {
       childrenValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
       childrenValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
       insertionPoint.getParent().addChildAfter(
-          childrenValidatorFuncNode, insertionPoint);
-      insertionPoint = childrenValidatorFuncNode;
-      if (addModuleExports) {
-        Ast.addModuleExport(
-            childrenValidatorFuncName, childrenValidatorFuncNode);
-      }
+        childrenValidatorAssignmentNode, insertionPoint);
+      insertionPoint = childrenValidatorAssignmentNode;
     }
 
     // And yet another validation function is needed to validate props used in
@@ -693,9 +694,10 @@ class PropTypesExtractor {
       insertionPoint = spreadValidatorPropsRecordTypeNode;
 
       Node spreadValidatorFuncNode = IR.function(
-          IR.name(spreadValidatorFuncName),
+          IR.name(""),
           IR.paramList(IR.name("props")),
           IR.block(IR.returnNode(IR.name("props"))));
+      Node spreadValidatorAssignmentNode = IR.exprResult(IR.assign(NodeUtil.newQName(compiler, spreadValidatorFuncName), spreadValidatorFuncNode));
       jsDocBuilder = new JSDocInfoBuilder(true);
       Node spreadPropsTypeNode = bang(IR.string(spreadValidatorPropsTypeName));
       jsDocBuilder.recordParameter(
@@ -704,14 +706,10 @@ class PropTypesExtractor {
       jsDocBuilder.recordReturnType(
           new JSTypeExpression(spreadPropsTypeNode, sourceFileName));
       spreadValidatorFuncNode.setJSDocInfo(jsDocBuilder.build());
-      spreadValidatorFuncNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      spreadValidatorAssignmentNode.useSourceInfoIfMissingFromForTree(insertionPoint);
       insertionPoint.getParent().addChildAfter(
-          spreadValidatorFuncNode, insertionPoint);
-      insertionPoint = spreadValidatorFuncNode;
-      if (addModuleExports) {
-        Ast.addModuleExport(
-            spreadValidatorFuncName, spreadValidatorFuncNode);
-      }
+        spreadValidatorAssignmentNode, insertionPoint);
+      insertionPoint = spreadValidatorAssignmentNode;
     }
 
     // /** @type {!Comp.Props} */
@@ -994,7 +992,7 @@ class PropTypesExtractor {
       return NodeUtil.newQName(
           compiler, callTypeNamePrefix + validatorFuncName);
     }
-    return IR.name(validatorFuncName);
+    return NodeUtil.newQName(compiler, validatorFuncName);
   }
 
   private static Node bang(Node child) {

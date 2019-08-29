@@ -157,6 +157,16 @@ public class ReactCompilerPassTest {
       "import * as file1 from './file1.js';\n" +
       "React.createElement(file1.Comp, {aNumber: 'notANumber'});",
       "JSC_TYPE_MISMATCH");
+    // Cross-module type checking works for props...
+    testError(
+      "export const Comp = React.createClass({" +
+        "propTypes: {aNumber: React.PropTypes.number.isRequired}," +
+        "render: function() {return null;}" +
+      "});\n" +
+      FILE_SEPARATOR +
+      "import {Comp} from './file1.js';\n" +
+      "React.createElement(Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
     // ...and methods.
     testError(
       "export const Comp = React.createClass({" +
@@ -202,6 +212,15 @@ public class ReactCompilerPassTest {
       FILE_SEPARATOR +
       "import * as file1 from './file1.js';\n" +
       "React.createElement(file1.Comp, {aNumber: 'notANumber'});",
+      "JSC_TYPE_MISMATCH");
+    testError(
+      "export class Comp extends React.Component {\n" +
+        "render() {return null;}\n" +
+      "}\n" +
+      "Comp.propTypes = {aNumber: React.PropTypes.number.isRequired};" +
+      FILE_SEPARATOR +
+      "import {Comp} from './file1.js';\n" +
+      "React.createElement(Comp, {aNumber: 'notANumber'});",
       "JSC_TYPE_MISMATCH");
     // ...and methods.
     testError(
@@ -2224,18 +2243,22 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(" +
           "Comp, {aProp: \"foo\"}), document.body);",
-      "ReactDOM.render(React.createElement(React.createClass({" +
+      "var $Comp$$=React.createClass({" +
         "propTypes:{aProp:React.PropTypes.string}," +
         "publicFunction:function(){" +
-            "return\"dont_rename_me_bro\"" +
+          "return\"dont_rename_me_bro\"" +
         "}," +
         "$privateFunction_$:function(){" +
-            "return 1" +
+          "return 1" +
         "}," +
         "render:function(){" +
           "return React.createElement(\"div\",null,this.props.aProp)" +
         "}" +
-      "}),{aProp:\"foo\"}),document.body);");
+      "});" +
+      "$Comp$$.$PropsValidator$=function(){" +
+        "return{aProp:\"foo\"}" +
+      "};" +
+      "ReactDOM.render(React.createElement($Comp$$,{aProp:\"foo\"}),document.body);");
     // Even with a minified build there is no renaming.
     ReactCompilerPass.Options minifiedReactPassOptions =
         new ReactCompilerPass.Options();
