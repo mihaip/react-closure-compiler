@@ -52,9 +52,14 @@ ReactClass.prototype.getDefaultProps = function() {};
 ReactClass.prototype.Props;
 
 /**
- * @typedef {!Object|{children: (Object|undefined)}}
+ * @typedef {?}
  */
 var ReactProps;
+
+/**
+ * @typedef {{children: ?}}
+ */
+var ReactPropsChildren;
 
 /**
  * Functional component function signature.
@@ -66,7 +71,7 @@ var ReactComponentFunction;
 
 
 /**
- * @typedef {!Object}
+ * @typedef {?}
  */
 var ReactState;
 
@@ -565,7 +570,7 @@ ReactModule.prototype.Children;
  * @constructor
  * @implements {ReactComponent}
  */
-ReactModule.prototype.Component = function (props, context) { }
+ReactModule.prototype.Component = function(props, context) {}
 
 /** @override */
 ReactModule.prototype.Component.prototype.props;
@@ -648,7 +653,7 @@ ReactModule.prototype.Component.contextTypes;
  * @constructor
  * @extends {React.Component}
  */
-ReactModule.prototype.PureComponent = function (props, context) { }
+ReactModule.prototype.PureComponent = function(props, context) {}
 
 /**
  * @type {ReactPropTypes}

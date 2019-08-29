@@ -115,6 +115,9 @@ public class React {
       if (existing.hasThisType()) {
         jsDocBuilder.recordThisType(existing.getThisType());
       }
+      if (existing.isOverride()) {
+        jsDocBuilder.recordOverride();
+      }
       for (String templateTypeName : existing.getTemplateTypeNames()) {
         jsDocBuilder.recordTemplateTypeName(templateTypeName);
       }
