@@ -170,6 +170,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Map<Node, PropTypesExtractor> mixedInPropTypes = Maps.newHashMap();
     Node mixinInterfaceNode;
     boolean done = false;
+    public List<Node> staticMethods = Lists.newArrayList();
 
     ClassOutOfBoundsData(
         Node classNode,
@@ -1769,6 +1770,21 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     //      abstractMethod() {}
     //   }
     //   ReactSupport.declareMixin(Mixin);
+    //
+    // Static methods on the mixin are declared on the class itself as:
+    //
+    //   class Mixin extends React.Component {
+    //     /**
+    //      * @param {string} s 
+    //      * @return {number}
+    //      */
+    //     static method(s) { ... }
+    //   }
+    //   ReactSupport.declareMixin(Mixin);
+    //   class Comp extends React.Component {}
+    //   ReactSupport.mixin(Comp, Mixin);
+    //   /** @type {function(string}: number} */
+    //   Comp.method;
 
     Node[] temp = getClassNameAndInsertionPoint(classNode);
 
@@ -1855,12 +1871,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         classNode.getChildAtIndex(1).getQualifiedName().equals("React.PureComponent");
     boolean hasShouldComponentUpdate = false;
     for (Node key : classBody.children()) {
-      if (key.isStaticMember()) {
-        // No need to do anything for static members
+      if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
         continue;
       }
 
-      if (!key.hasOneChild() || !key.getFirstChild().isFunction()) {
+      if (key.isStaticMember()) {
+        outOfBoundsData.staticMethods.add(key);
+        // No need to do anything else for static members
         continue;
       }
 
@@ -2067,7 +2084,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       boolean isAbstract = abstractMethodJsDocsByName.containsKey(keyName);
       if (isAbstract) {
         // Use /** @type {(function(a):b)|undefined} */
-        jsdocInfo = convertJSDocInfoToFunctionType(jsdocInfo, key.getSourceFileName());
+        jsdocInfo = convertJSDocInfoToFunctionTypeOrUndefined(jsdocInfo, key.getSourceFileName());
       }
       insertionPoint.getParent().addChildAfter(
         NodeUtil.newQNameDeclaration(
@@ -2081,6 +2098,24 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // Make sure we are also adding methods that mixins got from other mixins.
     ClassOutOfBoundsData mixinData = classOutOfBoundsMap.get(scope, mixinNameNode);
     if (mixinData != null) {
+      // Add statics from mixins
+      for (Node staticMethod : mixinData.staticMethods) {
+        JSDocInfo info = staticMethod.getJSDocInfo();
+        if (info == null) {
+          JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+          builder.recordType(
+            new JSTypeExpression(
+              new Node(Token.BANG, IR.string("Function")),
+              staticMethod.getSourceFileName()));
+          info = builder.build();
+        } else {
+          info = convertJSDocInfoToFunctionType(info, staticMethod.getSourceFileName());
+        }
+
+        Node statement = NodeUtil.newQNameDeclaration(compiler, dst.typeName + "." + staticMethod.getString(), null, info);
+        dst.insertionPoint.getParent().addChildAfter(statement, dst.insertionPoint);
+      }
+
       for (Node innerMixinNamNode : mixinData.mixins) {
         defineMethodsMixedInFromMixin(dst, innerMixinNamNode, mixinData.scope, abstractMethodJsDocsByName);
       }
@@ -2262,7 +2297,25 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   /**
    * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
    */
+  private JSDocInfo convertJSDocInfoToFunctionTypeOrUndefined(JSDocInfo info, String sourceFileName) {
+    Node functionType = convertJSDocInfoToFunctionTypeNode(info, sourceFileName);
+    Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
+    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+    builder.recordType(new JSTypeExpression(unionType, sourceFileName));
+    return builder.build();
+  }
+
+  /**
+   * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
+   */
   private JSDocInfo convertJSDocInfoToFunctionType(JSDocInfo info, String sourceFileName) {
+    Node functionType = convertJSDocInfoToFunctionTypeNode(info, sourceFileName);
+    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+    builder.recordType(new JSTypeExpression(functionType, sourceFileName));
+    return builder.build();
+  }
+
+  private Node convertJSDocInfoToFunctionTypeNode(JSDocInfo info, String sourceFileName) {
     if (!info.getTemplateTypeNames().isEmpty()) {
       compiler.report(JSError.make(
           INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD));
@@ -2275,10 +2328,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       paramList.addChildToBack(type.getRoot().cloneTree());
     }
     Node returnType = info.hasReturnType() ? info.getReturnType().getRoot().cloneTree() : IR.empty();
-    Node functionType = new Node(Token.FUNCTION, paramList, returnType);
-    Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
-    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-    builder.recordType(new JSTypeExpression(unionType, sourceFileName));
-    return builder.build();
+    return new Node(Token.FUNCTION, paramList, returnType);
   }
 }
