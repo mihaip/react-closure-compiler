@@ -1192,13 +1192,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    if (createFuncName.equals("React.createClass") &&
-        getInitialStateNode != null) {
-      StateTypeExtractor extractor = new StateTypeExtractor(
-          getInitialStateNode, typeName, interfaceTypeName, compiler);
-      if (extractor.hasStateType()) {
-        extractor.insert(typesInsertionPoint);
-        extractor.addToComponentMethods(componentMethodKeys);
+    if (getInitialStateNode != null) {
+      if (createFuncName.equals("React.createClass")) {
+        StateTypeExtractor extractor = new StateTypeExtractor(
+            getInitialStateNode, typeName, interfaceTypeName, compiler);
+        if (extractor.hasStateType()) {
+          extractor.insert(typesInsertionPoint);
+          extractor.addToComponentMethods(componentMethodKeys);
+        }
       }
       // Gather fields defined in getInitialState.
       NodeTraversal.traverse(
@@ -1775,7 +1776,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     //
     //   class Mixin extends React.Component {
     //     /**
-    //      * @param {string} s 
+    //      * @param {string} s
     //      * @return {number}
     //      */
     //     static method(s) { ... }

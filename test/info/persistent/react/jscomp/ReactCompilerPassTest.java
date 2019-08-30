@@ -2121,7 +2121,7 @@ public class ReactCompilerPassTest {
 
    @Test public void testInitialStateReturnsNull() {
     testNoError(
-      ASSERT_NULL_JS + 
+      ASSERT_NULL_JS +
       "const Comp = React.createClass({" +
         "/** @return {null} */" +
         "getInitialState() {" +
@@ -2132,7 +2132,7 @@ public class ReactCompilerPassTest {
         "}" +
       "});");
     testNoError(
-      ASSERT_NULL_JS + 
+      ASSERT_NULL_JS +
       "const Comp = React.createClass({" +
         "getInitialState() {" +
           "return null;" +
@@ -2145,7 +2145,7 @@ public class ReactCompilerPassTest {
 
   @Test public void testInitialStateReturnsNullClass() {
     testNoError(
-      ASSERT_NULL_JS + 
+      ASSERT_NULL_JS +
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
@@ -2161,7 +2161,7 @@ public class ReactCompilerPassTest {
         "}" +
       "}");
     testNoError(
-      ASSERT_NULL_JS + 
+      ASSERT_NULL_JS +
       "class Comp extends React.Component {" +
         "constructor(props) {" +
           "super(props);" +
@@ -2180,6 +2180,8 @@ public class ReactCompilerPassTest {
   @Test public void testFields() {
     // Fields defined in getInitialState are checked
     testError(
+      "/** @param {number} param */" +
+      "function numberFunc(param) {return param * 2};\n" +
       "var Comp = React.createClass({" +
         "getInitialState() {" +
           "/** @private {boolean} */" +
@@ -2187,13 +2189,15 @@ public class ReactCompilerPassTest {
           "return null;" +
         "},\n" +
         "render() {" +
-          "this.field_.toFixed(2);" +
+          "numberFunc(this.field_);" +
           "return null" +
         "}" +
       "});",
-      "JSC_INEXISTENT_PROPERTY");
+      "JSC_TYPE_MISMATCH");
       // Even if they don't have a value assigned.
-      testError(
+    testError(
+      "/** @param {number} param */" +
+      "function numberFunc(param) {return param * 2};\n" +
       "var Comp = React.createClass({" +
         "getInitialState() {" +
           "/** @private {boolean|undefined} */" +
@@ -2201,11 +2205,26 @@ public class ReactCompilerPassTest {
           "return null;" +
         "},\n" +
         "render() {" +
-          "this.field_.toFixed(2);" +
+          "numberFunc(this.field_);" +
           "return null" +
         "}" +
       "});",
-      "JSC_INEXISTENT_PROPERTY");
+      "JSC_TYPE_MISMATCH");
+    // Mixins can also define fields
+    testError(
+      "/** @param {number} param */" +
+      "function numberFunc(param) {return param * 2};\n" +
+      "var Mixin = React.createMixin({" +
+        "getInitialState() {" +
+          "/** @private {boolean} */" +
+          "this.field_ = true;\n" +
+          "return null;" +
+        "},\n" +
+        "mixinMethod() {" +
+          "numberFunc(this.field_);" +
+        "}" +
+      "});",
+      "JSC_TYPE_MISMATCH");
   }
 
   @Test public void testPropTypes() {
