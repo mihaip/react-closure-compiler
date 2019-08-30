@@ -152,6 +152,27 @@ public class ReactCompilerPassTest {
         "}" +
       "}));" +
       "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+    // And with named import
+    test(
+      "export const Comp = React.createClass({" +
+        "render: function() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+          "}" +
+      "});" +
+      FILE_SEPARATOR +
+      // Test that we can use the component and associated types from another
+      // module (i.e. that exports are generated for them).
+      "import {Comp, CompElement} from './file1.js';\n" +
+      "const /** CompElement */ compElement = React.createElement(Comp);\n" +
+      "const /** Comp */ compInstance = ReactDOM.render(compElement, document.body);",
+      "const $compElement$$module$src$file2$$=React.createElement(React.createClass({" +
+        "render:function(){" +
+          "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+        "}" +
+      "}));" +
+      "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+
     // Cross-module type checking works for props...
     testError(
       "export const Comp = React.createClass({" +
@@ -209,6 +230,29 @@ public class ReactCompilerPassTest {
       "};" +
       "const $compElement$$module$src$file2$$=React.createElement($Comp$$module$src$file1$$);" +
       "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+    // And with named import
+    test(
+      "export class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {" +
+          "return React.createElement(" +
+            "\"div\", null, React.createElement(\"span\", null, \"child\"));" +
+        "}" +
+      "}" +
+      FILE_SEPARATOR +
+      // Test that we can use the component and associated types from another
+      // module (i.e. that exports are generated for them).
+      "import {Comp, CompElement}  from './file1.js';\n" +
+      "const /** CompElement */ compElement = React.createElement(Comp);\n" +
+      "const /** Comp */ compInstance = ReactDOM.render(compElement, document.body);",
+      "class $Comp$$module$src$file1$$ extends React.Component{" +
+        "render(){" +
+          "return React.createElement(\"div\",null,React.createElement(\"span\",null,\"child\"))" +
+        "}" +
+      "};" +
+      "const $compElement$$module$src$file2$$=React.createElement($Comp$$module$src$file1$$);" +
+      "ReactDOM.render($compElement$$module$src$file2$$,document.body);");
+
     // Cross-module type checking works for props...
     testError(
       "export class Comp extends React.Component {\n" +
@@ -512,7 +556,7 @@ public class ReactCompilerPassTest {
         REACT_SUPPORT_CODE +
         "import * as file1 from './file1.js';" +
         "class Comp extends React.Component {" +
-          "/* @override */" +  
+          "/* @override */" +
           "render() {return this.props.mixinFuncProp();}" +
         "}" +
         "ReactSupport.mixin(Comp, file1.Mixin);");
@@ -2059,7 +2103,7 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.mixin(Comp, Mixin);",
       "JSC_INEXISTENT_PROPERTY");
-  
+
     testNoError(
       "class Comp extends React.Component {" +
         "constructor(props) {" +
@@ -2359,7 +2403,7 @@ public class ReactCompilerPassTest {
       "}" +
       "Comp.propTypes = {aProp: React.PropTypes.string};" +
       "Comp.defaultProps = {aProp: \"hi\"};" +
-      "Comp.contextTypes = {aContext: React.PropTypes.number};" +      
+      "Comp.contextTypes = {aContext: React.PropTypes.number};" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "class $Comp$$module$src$file1$$ extends $React$Component$${" +
         "render(){" +
@@ -3241,7 +3285,6 @@ public class ReactCompilerPassTest {
         "$numFunc$:React.PropTypes.func.isRequired" +
       "};" +
       "React.createElement($Comp$$,{$numFunc$:$x$jscomp$15$$=>$x$jscomp$15$$/10});");
-  
   }
 
   private void testPropTypesError(String propTypes, String props, String error) {
