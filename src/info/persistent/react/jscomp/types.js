@@ -566,7 +566,7 @@ ReactModule.prototype.Children;
 
 /**
  * @param {ReactProps=} props
- * @param {Object=} context
+ * @param {*=} context
  * @constructor
  * @implements {ReactComponent}
  */
