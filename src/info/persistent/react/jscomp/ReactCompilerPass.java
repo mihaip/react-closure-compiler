@@ -2083,8 +2083,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
       boolean isAbstract = abstractMethodJsDocsByName.containsKey(keyName);
       if (isAbstract) {
+        // TODO(arv): This does not allow template params. We could probably
+        // make it work by using typeof types and a temporary function type.
         // Use /** @type {(function(a):b)|undefined} */
-        jsdocInfo = convertJSDocInfoToFunctionTypeOrUndefined(jsdocInfo, key.getSourceFileName());
+        jsdocInfo = convertJSDocInfoToFunctionTypeOrUndefined(jsdocInfo, key);
       }
       insertionPoint.getParent().addChildAfter(
         NodeUtil.newQNameDeclaration(
@@ -2109,7 +2111,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
               staticMethod.getSourceFileName()));
           info = builder.build();
         } else {
-          info = convertJSDocInfoToFunctionType(info, staticMethod.getSourceFileName());
+          info = info.clone();
         }
 
         Node statement = NodeUtil.newQNameDeclaration(compiler, dst.typeName + "." + staticMethod.getString(), null, info);
@@ -2297,28 +2299,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   /**
    * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
    */
-  private JSDocInfo convertJSDocInfoToFunctionTypeOrUndefined(JSDocInfo info, String sourceFileName) {
-    Node functionType = convertJSDocInfoToFunctionTypeNode(info, sourceFileName);
+  private JSDocInfo convertJSDocInfoToFunctionTypeOrUndefined(JSDocInfo info, Node ownerNode) {
+    Node functionType = convertJSDocInfoToFunctionTypeNode(info, ownerNode);
     Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
     JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-    builder.recordType(new JSTypeExpression(unionType, sourceFileName));
+    builder.recordType(new JSTypeExpression(unionType, ownerNode.getSourceFileName()));
     return builder.build();
   }
 
-  /**
-   * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
-   */
-  private JSDocInfo convertJSDocInfoToFunctionType(JSDocInfo info, String sourceFileName) {
-    Node functionType = convertJSDocInfoToFunctionTypeNode(info, sourceFileName);
-    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-    builder.recordType(new JSTypeExpression(functionType, sourceFileName));
-    return builder.build();
-  }
-
-  private Node convertJSDocInfoToFunctionTypeNode(JSDocInfo info, String sourceFileName) {
+  private Node convertJSDocInfoToFunctionTypeNode(JSDocInfo info, Node ownerNode) {
     if (!info.getTemplateTypeNames().isEmpty()) {
       compiler.report(JSError.make(
-          INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD));
+          ownerNode, INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD));
     }
 
     Node paramList = IR.paramList();
