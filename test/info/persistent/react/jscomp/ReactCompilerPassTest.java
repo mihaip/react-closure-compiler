@@ -51,6 +51,8 @@ public class ReactCompilerPassTest {
     "mixin(comp,...mixins){comp.mixins=mixins}" +
   "};";
 
+  private static String ASSERT_NULL_JS = "/** @param {null} n */function assertNull(n) {}";
+
   @Test public void testMinimalComponent() {
     test(
       "var Comp = React.createClass({" +
@@ -2072,6 +2074,64 @@ public class ReactCompilerPassTest {
         "}" +
       "}");
    }
+
+   @Test public void testInitialStateReturnsNull() {
+    testNoError(
+      ASSERT_NULL_JS + 
+      "const Comp = React.createClass({" +
+        "/** @return {null} */" +
+        "getInitialState() {" +
+          "return null;" +
+        "}," +
+        "test() {" +
+          "assertNull(this.state);" +
+        "}" +
+      "});");
+    testNoError(
+      ASSERT_NULL_JS + 
+      "const Comp = React.createClass({" +
+        "getInitialState() {" +
+          "return null;" +
+        "}," +
+        "test() {" +
+          "assertNull(this.state);" +
+        "}" +
+      "})");
+  }
+
+  @Test public void testInitialStateReturnsNullClass() {
+    testNoError(
+      ASSERT_NULL_JS + 
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "/** @return {null} */" +
+        "initialState() {" +
+          "return null;" +
+        "}" +
+        "test() {" +
+          "assertNull(this.state);" +
+        "}" +
+      "}");
+    testNoError(
+      ASSERT_NULL_JS + 
+      "class Comp extends React.Component {" +
+        "constructor(props) {" +
+          "super(props);" +
+          "/** @type {Comp.State} */" +
+          "this.state = this.initialState();" +
+        "}" +
+        "initialState() {" +
+          "return null;" +
+        "}" +
+        "test() {" +
+          "assertNull(this.state);" +
+        "}" +
+      "}");
+  }
 
   @Test public void testFields() {
     // Fields defined in getInitialState are checked

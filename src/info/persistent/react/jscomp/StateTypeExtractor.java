@@ -57,12 +57,25 @@ class StateTypeExtractor {
     if (stateType != null && stateType.equals(REACT_STATE_TYPE_QMARK)) {
       stateType = null;
     }
-    if (stateType != null && (stateType.getRoot().getToken() != Token.LC ||
-        stateType.getRoot().getFirstChild().getToken() != Token.LB)) {
-      compiler.report(JSError.make(
-          stateNode, UNEXPECTED_STATE_TYPE, typeName));
-      stateType = null;
+
+    if (stateType != null) {
+        Node root = stateType.getRoot();
+        if (root.getToken() == Token.LC && root.getFirstChild().getToken() == Token.LB) {
+            // { ... } is OK
+        } else if (root.isString() && root.getString().equals("null")) {
+            // null is OK
+        } else {
+            compiler.report(JSError.make(
+                stateNode, UNEXPECTED_STATE_TYPE, typeName));
+            stateType = null;
+        }
     }
+
+    // Use {null} if nothing else.
+    if (stateType == null) {
+        stateType = new JSTypeExpression(IR.string("null"), stateNode.getSourceFileName());
+    }
+
     this.stateType = stateType;
   }
 
@@ -141,24 +154,27 @@ private Node insertTypedefNode(Node insertionPoint, boolean partial) {
     JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     if (partial) {
         Node partialNode = stateType.getRoot().cloneTree();
-        // LC -> LB, which has N COLON children (for each field). Each COLON
-        // has two children, the key and the type.
-        for (Node colonNode : partialNode.getFirstChild().children()) {
-            Node typeNode = colonNode.getSecondChild();
-            if (typeNode.getToken() != Token.PIPE) {
-                typeNode.detachFromParent();
-                typeNode = new Node(Token.PIPE, typeNode, IR.string("undefined"));
-                colonNode.addChildToBack(typeNode);
-            } else {
-                boolean hadUndefinedInUnion = false;
-                for (Node child : typeNode.children()) {
-                  if (child.isString() && child.getString().equals("undefined")) {
-                      hadUndefinedInUnion = true;
-                      break;
-                  }
-                }
-                if (!hadUndefinedInUnion) {
-                    typeNode.addChildToBack(IR.string("undefined"));
+        // If type is null the partial type is also null.
+        if (!partialNode.isString() || !partialNode.getString().equals("null")) {
+            // LC -> LB, which has N COLON children (for each field). Each COLON
+            // has two children, the key and the type.
+            for (Node colonNode : partialNode.getFirstChild().children()) {
+                Node typeNode = colonNode.getSecondChild();
+                if (typeNode.getToken() != Token.PIPE) {
+                    typeNode.detachFromParent();
+                    typeNode = new Node(Token.PIPE, typeNode, IR.string("undefined"));
+                    colonNode.addChildToBack(typeNode);
+                } else {
+                    boolean hadUndefinedInUnion = false;
+                    for (Node child : typeNode.children()) {
+                    if (child.isString() && child.getString().equals("undefined")) {
+                        hadUndefinedInUnion = true;
+                        break;
+                    }
+                    }
+                    if (!hadUndefinedInUnion) {
+                        typeNode.addChildToBack(IR.string("undefined"));
+                    }
                 }
             }
         }
