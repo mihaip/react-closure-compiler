@@ -3688,6 +3688,26 @@ public class ReactCompilerPassTest {
         "mixins: [Mixin]," +
       "});" +
       "Comp.method(\"a\", \"b\", \"c\");");
+
+    // Type params
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const Mixin = React.createMixin({" +
+        "statics: {" +
+          "/** " +
+          " * @param {!Array<T>} a\n" +
+          " * @return {T}\n" +
+          " * @template T" +
+          " */" +
+          "method(a) {" +
+            "return a[0];" +
+          "}" +
+        "}" +
+      "});" +
+      "const Comp = React.createClass({});" +
+      "/** @param {string} s */" +
+      "function f(s) {}" +
+      "f(Comp.method([\"a\", \"b\"]));");
   }
 
   @Test public void testMixinStaticMethodClass() {
@@ -3740,6 +3760,26 @@ public class ReactCompilerPassTest {
       "class Comp extends React.Component {}" +
       "ReactSupport.mixin(Comp, Mixin);" +
       "Comp.method(\"a\", \"b\", \"c\");");
+
+    // Type params
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "/** " +
+        " * @param {!Array<T>} a\n" +
+        " * @return {T}\n" +
+        " * @template T" +
+        " */" +
+        "static method(a) {" +
+          "return a[0];" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "class Comp extends React.Component {}" +
+      "ReactSupport.mixin(Comp, Mixin);" +
+      "/** @param {string} s */" +
+      "function f(s) {}" +
+      "f(Comp.method([\"a\", \"b\"]));");
   }
 
   private static void test(String inputJs, String expectedJs) {
