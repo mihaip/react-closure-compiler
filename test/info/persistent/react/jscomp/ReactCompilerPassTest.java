@@ -1243,6 +1243,36 @@ public class ReactCompilerPassTest {
       "ReactSupport.mixin(Comp, Mixin);");
   }
 
+  @Test public void testMixinOptionalAbstractMethodModulesClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "export class Mixin extends React.Component {" +
+        "/** @return {number} */" +
+        "method() {" +
+          "if (this.optionalAbstract) {" +
+            "return this.optionalAbstract();" +
+          "}"+
+          "return 42;" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/** @return {T} */" +
+      "Mixin.optionalAbstract;" +
+      "/** @typedef {number} */" +
+      "let T;" +
+      FILE_SEPARATOR +
+      REACT_SUPPORT_CODE +
+      "import {Mixin} from \"./file1.js\";"+ 
+      "class Comp extends React.Component {" +
+        "/** @override */" +
+        "render() {" +
+          "this.method();" +
+          "return null;" +
+        "}" +
+      "}" +
+      "ReactSupport.mixin(Comp, Mixin);");
+  }
+
   @Test public void testMixinImplementsClass() {
     test(
         REACT_SUPPORT_CODE +
