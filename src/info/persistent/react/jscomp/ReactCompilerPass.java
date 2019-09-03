@@ -1921,8 +1921,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
 
       if (outOfBoundsData.isMixin) {
-        if (key.getJSDocInfo() == null || key.getJSDocInfo().getVisibility() != Visibility.PRIVATE) {
-          // Create methods on the interface too
+        if (key != initialStateNode &&
+              (key.getJSDocInfo() == null ||
+                  key.getJSDocInfo().getVisibility() != Visibility.PRIVATE)) {
+          // Create methods on the mixin's interface too. We don't do this for
+          // initialState because components may define their own, and the fact
+          // that the mixin uses state (and/or uses initialState for fields)
+          // is an implementation detail -- they should not need an @override
+          // for it.
           Node prototypeNode = reactMixinInterfacePrototypePropsByName.get(scope, nameNode);
           Node paramListNode = key.getFirstChild().getSecondChild().cloneTree();
           Node methodNode = IR.memberFunctionDef(

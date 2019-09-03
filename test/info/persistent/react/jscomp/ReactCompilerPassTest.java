@@ -2120,6 +2120,28 @@ public class ReactCompilerPassTest {
       "}");
    }
 
+   @Test public void testMixinStateClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "initialState() {" +
+          "return null;" +
+        "}\n" +
+      "}\n" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "class Comp extends React.Component {" +
+        "/** @return {{field: number}} */" +
+        "initialState() {" +
+          "return {field: 0};" +
+        "}\n" +
+        "/* @override */" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}\n" +
+      "ReactSupport.mixin(Comp, Mixin);");
+   }
+
    @Test public void testInitialStateReturnsNull() {
     testNoError(
       ASSERT_NULL_JS +
