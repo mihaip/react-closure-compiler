@@ -1967,8 +1967,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       //   class Mixin { ... }
       //   /** @return {T} */
       //   Mixin.foo;
-      // Move these into the class body and tag them as @abstract
-      moveAbstractMixinMethodsToClassBody(outOfBoundsData, input);
+      declareAbstractMixinMethodsAsOptionalPrototypeProps(outOfBoundsData, input);
 
       // For mixins we generate an interface that has the same shape as the
       // class. The component that mixes in the mixin will have @implements for
@@ -2087,12 +2086,18 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       } else {
         jsdocInfo = jsdocInfo.clone();
       }
+
       boolean isAbstract = abstractMethodJsDocsByName.containsKey(keyName);
       if (isAbstract) {
-        // TODO(arv): This does not allow template params. We could probably
-        // make it work by using typeof types and a temporary function type.
-        // Use /** @type {(function(a):b)|undefined} */
-        jsdocInfo = convertJSDocInfoToFunctionTypeOrUndefined(jsdocInfo, key);
+        // We are declaring this outside the object literal so we can use `|undefined`.
+        key.detachFromParent();
+
+        // Use /** @type {typeof MixinInterface.prototype.optionalAbstract} */
+        JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
+        Node type = IR.typeof(IR.string(
+          mixinNameNode.getQualifiedName() + "Interface.prototype." + key.getString()));
+        builder.recordType(new JSTypeExpression(type, key.getSourceFileName()));
+        jsdocInfo = builder.build();
       }
       insertionPoint.getParent().addChildAfter(
         NodeUtil.newQNameDeclaration(
@@ -2130,10 +2135,26 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
   }
 
-  private void moveAbstractMixinMethodsToClassBody(
+  private void declareAbstractMixinMethodsAsOptionalPrototypeProps(
       ClassOutOfBoundsData outOfBoundsData, CompilerInput input) {
+    // Due to legacy reasons abstract methods on the mixin are defined as:
+    //
+    //   class Mixin { ... }
+    //   /** @return {T} */
+    //   Mixin.foo;
+    //
+    // We change that to:
+    //
+    //   class Mixin { ... }
+    //   /** @return {T} */
+    //   Mixin$$foo;
+    //   /** @type {typeof Mixin$$foo|undefined} */
+    //   Mixin.prototype.foo;
+    //   /** @type {typeof Mixin$$foo|undefined} */
+    //   MixinInterface.prototype.foo;
     Node nameNode = outOfBoundsData.nameNode;
     Scope scope = outOfBoundsData.scope;
+    Node insertNode = outOfBoundsData.insertionPoint;
 
     Map<String, JSDocInfo> jsDocsByName =
         mixinAbstractMethodJsDocsByName.get(scope, nameNode);
@@ -2141,36 +2162,34 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       return;
     }
 
-    boolean classIsAbstract = false;
     Node classNode = outOfBoundsData.classNode;
 
-    // We may need to add @abstract to the class node too.
-    Node jsdocOwnerNode = NodeUtil.getBestJSDocInfoNode(classNode);
-    JSDocInfo classNodeJSDocInfo = jsdocOwnerNode.getJSDocInfo();
-    if (classNodeJSDocInfo != null && classNodeJSDocInfo.isAbstract()) {
-      classIsAbstract = true;
-    }
-    Node classBody = classNode.getLastChild();
     for (Map.Entry<String, JSDocInfo> entry : jsDocsByName.entrySet()) {
       JSDocInfo info = entry.getValue();
       JSDocInfoBuilder builder = JSDocInfoBuilder.copyFrom(info);
-      builder.recordAbstract();
-      Node paramList = IR.paramList();
-      for (String paramName : info.getParameterNames()) {
-        paramList.addChildToBack(IR.name(paramName));
-      }
-      Node method = IR.memberFunctionDef(
-          entry.getKey(),
-          IR.function(IR.name(""), paramList, IR.block()));
-      method.setJSDocInfo(builder.build());
-      classBody.addChildToBack(method);
-      if (!classIsAbstract) {
-        JSDocInfoBuilder classNodeJSDocInfoBuilder = JSDocInfoBuilder.maybeCopyFrom(classNodeJSDocInfo);
-        classNodeJSDocInfoBuilder.recordAbstract();
-        jsdocOwnerNode.setJSDocInfo(classNodeJSDocInfoBuilder.build());
-        classIsAbstract = true;
-      }
+      String baseName = nameNode.getQualifiedName() + "$$" + entry.getKey();
+      Node decl = NodeUtil.newQNameDeclaration(compiler, baseName, null, builder.build());
+      insertNode.getParent().addChildAfter(decl, insertNode);
+
+      // Mixin.prototype.foo
+      addPrototypeDeclForType(nameNode, insertNode, classNode, entry, baseName, decl, "");
+
+      // MixinInterface.prototype.foo
+      addPrototypeDeclForType(nameNode, insertNode, classNode, entry, baseName, decl, "Interface");
     }
+  }
+
+  private void addPrototypeDeclForType(Node nameNode, Node insertNode, Node classNode, Map.Entry<String, JSDocInfo> entry,
+      String baseName, Node decl, String interfaceString) {
+    JSDocInfoBuilder builder;
+    builder = new JSDocInfoBuilder(true);
+    Node root = IR.typeof(IR.string(baseName));
+    root = new Node(Token.PIPE, root, IR.string("undefined"));
+    JSTypeExpression type = new JSTypeExpression(root, classNode.getSourceFileName());
+    builder.recordType(type);
+    Node prototypeMethodDecl = NodeUtil.newQNameDeclaration(compiler,
+      nameNode.getQualifiedName() + interfaceString + ".prototype." + entry.getKey(), null, builder.build());
+    insertNode.getParent().addChildAfter(prototypeMethodDecl, decl);
   }
 
   /**
