@@ -52,6 +52,7 @@ public class ReactCompilerPassTest {
   "};";
 
   private static String ASSERT_NULL_JS = "/** @param {null} n */function assertNull(n) {}";
+  private static String ASSERT_NUMBER_JS = "/** @param {number} n */function assertNumber(n) {}";
 
   @Test public void testMinimalComponent() {
     test(
@@ -2180,8 +2181,7 @@ public class ReactCompilerPassTest {
   @Test public void testFields() {
     // Fields defined in getInitialState are checked
     testError(
-      "/** @param {number} param */" +
-      "function numberFunc(param) {return param * 2};\n" +
+      ASSERT_NUMBER_JS +
       "var Comp = React.createClass({" +
         "getInitialState() {" +
           "/** @private {boolean} */" +
@@ -2189,15 +2189,14 @@ public class ReactCompilerPassTest {
           "return null;" +
         "},\n" +
         "render() {" +
-          "numberFunc(this.field_);" +
+          "assertNumber(this.field_);" +
           "return null" +
         "}" +
       "});",
       "JSC_TYPE_MISMATCH");
-      // Even if they don't have a value assigned.
+    // Even if they don't have a value assigned.
     testError(
-      "/** @param {number} param */" +
-      "function numberFunc(param) {return param * 2};\n" +
+      ASSERT_NUMBER_JS +
       "var Comp = React.createClass({" +
         "getInitialState() {" +
           "/** @private {boolean|undefined} */" +
@@ -2205,15 +2204,14 @@ public class ReactCompilerPassTest {
           "return null;" +
         "},\n" +
         "render() {" +
-          "numberFunc(this.field_);" +
+          "assertNumber(this.field_);" +
           "return null" +
         "}" +
       "});",
       "JSC_TYPE_MISMATCH");
     // Mixins can also define fields
     testError(
-      "/** @param {number} param */" +
-      "function numberFunc(param) {return param * 2};\n" +
+      ASSERT_NUMBER_JS +
       "var Mixin = React.createMixin({" +
         "getInitialState() {" +
           "/** @private {boolean} */" +
@@ -2221,9 +2219,32 @@ public class ReactCompilerPassTest {
           "return null;" +
         "},\n" +
         "mixinMethod() {" +
-          "numberFunc(this.field_);" +
+          "assertNumber(this.field_);" +
         "}" +
       "});",
+      "JSC_TYPE_MISMATCH");
+    // Mixins with ES6 classes can also define fields
+    testError(
+      REACT_SUPPORT_CODE +
+      ASSERT_NUMBER_JS +
+      "class Mixin extends React.Component {" +
+        "initialState() {" +
+          "/** @private {boolean} */" +
+          "this.field_ = true;\n" +
+          "return null;" +
+        "}\n" +
+        "mixinMethod() {" +
+          "assertNumber(this.field_);" +
+        "}" +
+      "}\n" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}\n" +
+      "ReactSupport.mixin(Comp, Mixin);",
       "JSC_TYPE_MISMATCH");
   }
 
