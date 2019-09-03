@@ -733,7 +733,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         addNoCollapse(defaultPropsNode);
       }
 
-      if (!mixedInPropTypes.isEmpty() && propTypesNode == null) {
+      if (propTypesNode == null) {
         propTypesNode = IR.objectlit();
       }
 
@@ -1145,7 +1145,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     // Ensure that we trigger propTypes checking even if we don't have our
     // propTypes (if they're provided by mixins).
     if (options.propTypesTypeChecking &&
-        !mixedInPropTypes.isEmpty() &&
         propTypesNode == null) {
       propTypesNode = IR.objectlit();
     }
