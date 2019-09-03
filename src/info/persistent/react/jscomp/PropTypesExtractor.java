@@ -149,12 +149,9 @@ class PropTypesExtractor {
     this.compiler = compiler;
     this.forContext = forContext;
     if (!forContext) {
-      // Generate a unique global function name (so that the compiler can more
-      // easily see that it's a passthrough and inline and remove it).
-      String sanitizedTypeName = typeName.replaceAll("\\.", "\\$\\$");
-      this.validatorFuncName = sanitizedTypeName + PROPS_VALIDATOR_SUFFIX;
+      this.validatorFuncName = typeName + PROPS_VALIDATOR_SUFFIX;
       this.childrenValidatorFuncName =
-          sanitizedTypeName + CHILDREN_VALIDATOR_SUFFIX;
+      typeName + CHILDREN_VALIDATOR_SUFFIX;
     } else {
       // We don't do validation for context (by definition we can't statically
       // tell when it's provided).
@@ -627,31 +624,33 @@ class PropTypesExtractor {
           validatorPropsRecordTypeNode, insertionPoint);
       insertionPoint = validatorPropsRecordTypeNode;
     }
-    validatorFuncNode = IR.function(
-        IR.name(""),
-        IR.paramList(IR.name("props")),
-        IR.block(IR.returnNode(IR.name("props"))));
-    Node validatorAssignmentNode = IR.exprResult(
-      IR.assign(
-        NodeUtil.newQName(compiler, validatorFuncName),
-        validatorFuncNode));
-    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
-    Node propsTypeNode = IR.string(validatorPropsTypeName);
-    if (canBeCreatedWithNoProps) {
-      propsTypeNode = qmark(propsTypeNode);
-    } else {
-      propsTypeNode = bang(propsTypeNode);
+    if (!props.isEmpty() || !mixedInPropTypes.isEmpty()) {
+      validatorFuncNode = IR.function(
+          IR.name(""),
+          IR.paramList(IR.name("props")),
+          IR.block(IR.returnNode(IR.name("props"))));
+      Node validatorAssignmentNode = IR.exprResult(
+        IR.assign(
+          NodeUtil.newQName(compiler, validatorFuncName),
+          validatorFuncNode));
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
+      Node propsTypeNode = IR.string(validatorPropsTypeName);
+      if (canBeCreatedWithNoProps) {
+        propsTypeNode = qmark(propsTypeNode);
+      } else {
+        propsTypeNode = bang(propsTypeNode);
+      }
+      jsDocBuilder.recordParameter(
+          "props",
+          new JSTypeExpression(propsTypeNode, sourceFileName));
+      jsDocBuilder.recordReturnType(
+          new JSTypeExpression(propsTypeNode, sourceFileName));
+      validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
+      validatorAssignmentNode.useSourceInfoIfMissingFromForTree(insertionPoint);
+      insertionPoint.getParent().addChildAfter(
+        validatorAssignmentNode, insertionPoint);
+      insertionPoint = validatorAssignmentNode;
     }
-    jsDocBuilder.recordParameter(
-        "props",
-        new JSTypeExpression(propsTypeNode, sourceFileName));
-    jsDocBuilder.recordReturnType(
-        new JSTypeExpression(propsTypeNode, sourceFileName));
-    validatorFuncNode.setJSDocInfo(jsDocBuilder.build());
-    validatorAssignmentNode.useSourceInfoIfMissingFromForTree(insertionPoint);
-    insertionPoint.getParent().addChildAfter(
-      validatorAssignmentNode, insertionPoint);
-    insertionPoint = validatorAssignmentNode;
 
     // A similar validator function is also necessary to validate the children
     // parameter of React.createElement.
@@ -664,7 +663,7 @@ class PropTypesExtractor {
         IR.assign(
           NodeUtil.newQName(compiler, childrenValidatorFuncName),
           childrenValidatorFuncNode));
-      jsDocBuilder = new JSDocInfoBuilder(true);
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
       jsDocBuilder.recordParameter(
           "children",
           new JSTypeExpression(childrenPropTypeNode, sourceFileName));
@@ -698,7 +697,7 @@ class PropTypesExtractor {
           IR.paramList(IR.name("props")),
           IR.block(IR.returnNode(IR.name("props"))));
       Node spreadValidatorAssignmentNode = IR.exprResult(IR.assign(NodeUtil.newQName(compiler, spreadValidatorFuncName), spreadValidatorFuncNode));
-      jsDocBuilder = new JSDocInfoBuilder(true);
+      JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
       Node spreadPropsTypeNode = bang(IR.string(spreadValidatorPropsTypeName));
       jsDocBuilder.recordParameter(
           "props",
@@ -714,7 +713,7 @@ class PropTypesExtractor {
 
     // /** @type {!Comp.Props} */
     // CompInterface.prototype.props;
-    jsDocBuilder = new JSDocInfoBuilder(true);
+    JSDocInfoBuilder jsDocBuilder = new JSDocInfoBuilder(true);
     jsDocBuilder.recordType(
         new JSTypeExpression(bang(IR.string(propsTypeName)), sourceFileName));
     Node propsNode = NodeUtil.newQName(
@@ -736,7 +735,7 @@ class PropTypesExtractor {
     // Define the type in a separate variable, instead of directly assigning
     // it to the .Props property of the parent. That has issues with mixins,
     // because they're just object literals, and it makes the compiler think
-    // that they are namespaces (and then it complains abut incomplete aliases
+    // that they are namespaces (and then it complains about incomplete aliases
     // when the mixins are reference).
     String typeName = name.replaceAll("\\.", "\\$");
     // /** @record */
@@ -807,15 +806,16 @@ class PropTypesExtractor {
     }
     Node propsPrototypeRecordTypeNode = new Node(Token.LC, lb);
     jsDocBuilder = new JSDocInfoBuilder(true);
-    // We may not have our own props, and instead are just @extend-ing mixins.
-    if (!props.isEmpty()) {
+    // We may not have our own props. We might just be @extend-ing mixins or the
+    // component has no props.
+    if (props.isEmpty()) {
+      propsPrototypeRecordTypeNode = IR.empty();
+    } else {
       jsDocBuilder.recordType(new JSTypeExpression(
           propsPrototypeRecordTypeNode, sourceFileName));
     }
-    Node propsRecordTypePrototypeNode = NodeUtil.newQName(
-        compiler, typeName + ".prototype");
-    propsRecordTypePrototypeNode.setJSDocInfo(jsDocBuilder.build(true));
-    propsRecordTypePrototypeNode = IR.exprResult(propsRecordTypePrototypeNode);
+    Node propsRecordTypePrototypeNode = NodeUtil.newQNameDeclaration(
+        compiler, typeName + ".prototype", null, jsDocBuilder.build(true));
 
     // /** @typedef {!Comp$Props} */
     // Comp.Props;

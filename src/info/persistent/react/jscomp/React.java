@@ -89,6 +89,9 @@ public class React {
     for (Node key : componentMethodKeys) {
       boolean changedParameterType = false;
       JSDocInfo existing = key.getJSDocInfo();
+      if (existing == null) {
+        continue;
+      }
       // Unfortunately we can't override the type of already-declared
       // parameters, so we need to recreate the entire JSDocInfo with the new
       // type.

@@ -701,19 +701,22 @@ public class ReactCompilerPassTest {
       "inst.chainedMixinMethod();",
       // Mixin method invocations should not result in warnings if they're
       // known, either directly or via chained mixins.
-      "var $inst$$=ReactDOM.render(React.createElement(React.createClass({" +
+      "var $Comp$$=React.createClass({" +
         "mixins:[{" +
           "mixins:[{" +
             "$chainedMixinMethod$:function(){window.$foo$=456}" +
           "}]," +
-          "$mixinMethod$:function(){window.$foo$=123}" +
+          "$mixinMethod$:function(){window.$foo$=123}," +
+          "$PropsValidator$:function($props$jscomp$5$$){return $props$jscomp$5$$}" +
         "}]," +
         "render:function(){" +
           "this.$mixinMethod$();" +
           "this.$chainedMixinMethod$();" +
           "return React.createElement(\"div\")" +
         "}" +
-      "})),document.body);" +
+      "});" +
+      "$Comp$$.$PropsValidator$=function($props$jscomp$6$$){return $props$jscomp$6$$};" +
+      "var $inst$$=ReactDOM.render(React.createElement($Comp$$),document.body);" +
       "$inst$$.$mixinMethod$();" +
       "$inst$$.$chainedMixinMethod$();");
     test(
@@ -732,7 +735,7 @@ public class ReactCompilerPassTest {
       "});" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       // Mixins can support abstract methods via additional properties.
-      "ReactDOM.render(React.createElement(React.createClass({" +
+      "var $Comp$$=React.createClass({" +
         "mixins:[{" +
           "$mixinMethod$:function(){window.$foo$=123}" +
         "}]," +
@@ -741,7 +744,9 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\")" +
         "}," +
         "$mixinAbstractMethod$:function(){return 123}" +
-      "})),document.body);");
+      "});" +
+      "$Comp$$.$PropsValidator$=function($props$jscomp$5$$){return $props$jscomp$5$$};" +
+      "ReactDOM.render(React.createElement($Comp$$),document.body);");
     testError(
       "var Mixin = React.createMixin({" +
         "/** @param {number} a */" +
@@ -808,7 +813,8 @@ public class ReactCompilerPassTest {
       "});",
       // ...and the component side
       "JSC_TYPE_MISMATCH");
-    test(
+    // But implementations should be OK if they omit parameters...
+    testNoError(
       "var Mixin = React.createMixin({});" +
       "/** @param {number} param1 */" +
       "Mixin.mixinAbstractMethod;" +
@@ -818,10 +824,9 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}," +
         "mixinAbstractMethod: function() {}" +
-      "});",
-      // But implementations should be OK if they omit parameters...
-      "");
-    test(
+      "});");
+    //  ...or rename them.
+    testNoError(
       "var Mixin = React.createMixin({});" +
       "/** @param {number} param1 */" +
       "Mixin.mixinAbstractMethod;" +
@@ -831,10 +836,9 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}," +
         "mixinAbstractMethod: function(renamedParam1) {}" +
-      "});",
-      //  ...or rename them.
-      "");
-    test(
+      "});");
+    // Template types are copied over.
+    testNoError(
       "var Mixin = React.createMixin({});" +
       "/**\n" +
       " * @param {T} param1\n" +
@@ -848,9 +852,7 @@ public class ReactCompilerPassTest {
           "return React.createElement(\"div\");" +
         "}," +
         "mixinAbstractMethod: function(param1) {return param1}" +
-      "});",
-      // Template types are copied over.
-      "");
+      "});");
   }
 
   @Test public void testMixinsClass() {
@@ -1263,7 +1265,9 @@ public class ReactCompilerPassTest {
   }
 
   @Test public void testMixinsRepeatedMethods() {
-    test(
+    // It's OK for a base class to redefine a mixin's method component
+    // lifecycle method.
+    testNoError(
       "var Mixin = React.createMixin({" +
         "componentDidMount: function() {}" +
       "});\n" +
@@ -1273,10 +1277,7 @@ public class ReactCompilerPassTest {
         "render: function() {" +
           "return React.createElement(\"div\");" +
         "}" +
-      "});",
-      // It's OK for a base class to redefine a mixin's method component
-      // lifecycle method.
-      "");
+      "});");
   }
 
   @Test public void testMixinsParameters() {
@@ -3883,6 +3884,47 @@ public class ReactCompilerPassTest {
       "/** @param {string} s */" +
       "function f(s) {}" +
       "f(Comp.method([\"a\", \"b\"]));");
+  }
+
+  @Test public void testPropsTypeEvenWithoutPropTypes() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const Comp = React.createClass({" +
+      "propTypes: {}," +
+      "});" +
+      "/** @type {Comp.Props} */" +
+      "let x;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const Comp = React.createClass({});" +
+      "/** @type {Comp.Props} */" +
+      "let x;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const ns = {};" +
+      "ns.Comp = React.createClass({});" +
+      "/** @type {ns.Comp.Props} */" +
+      "let x;");
+  }
+
+  @Test public void testPropsTypeEvenWithoutPropTypesClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Comp extends React.Component {}" +
+      "Comp.propTypes = {};" +
+      "/** @type {Comp.Props} */" +
+      "let x;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class Comp extends React.Component {}" +
+      "/** @type {Comp.Props} */" +
+      "let x;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const ns = {};" +
+      "ns.Comp = class extends React.Component {};" +
+      "/** @type {ns.Comp.Props} */" +
+      "let x;");
   }
 
   private static void test(String inputJs, String expectedJs) {
