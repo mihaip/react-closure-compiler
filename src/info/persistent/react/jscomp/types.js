@@ -88,7 +88,7 @@ function ReactRefs() {}
 function ReactElement() {}
 
 /**
- * @type {ReactClass.<T>}
+ * @type {!ReactClass<T>|typeof React.Component|string}
  */
 ReactElement.prototype.type;
 
