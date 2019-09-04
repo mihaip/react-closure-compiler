@@ -762,6 +762,6 @@ ReactSyntheticEvent.prototype.persist = function() {};
 /**
  * Needs to go here to make use of the React global.
  *
- * @type {!ReactClass<T>|typeof React.Component|string}
+ * @type {!ReactClass<T>|typeof React.Component}
  */
 ReactElement.prototype.type;
