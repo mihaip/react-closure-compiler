@@ -119,10 +119,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private final Options options;
   private Node externsRoot;
   private final SymbolTable<Node> reactClassesByName = new SymbolTable<>();
-  private final SymbolTable<Node> reactClassInterfacePrototypePropsByName =
+  private final SymbolTable<List<Node>> reactClassMethodsByName =
+      new SymbolTable<>();
+  private final SymbolTable<Node> reactClassInterfacePrototypeObjectLiteralByName =
       new SymbolTable<>();
   private final SymbolTable<MixinRef> reactMixinsByName = new SymbolTable<>();
-  private final SymbolTable<Node> reactMixinInterfacePrototypePropsByName =
+  private final SymbolTable<List<Node>> reactMixinMethodsByName =
+      new SymbolTable<>();
+  private final SymbolTable<Node> reactMixinInterfacePrototypeObjectLiteralByName =
       new SymbolTable<>();
   // Mixin name -> method name -> JSDoc
   private final SymbolTable<Map<String, JSDocInfo>>
@@ -171,6 +175,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node mixinInterfaceNode;
     boolean done = false;
     public List<Node> staticMethods = Lists.newArrayList();
+    public Set<String> optionalAbstractMethodNames = Sets.newHashSet();
 
     ClassOutOfBoundsData(
         Node classNode,
@@ -224,9 +229,11 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   @Override
   public void process(Node externs, Node root) {
     reactClassesByName.clear();
-    reactClassInterfacePrototypePropsByName.clear();
+    reactClassMethodsByName.clear();
+    reactClassInterfacePrototypeObjectLiteralByName.clear();
     reactMixinsByName.clear();
-    reactMixinInterfacePrototypePropsByName.clear();
+    reactMixinMethodsByName.clear();
+    reactMixinInterfacePrototypeObjectLiteralByName.clear();
     mixinAbstractMethodJsDocsByName.clear();
     propTypesExtractorsByName.clear();
     classOutOfBoundsMap.clear();
@@ -594,7 +601,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     data.isMixin = true;
     CompilerInput moduleExportInput = scope.isModuleScope() ? t.getInput() : null;
     reactMixinsByName.put(nameNode, new MixinRef(data.classNode, data.scope), moduleExportInput);
-    reactMixinInterfacePrototypePropsByName.put(nameNode, IR.objectlit(), moduleExportInput);
+    reactMixinMethodsByName.put(nameNode, Lists.newArrayList(), moduleExportInput);
+    reactMixinInterfacePrototypeObjectLiteralByName.put(nameNode, IR.objectlit(), moduleExportInput);
   }
 
   private boolean isReactSupportMixin(Node n) {
@@ -790,7 +798,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         callNode,
         "React.createClass",
         reactClassesByName,
-        reactClassInterfacePrototypePropsByName);
+        reactClassMethodsByName,
+        reactClassInterfacePrototypeObjectLiteralByName);
   }
 
   private static boolean isReactCreateMixin(Node value) {
@@ -807,7 +816,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         callNode,
         "React.createMixin",
         tempTable,
-        reactMixinInterfacePrototypePropsByName);
+        reactMixinMethodsByName,
+        reactMixinInterfacePrototypeObjectLiteralByName);
     tempTable.mapValuesInto(
         mixinNode -> new MixinRef(mixinNode, t.getScope()),
         reactMixinsByName);
@@ -818,7 +828,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         Node callNode,
         String createFuncName,
         SymbolTable<Node> typeSpecNodesByName,
-        SymbolTable<Node> interfacePrototypePropsByName) {
+        SymbolTable<List<Node>> interfacePrototypePropsByName,
+        SymbolTable<Node> interfacePrototypeObjectLiteralByName) {
     if (!validateCreateTypeUsage(callNode)) {
       compiler.report(JSError.make(
           callNode, CREATE_TYPE_TARGET_INVALID, createFuncName));
@@ -970,9 +981,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     typeSpecNodesByName.put(typeNameNode, specNode, moduleExportInput);
 
     // Gather methods for the interface definition.
-    Node interfacePrototypeProps = IR.objectlit();
+    List<Node> interfacePrototypeProps = Lists.newArrayList();
+    Node interfacePrototypeObjectLiteral = IR.objectlit();
     interfacePrototypePropsByName.put(
       typeNameNode, interfacePrototypeProps, moduleExportInput);
+    interfacePrototypeObjectLiteralByName.put(
+        typeNameNode, interfacePrototypeObjectLiteral, moduleExportInput);
     Map<String, JSDocInfo> abstractMethodJsDocsByName = Maps.newHashMap();
     Node propTypesNode = null;
     Node defaultPropsNode = null;
@@ -992,6 +1006,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
             typeName,
             key,
             interfacePrototypeProps,
+            interfacePrototypeObjectLiteral,
             staticsJsDocs);
         usesPureRenderMixin = mixinNameNodes.stream().anyMatch(
               node -> node.getQualifiedName().equals(REACT_PURE_RENDER_MIXIN_NAME));
@@ -1053,7 +1068,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       // Gather method signatures so that we can declare them where the compiler
       // can see them.
       addFuncToInterface(
-            keyName, func, interfacePrototypeProps, key.getJSDocInfo());
+            keyName, func, interfacePrototypeProps, interfacePrototypeObjectLiteral, key.getJSDocInfo());
 
       // Add a @this {<type name>} annotation to all methods in the spec, to
       // avoid the compiler complaining dangerous use of "this" in a global
@@ -1106,7 +1121,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       }
     }
 
-    trimDuplicateProperties(interfacePrototypeProps);
+    trimDuplicateProperties(interfacePrototypeObjectLiteral);
 
     // Generate the interface definition.
     Node interfaceTypeFunctionNode =
@@ -1138,7 +1153,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         NodeUtil.newQNameDeclaration(
             compiler,
             interfaceTypeName + ".prototype",
-            interfacePrototypeProps,
+            interfacePrototypeObjectLiteral,
             null),
         interfaceTypeNode);
 
@@ -1325,14 +1340,23 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       abstractFuncNode.setJSDocInfo(abstractFuncJsDoc.clone());
     }
     abstractFuncNode.setStaticSourceFile(value.getStaticSourceFile());
-    Node interfacePrototypeProps =
-        reactMixinInterfacePrototypePropsByName.get(
-          t.getScope(), mixinNameNode);
+    List<Node> interfacePrototypeProps =
+        reactMixinMethodsByName.get(
+            t.getScope(), mixinNameNode);
+    Node prototypeObjectLiteral =
+        reactMixinInterfacePrototypeObjectLiteralByName.get(
+            t.getScope(), mixinNameNode);
     addFuncToInterface(
         methodName,
         abstractFuncNode,
         interfacePrototypeProps,
+        prototypeObjectLiteral,        
         getPropNode.getJSDocInfo());
+
+    ClassOutOfBoundsData data = classOutOfBoundsMap.get(t.getScope(), mixinNameNode);
+    if (data != null) {
+      data.optionalAbstractMethodNames.add(methodName);
+    }
 
     value.detachFromParent();
 
@@ -1343,7 +1367,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       Scope scope,
       String typeName,
       Node mixinsNode,
-      Node interfacePrototypeProps,
+      List<Node> interfacePrototypeProps,
+      Node prototypeObjectLiteralNode,
       Map<String, JSDocInfo> staticsJsDocs) {
     Set<String> mixinNames = Sets.newHashSet();
     List<Node> mixinNameNodes = Lists.newArrayList();
@@ -1382,6 +1407,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
               typeName,
               mixinSpecKey,
               interfacePrototypeProps,
+              prototypeObjectLiteralNode,
               staticsJsDocs));
           continue;
         }
@@ -1412,6 +1438,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
               keyName,
               mixinSpecKey.getFirstChild(),
               interfacePrototypeProps,
+              prototypeObjectLiteralNode,
               mixinSpecKeyJsDoc);
           // Since mixins are effectively copied into the type, their source
           // file is the type's (allow private methods from mixins to be
@@ -1424,7 +1451,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   }
 
   private static Node addFuncToInterface(
-      String name, Node funcNode, Node interfacePrototypeProps,
+      String name, Node funcNode,
+      List<Node> interfacePrototypeProps,
+      Node prototypeObjectLiteralNode,
       JSDocInfo jsDocInfo) {
     // Semi-shallow copy (just parameters) so that we don't copy the function
     // implementation.
@@ -1454,7 +1483,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     if (jsDocInfo != null) {
       keyNode.setJSDocInfo(jsDocInfo.clone());
     }
-    interfacePrototypeProps.addChildToBack(keyNode);
+    interfacePrototypeProps.add(keyNode);
+    prototypeObjectLiteralNode.addChildToBack(keyNode);
     return keyNode;
   }
 
@@ -1928,14 +1958,14 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           // that the mixin uses state (and/or uses initialState for fields)
           // is an implementation detail -- they should not need an @override
           // for it.
-          Node prototypeNode = reactMixinInterfacePrototypePropsByName.get(scope, nameNode);
+          List<Node> prototypeProps = reactMixinMethodsByName.get(scope, nameNode);
           Node paramListNode = key.getFirstChild().getSecondChild().cloneTree();
           Node methodNode = IR.memberFunctionDef(
               keyName,
               IR.function(IR.name(""), paramListNode, IR.block()));
           JSDocInfoBuilder methodJSDocInfoBuilder = newJsDocInfoBuilderForNode(key);
           methodNode.setJSDocInfo(methodJSDocInfoBuilder.build());
-          prototypeNode.addChildToBack(methodNode);
+          prototypeProps.add(methodNode);
         }
       }
     }
@@ -2004,14 +2034,20 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         Ast.addModuleExport(interfaceTypeName, interfaceTypeNode);
       }
 
-      Node interfacePrototypeProps =
-          reactMixinInterfacePrototypePropsByName.get(scope, nameNode);
+      Node interfacePrototypeObjectLiteral =
+          reactMixinInterfacePrototypeObjectLiteralByName.get(scope, nameNode);
+      for (Node prop : interfacePrototypeObjectLiteral.children()) {
+        if (outOfBoundsData.optionalAbstractMethodNames.contains(prop.getString())) {
+          prop.detachFromParent();
+        }
+      }
+      trimDuplicateProperties(interfacePrototypeObjectLiteral);
 
       insertionPoint.getParent().addChildAfter(
           NodeUtil.newQNameDeclaration(
               compiler,
               interfaceTypeName + ".prototype",
-              interfacePrototypeProps,
+              interfacePrototypeObjectLiteral,
               null),
           interfaceTypeNode);
     }
@@ -2020,7 +2056,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfoBuilder typeJSDocInfoBuilder = outOfBoundsData.getJsDocInfoBuilder();
 
       for (Node mixinNameNode : outOfBoundsData.mixins) {
-        Node mixinInterfacePrototypeNode = reactMixinInterfacePrototypePropsByName.get(scope, mixinNameNode);
+        List<Node> mixinInterfacePrototypeNode = reactMixinMethodsByName.get(scope, mixinNameNode);
         if (mixinInterfacePrototypeNode == null) {
           compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN,
               mixinNameNode.getQualifiedName()));
@@ -2068,15 +2104,15 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
     Node insertionPoint = dst.insertionPoint;
     String typeName = dst.typeName;
-    Node mixinInterfacePrototypeNode = reactMixinInterfacePrototypePropsByName.get(scope, mixinNameNode);
-    if (mixinInterfacePrototypeNode == null) {
+    List<Node> mixinInterfacePrototypeProps = reactMixinMethodsByName.get(scope, mixinNameNode);
+    if (mixinInterfacePrototypeProps == null) {
       compiler.report(JSError.make(mixinNameNode, MIXIN_UNKNOWN, mixinNameNode.getQualifiedName()));
       return;
     }
 
-    for (Node key : mixinInterfacePrototypeNode.children()) {
-      String keyName = key.getString();
-      JSDocInfo jsdocInfo = key.getJSDocInfo();
+    for (Node prop : mixinInterfacePrototypeProps) {
+      String keyName = prop.getString();
+      JSDocInfo jsdocInfo = prop.getJSDocInfo();
       if (jsdocInfo == null) {
         // We need a JSDocInfo to get Closure Compiler to treat this as a
         // method.
@@ -2086,17 +2122,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       } else {
         jsdocInfo = jsdocInfo.clone();
       }
-
       boolean isAbstract = abstractMethodJsDocsByName.containsKey(keyName);
       if (isAbstract) {
-        // We are declaring this outside the object literal so we can use `|undefined`.
-        key.detachFromParent();
-
         // Use /** @type {typeof MixinInterface.prototype.optionalAbstract} */
         JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
         Node type = IR.typeof(IR.string(
-          mixinNameNode.getQualifiedName() + "Interface.prototype." + key.getString()));
-        builder.recordType(new JSTypeExpression(type, key.getSourceFileName()));
+          mixinNameNode.getQualifiedName() + "Interface.prototype." + prop.getString()));
+        builder.recordType(new JSTypeExpression(type, prop.getSourceFileName()));
         jsdocInfo = builder.build();
       }
       insertionPoint.getParent().addChildAfter(
@@ -2319,32 +2351,5 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       this.node = node;
       this.scope = scope;
     }
-  }
-
-  /**
-   * Converts a jsdoc with params and return to a jsdoc with type function|undefined.
-   */
-  private JSDocInfo convertJSDocInfoToFunctionTypeOrUndefined(JSDocInfo info, Node ownerNode) {
-    Node functionType = convertJSDocInfoToFunctionTypeNode(info, ownerNode);
-    Node unionType = new Node(Token.PIPE, functionType, IR.string("undefined"));
-    JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-    builder.recordType(new JSTypeExpression(unionType, ownerNode.getSourceFileName()));
-    return builder.build();
-  }
-
-  private Node convertJSDocInfoToFunctionTypeNode(JSDocInfo info, Node ownerNode) {
-    if (!info.getTemplateTypeNames().isEmpty()) {
-      compiler.report(JSError.make(
-          ownerNode, INVALID_TEMPLATE_PARAM_ON_OPTIONAL_ABSTRACT_METHOD));
-    }
-
-    Node paramList = IR.paramList();
-    for (int i = 0; i < info.getParameterCount(); i++) {
-      String name = info.getParameterNameAt(i);
-      JSTypeExpression type = info.getParameterType(name);
-      paramList.addChildToBack(type.getRoot().cloneTree());
-    }
-    Node returnType = info.hasReturnType() ? info.getReturnType().getRoot().cloneTree() : IR.empty();
-    return new Node(Token.FUNCTION, paramList, returnType);
   }
 }
