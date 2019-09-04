@@ -88,11 +88,6 @@ function ReactRefs() {}
 function ReactElement() {}
 
 /**
- * @type {!ReactClass<T>|typeof React.Component|string}
- */
-ReactElement.prototype.type;
-
-/**
  * @type {ReactProps}
  */
 ReactElement.prototype.props;
@@ -763,3 +758,10 @@ ReactSyntheticEvent.prototype.isPropagationStopped = function() {};
 
 /** @return {void} */
 ReactSyntheticEvent.prototype.persist = function() {};
+
+/**
+ * Needs to go here to make use of the React global.
+ *
+ * @type {!ReactClass<T>|typeof React.Component|string}
+ */
+ReactElement.prototype.type;

@@ -2120,6 +2120,26 @@ public class ReactCompilerPassTest {
       "}");
    }
 
+   @Test public void testReactElementType() {
+    testNoError(
+      "class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "}\n" +
+      "const elem = React.createElement(Comp);\n" +
+      "if (elem.type === Comp) {window.foo = 1}");
+    testNoError(
+      "const Comp = React.createClass({" +
+        "render() {" +
+          "return null;" +
+        "}" +
+      "});\n" +
+      "const elem = React.createElement(Comp);\n" +
+      "if (elem.type === Comp) {window.foo = 1}");
+   }
+
    @Test public void testMixinStateClass() {
     testNoError(
       REACT_SUPPORT_CODE +
