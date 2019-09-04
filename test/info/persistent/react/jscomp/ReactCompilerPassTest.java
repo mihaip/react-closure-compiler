@@ -1252,12 +1252,31 @@ public class ReactCompilerPassTest {
       " * @return {number}" +
       " */" +
       "Mixin.foo;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "export {};" +
+      "const Mixin = React.createMixin({});" +
+      "/**" +
+      " * @param {string} x" +
+      " * @return {number}" +
+      " */" +
+      "Mixin.foo;");
   }
 
   @Test public void testMixinOptionalAbstractMethodsNotUsedClass() {
     testNoError(
       REACT_SUPPORT_CODE +
       "export class Mixin extends React.Component {}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "/**" +
+      " * @param {string} x" +
+      " * @return {number}" +
+      " */" +
+      "Mixin.foo;");
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "export {};" +
+      "class Mixin extends React.Component {}" +
       "ReactSupport.declareMixin(Mixin);" +
       "/**" +
       " * @param {string} x" +

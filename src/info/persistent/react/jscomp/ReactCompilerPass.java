@@ -2201,7 +2201,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       JSDocInfoBuilder builder = JSDocInfoBuilder.copyFrom(info);
       String baseName = nameNode.getQualifiedName() + "$$" + entry.getKey();
       Node decl = NodeUtil.newQNameDeclaration(compiler, baseName, null, builder.build());
-      if (outOfBoundsData.addModuleExports) {
+      // Export dummy function to prevent JSC from complaining that the value is
+      // never read.
+      if (outOfBoundsData.scope.isModuleScope()) {
         decl = IR.export(decl);
       }
       insertNode.getParent().addChildAfter(decl, insertNode);
