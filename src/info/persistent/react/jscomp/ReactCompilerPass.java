@@ -986,6 +986,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     List<Node> componentMethodKeys = Lists.newArrayList();
     for (Node key : specNode.children()) {
       String keyName = key.getString();
+
+      // @override are not allowed on object literals
+      JSDocInfo info = NodeUtil.getBestJSDocInfo(key);
+      if (info != null) {
+        JSDocInfoAccessor.setJSDocOverride(info, false);
+      }
+
       if (keyName.equals("mixins")) {
         List<Node> mixinNameNodes = addMixinsToType(
             t.getScope(),
@@ -1235,7 +1242,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     synthesizeExterns(exportedNames, typeName);
   }
 
-  private void gatherAbstractMethodsAndPropsFromMixin(Scope scope, Map<String, JSDocInfo> abstractMethodJsDocsByName,
+  private void gatherAbstractMethodsAndPropsFromMixin(Scope scope,
+      Map<String, JSDocInfo> abstractMethodJsDocsByName,
       Map<Node, PropTypesExtractor> mixedInPropTypes, List<Node> mixinNameNodes) {
     for (Node mixinNameNode : mixinNameNodes) {
       if (mixinAbstractMethodJsDocsByName.containsName(scope, mixinNameNode)) {
@@ -1336,7 +1344,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         methodName,
         abstractFuncNode,
         interfacePrototypeProps,
-        prototypeObjectLiteral,        
+        prototypeObjectLiteral,
         getPropNode.getJSDocInfo());
 
     ClassOutOfBoundsData data = classOutOfBoundsMap.get(t.getScope(), mixinNameNode);
