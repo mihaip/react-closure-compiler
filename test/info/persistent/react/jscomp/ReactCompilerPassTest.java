@@ -4081,6 +4081,40 @@ public class ReactCompilerPassTest {
       "let x;");
   }
 
+  @Test public void testMixinOverrideMixin() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "const MixinA = React.createMixin({});" +
+      "/** @param {string} s */" +
+      "MixinA.method;" +
+      "const MixinB = React.createMixin({" +
+        "mixins: [MixinA]," +
+        "/**\n" +
+        " * @param {string} s\n" +
+        " * @override\n" +
+        " */" +
+        "method(s) {}," +
+      "});");
+  }
+
+  @Test public void testMixinOverrideMixinClass() {
+    testNoError(
+      REACT_SUPPORT_CODE +
+      "class MixinA extends React.Component {}" +
+      "ReactSupport.declareMixin(MixinA);" +
+      "/** @param {string} s */" +
+      "MixinA.method;" +
+      "class MixinB extends React.Component {" +
+        "/**\n" +
+        " * @param {string} s\n" +
+        " * @override\n" +
+        " */" +
+        "method(s) {}" +
+      "}" +
+      "ReactSupport.declareMixin(MixinB);" +
+      "ReactSupport.mixin(MixinB, MixinA);");
+}
+
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null, null);
   }

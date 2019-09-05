@@ -192,20 +192,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       this.scope = scope;
       typeName = nameNode.getQualifiedName();
     }
-
-    Node getBestJSDocInfoNode() {
-      return NodeUtil.getBestJSDocInfoNode(isMixin ? mixinInterfaceNode : classNode);
-    }
-
-    JSDocInfoBuilder getJsDocInfoBuilder() {
-      Node owner = getBestJSDocInfoNode();
-      return JSDocInfoBuilder.maybeCopyFrom(owner.getJSDocInfo());
-    }
-
-    void setJSDocInfo(JSDocInfo info) {
-      getBestJSDocInfoNode().setJSDocInfo(info);
-
-    }
   }
 
   private class NodeAndScope {
@@ -2053,8 +2039,6 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
 
     if (!outOfBoundsData.mixins.isEmpty()) {
-      JSDocInfoBuilder typeJSDocInfoBuilder = outOfBoundsData.getJsDocInfoBuilder();
-
       for (Node mixinNameNode : outOfBoundsData.mixins) {
         List<Node> mixinInterfacePrototypeNode = reactMixinMethodsByName.get(scope, mixinNameNode);
         if (mixinInterfacePrototypeNode == null) {
@@ -2064,22 +2048,25 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
         }
 
         // Add @implements or @extends to the type
-        // If this is a mixin itself then we need to add @extends, otherwise we
-        // need @implements.
+        // If this is a mixin itself then we need to add @extends to the
+        // generated interface.
         String mixinInterfaceTypeName = generateInterfaceTypeName(moduleExportInput, mixinNameNode);
         JSTypeExpression implementsType = new JSTypeExpression(
-            new Node(Token.BANG, IR.string(mixinInterfaceTypeName)),
-            classNode.getSourceFileName());
+            new Node(Token.BANG, IR.string(mixinInterfaceTypeName)), classNode.getSourceFileName());
         if (outOfBoundsData.isMixin) {
-          typeJSDocInfoBuilder.recordExtendedInterface(implementsType);
-        } else {
-          typeJSDocInfoBuilder.recordImplementedInterface(implementsType);
+          JSDocInfoBuilder builder = JSDocInfoBuilder
+              .maybeCopyFrom(NodeUtil.getBestJSDocInfo(outOfBoundsData.mixinInterfaceNode));
+          builder.recordExtendedInterface(implementsType);
+          outOfBoundsData.mixinInterfaceNode.setJSDocInfo(builder.build());
         }
+
+        JSDocInfoBuilder builder =
+            JSDocInfoBuilder.maybeCopyFrom(NodeUtil.getBestJSDocInfo(outOfBoundsData.classNode));
+        builder.recordImplementedInterface(implementsType);
+        outOfBoundsData.classNode.setJSDocInfo(builder.build());
 
         defineMethodsMixedInFromMixin(outOfBoundsData, mixinNameNode, scope, abstractMethodJsDocsByName);
       }
-
-      outOfBoundsData.setJSDocInfo(typeJSDocInfoBuilder.build());
     }
 
     // Replace React.Component with React$Component
