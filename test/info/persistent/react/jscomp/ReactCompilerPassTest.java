@@ -1304,7 +1304,7 @@ public class ReactCompilerPassTest {
       "let T;" +
       FILE_SEPARATOR +
       REACT_SUPPORT_CODE +
-      "import {Mixin} from \"./file1.js\";"+ 
+      "import {Mixin} from \"./file1.js\";"+
       "class Comp extends React.Component {" +
         "/** @override */" +
         "render() {" +
@@ -2567,6 +2567,25 @@ public class ReactCompilerPassTest {
       "}" +
       "$Comp$$module$src$file1$$.defaultProps={$aProp$:\"hi\"};" +
       "ReactDOM.render($React$createElement$$($Comp$$module$src$file1$$),document.body);",
+      passOptions,
+      null);
+
+    // Should remove propTypes even when there are side effects
+    test(
+      "class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {" +
+          "return React.createElement(\"div\");" +
+        "}" +
+      "}" +
+      "Comp.propTypes = {/** @type {string|undefined} */aProp: sideEffect()};" +
+      "ReactDOM.render(React.createElement(Comp), document.body);",
+      "class $Comp$$ extends $React$Component$${" +
+        "render(){" +
+          "return $React$createElement$$(\"div\")" +
+        "}" +
+      "}" +
+      "ReactDOM.render($React$createElement$$($Comp$$),document.body);",
       passOptions,
       null);
   }
@@ -4113,7 +4132,7 @@ public class ReactCompilerPassTest {
       "}" +
       "ReactSupport.declareMixin(MixinB);" +
       "ReactSupport.mixin(MixinB, MixinA);");
-}
+  }
 
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null, null);
@@ -4187,7 +4206,9 @@ public class ReactCompilerPassTest {
             "/** @constructor */ function Event() {};" +
             "var document;" +
             "document.body;" +
-            "var window;"))
+            "var window;" +
+            "/** @return {?} */" +
+            "function sideEffect() {}"))
         .build();
 
     if (passOptions.optimizeForSize) {

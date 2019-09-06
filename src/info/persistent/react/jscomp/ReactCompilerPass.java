@@ -541,6 +541,9 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private void visitStaticPropTypes(Scope scope, Node exprResult) {
     visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
       data.propTypesNode = rhs;
+      if (options.optimizeForSize) {
+        exprResult.detachFromParent();
+      }
     });
   }
 
