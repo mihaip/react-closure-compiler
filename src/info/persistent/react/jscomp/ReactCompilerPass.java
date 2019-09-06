@@ -169,6 +169,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node propTypesNode;
     Node contextTypesNode;
     Node defaultPropsNode;
+    Node childContextTypesNode;
     boolean isMixin = false;
     List<Node> mixins = Lists.newArrayList();
     Map<Node, PropTypesExtractor> mixedInPropTypes = Maps.newHashMap();
@@ -455,6 +456,8 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
       visitStaticDefaultProps(scope, n);
     } else if (isStaticContextTypes(scope, n)) {
       visitStaticContextTypes(scope, n);
+    } else if (isStaticChildContextTypes(scope, n)) {
+      visitStaticChildContextTypes(scope, n);
     } else if (isReactSupportDeclareMixin(n)) {
       visitReactSupportDeclareMixin(t, n);
     } else if (isReactSupportMixin(n)) {
@@ -509,6 +512,10 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     return isStaticProperty(scope, n, "contextTypes");
   }
 
+  private boolean isStaticChildContextTypes(Scope scope, Node n) {
+    return isStaticProperty(scope, n, "childContextTypes");
+  }  
+
   private boolean isStaticProperty(Scope scope, Node n, String propName) {
     if (!n.isExprResult()) {
       return false;
@@ -556,6 +563,12 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
   private void visitStaticContextTypes(Scope scope, Node exprResult) {
     visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
       data.contextTypesNode = rhs;
+    });
+  }
+
+  private void visitStaticChildContextTypes(Scope scope, Node exprResult) {
+    visitStaticProperty(scope, exprResult, (ClassOutOfBoundsData data, Node rhs) -> {
+      data.childContextTypesNode = rhs;
     });
   }
 
@@ -701,6 +714,7 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     Node propTypesNode = data.propTypesNode;
     Node defaultPropsNode = data.defaultPropsNode;
     Node contextTypesNode = data.contextTypesNode;
+    Node childContextTypesNode = data.childContextTypesNode;
     String typeName = data.typeName;
     Map<Node, PropTypesExtractor> mixedInPropTypes = data.mixedInPropTypes;
 
@@ -721,13 +735,16 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
           extractor.insert(insertionNode);
         }
 
-        maybeAddNoCollapse(contextTypesNode);
+        addNoCollapse(contextTypesNode);
       }
 
       // We need to add @nocollapse to the static properties that React API
       // depends on.
       if (defaultPropsNode != null) {
         addNoCollapse(defaultPropsNode);
+      }
+      if (childContextTypesNode != null) {
+        addNoCollapse(childContextTypesNode);
       }
 
       if (propTypesNode == null) {
