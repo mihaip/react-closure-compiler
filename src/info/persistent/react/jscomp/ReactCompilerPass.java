@@ -774,18 +774,17 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
     }
   }
 
-  private void maybeAddNoCollapse(Node objectLiteralNode) {
+  private void maybeAddNoCollapse(Node node) {
     if (!options.optimizeForSize) {
-      addNoCollapse(objectLiteralNode);
+      addNoCollapse(node);
     }
   }
 
-  private void addNoCollapse(Node objectLiteralNode) {
-    if (objectLiteralNode.getGrandparent() == null) {
-      // Might have been detached already.
+  private void addNoCollapse(Node node) {
+    Node jsdocOwnerNode = NodeUtil.getBestJSDocInfoNode(node);
+    if (jsdocOwnerNode == null) {
       return;
     }
-    Node jsdocOwnerNode = NodeUtil.getBestJSDocInfoNode(objectLiteralNode.getGrandparent());
     JSDocInfoBuilder builder = JSDocInfoBuilder.maybeCopyFrom(jsdocOwnerNode.getJSDocInfo());
     builder.recordNoCollapse();
     jsdocOwnerNode.setJSDocInfo(builder.build());
@@ -1921,6 +1920,13 @@ public class ReactCompilerPass implements NodeTraversal.Callback,
 
       if (key.isStaticMember()) {
         outOfBoundsData.staticMethods.add(key);
+
+        if (outOfBoundsData.isMixin) {
+          // Make sure we keep the static methods as properties on the class
+          // because the runtime library for mixins iterates over the properties.
+          addNoCollapse(key);
+        }
+
         // No need to do anything else for static members
         continue;
       }
