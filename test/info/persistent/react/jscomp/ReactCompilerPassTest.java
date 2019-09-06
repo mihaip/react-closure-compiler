@@ -4137,6 +4137,61 @@ public class ReactCompilerPassTest {
       "ReactSupport.mixin(MixinB, MixinA);");
   }
 
+  @Test public void testnoCollapseOfStaticMixinMethodsClass() {
+    // Even when optimizing for size there is no renaming.
+    ReactCompilerPass.Options passOptions = new ReactCompilerPass.Options();
+    passOptions.optimizeForSize = true;
+  
+    test(
+      REACT_SUPPORT_CODE +
+      "class Mixin extends React.Component {" +
+        "static m() {"+
+          "window.x = 42" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin);" +
+      "class Comp extends React.Component {}" +
+      "ReactSupport.mixin(Comp, Mixin);" +
+      "Comp.m()",
+      "window.$x$=42;",
+      passOptions,
+      null);
+
+    // One more were it isn't obvious what the implementation of the method is.
+    test(
+      REACT_SUPPORT_CODE +
+      "class Mixin1 extends React.Component {" +
+        "static m() {"+
+          "window.x = 1" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin1);" +
+      "class Mixin2 extends React.Component {" +
+        "static m() {"+
+          "window.x = 2" +
+        "}" +
+      "}" +
+      "ReactSupport.declareMixin(Mixin2);" +
+      "class Comp extends React.Component {}" +
+      "ReactSupport.mixin(Comp, Mixin1, Mixin2);" +
+      "Comp.m()",
+      "class $Mixin1$$ extends $React$Component$${" +
+        "static $m$(){" +
+          "window.$x$=1" +
+        "}" +
+      "}" +
+      "class $Mixin2$$ extends $React$Component$${" +
+        "static $m$(){" +
+          "window.$x$=2" +
+        "}" +
+      "}" +
+      "class $Comp$$ extends $React$Component$${}" +
+      "$Comp$$.mixins=[$Mixin1$$,$Mixin2$$];" +
+      "$Comp$$.$m$();",
+      passOptions,
+      null);
+  }
+
   private static void test(String inputJs, String expectedJs) {
     test(inputJs, expectedJs, null, null);
   }
