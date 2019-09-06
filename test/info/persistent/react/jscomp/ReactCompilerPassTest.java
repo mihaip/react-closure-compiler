@@ -2559,6 +2559,7 @@ public class ReactCompilerPassTest {
       "Comp.propTypes = {aProp: React.PropTypes.string};" +
       "Comp.defaultProps = {aProp: \"hi\"};" +
       "Comp.contextTypes = {aContext: React.PropTypes.number};" +
+      "Comp.childContextTypes = {aChildContext: React.PropTypes.number};" +
       "ReactDOM.render(React.createElement(Comp), document.body);",
       "class $Comp$$module$src$file1$$ extends $React$Component$${" +
         "render(){" +
@@ -2566,6 +2567,8 @@ public class ReactCompilerPassTest {
         "}" +
       "}" +
       "$Comp$$module$src$file1$$.defaultProps={$aProp$:\"hi\"};" +
+      "$Comp$$module$src$file1$$.contextTypes={$aContext$:$React$PropTypes$$.number};" +
+      "$Comp$$module$src$file1$$.childContextTypes={$aChildContext$:$React$PropTypes$$.number};" +
       "ReactDOM.render($React$createElement$$($Comp$$module$src$file1$$),document.body);",
       passOptions,
       null);
