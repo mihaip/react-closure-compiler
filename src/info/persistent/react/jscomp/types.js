@@ -644,7 +644,7 @@ ReactModule.prototype.Component.contextTypes;
 
 /**
  * @param {ReactProps=} props
- * @param {Object=} context
+ * @param {*=} context
  * @constructor
  * @extends {React.Component}
  */
