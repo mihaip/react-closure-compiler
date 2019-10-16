@@ -3482,6 +3482,17 @@ public class ReactCompilerPassTest {
       "Comp.propTypes = " + propTypes + ";\n" +
       "React.createElement(Comp, " + props + ");",
       error);
+    testError(
+      "export class Message {}\n" +
+      "export class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = " + propTypes + ";\n" +
+      FILE_SEPARATOR +
+      "import {Comp, Message} from './file1.js';" +
+      "React.createElement(Comp, " + props + ");",
+      error);
     }
 
   private void testPropTypesNoError(String propTypes, String props) {
@@ -3499,6 +3510,16 @@ public class ReactCompilerPassTest {
         "render() {return null;}" +
       "}\n" +
       "Comp.propTypes = " + propTypes + ";\n" +
+      "React.createElement(Comp, " + props + ");");
+    testNoError(
+      "export class Message {}\n" +
+      "export class Comp extends React.Component {" +
+        "/* @override */" +
+        "render() {return null;}" +
+      "}\n" +
+      "Comp.propTypes = " + propTypes + ";\n" +
+      FILE_SEPARATOR +
+      "import {Comp, Message} from './file1.js';" +
       "React.createElement(Comp, " + props + ");");
   }
 
